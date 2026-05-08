@@ -15,14 +15,20 @@ export default function OnboardingPage() {
   const router = useRouter()
   const [updateProfile, { loading }] = useMutation(UPDATE_PROFILE_MUTATION)
 
-  const defaultUsername = session?.user?.name?.replace(/\s+/g, '').toLowerCase() ?? ''
-  const [username, setUsername] = useState(defaultUsername)
-  const [imageUrl, setImageUrl] = useState(session?.user?.image ?? '')
+  const [username, setUsername] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
   const [crews, setCrews] = useState<string[]>([])
   const [crewInput, setCrewInput] = useState('')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [seeded, setSeeded] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  if (session?.user && !seeded) {
+    setUsername(session.user.name?.replace(/\s+/g, '').toLowerCase() ?? '')
+    setImageUrl(session.user.image ?? '')
+    setSeeded(true)
+  }
 
   async function handleImageUpload(file: File) {
     setUploading(true)
