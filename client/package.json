@@ -8,10 +8,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prisma:generate": "prisma generate --schema ../server/prisma/schema.prisma"
+  },
+  "prisma": {
+    "schema": "../server/prisma/schema.prisma"
   },
   "dependencies": {
     "@apollo/client": "^3.8.10",
+    "@auth/prisma-adapter": "^2.11.2",
+    "@aws-sdk/client-s3": "^3.1045.0",
+    "@aws-sdk/s3-request-presigner": "^3.1045.0",
+    "@prisma/client": "^5.22.0",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-tooltip": "^1.0.7",
     "class-variance-authority": "^0.7.0",
@@ -19,6 +27,7 @@
     "graphql": "^16.8.1",
     "lucide-react": "^0.309.0",
     "next": "^16.0.3",
+    "next-auth": "5.0.0-beta.31",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.2.0"
@@ -27,13 +36,13 @@
     "@types/node": "^20.10.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.3.3",
+    "autoprefixer": "^10.4.16",
     "eslint": "^8.56.0",
     "eslint-config-next": "^16.0.3",
+    "postcss": "^8.4.32",
+    "prisma": "^5.22.0",
     "tailwindcss": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32"
+    "typescript": "^5.3.3"
   }
 }
-
