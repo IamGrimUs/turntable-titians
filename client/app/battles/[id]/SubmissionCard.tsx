@@ -91,6 +91,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
         {embedUrl ? (
           <iframe
             src={embedUrl}
+            title={submission.title ?? 'Submission video'}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
