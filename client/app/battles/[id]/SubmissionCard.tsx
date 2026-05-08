@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { useMutation } from '@apollo/client'
 import { VOTE_MUTATION, DELETE_VOTE_MUTATION } from '@/lib/graphql/queries'
@@ -47,6 +48,7 @@ const podiumBadge: Record<number, string> = {
 export function SubmissionCard({ submission, rank, userVotedSubmissionId, currentUserId, onVoteChange }: Props) {
   const [vote, { loading: voting }] = useMutation(VOTE_MUTATION)
   const [deleteVote, { loading: deleting }] = useMutation(DELETE_VOTE_MUTATION)
+  const [voteError, setVoteError] = useState('')
 
   const embedUrl = getEmbedUrl(submission.videoUrl)
   const isPodium = rank <= 3
@@ -57,6 +59,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const loading = voting || deleting
 
   async function handleVote() {
+    setVoteError('')
     try {
       if (isVotedHere) {
         await deleteVote({ variables: { submissionId: submission.id } })
@@ -64,8 +67,8 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
         await vote({ variables: { submissionId: submission.id } })
       }
       onVoteChange()
-    } catch {
-      // swallow — parent refetch will correct state
+    } catch (err: unknown) {
+      setVoteError(err instanceof Error ? err.message : 'Vote failed')
     }
   }
 
@@ -153,6 +156,9 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
             )}
           </div>
         </div>
+        {voteError && (
+          <p className="text-xs text-red-400">{voteError}</p>
+        )}
       </div>
     </div>
   )
