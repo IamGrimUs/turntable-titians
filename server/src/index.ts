@@ -20,8 +20,8 @@ interface GraphQLContext {
 
 async function getAuthContext(req: express.Request): Promise<GraphQLContext> {
   const sessionToken =
-    req.cookies['authjs.session-token'] ||
-    req.cookies['__Secure-authjs.session-token'];
+    req.cookies['__Secure-authjs.session-token'] ||
+    req.cookies['authjs.session-token'];
 
   if (!sessionToken) return { userId: null };
 

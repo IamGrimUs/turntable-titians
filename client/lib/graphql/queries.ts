@@ -49,12 +49,14 @@ export const GET_BATTLE = gql`
 export const CREATE_BATTLE = gql`
   mutation CreateBattle(
     $title: String!
+    $type: String!
     $description: String
     $startDate: String!
     $endDate: String!
   ) {
     createBattle(
       title: $title
+      type: $type
       description: $description
       startDate: $startDate
       endDate: $endDate

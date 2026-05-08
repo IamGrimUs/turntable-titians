@@ -82,13 +82,17 @@ export const resolvers = {
       ctx: Context
     ) => {
       const userId = requireAuth(ctx.userId)
-      if (username) {
+      if (username !== undefined && username !== '') {
         const existing = await db.user.findUnique({ where: { username } })
         if (existing && existing.id !== userId) {
           throw new GraphQLError('Username already taken', {
             extensions: { code: 'BAD_USER_INPUT' },
           })
         }
+      } else if (username === '') {
+        throw new GraphQLError('Username cannot be empty', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        })
       }
       return db.user.update({
         where: { id: userId },
@@ -114,7 +118,15 @@ export const resolvers = {
       if (existing) throw new GraphQLError('Already voted in this battle', {
         extensions: { code: 'BAD_USER_INPUT' },
       })
-      return db.vote.create({ data: { submissionId, battleId, userId } })
+      try {
+        return await db.vote.create({ data: { submissionId, battleId, userId } })
+      } catch (e: unknown) {
+        const err = e as { code?: string }
+        if (err?.code === 'P2002') throw new GraphQLError('Already voted in this battle', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        })
+        throw e
+      }
     },
 
     deleteVote: async (_: unknown, { submissionId }: { submissionId: string }, ctx: Context) => {
