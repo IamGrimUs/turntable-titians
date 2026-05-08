@@ -171,6 +171,8 @@ export const resolvers = {
       db.vote.count({ where: { submissionId: parent.id } }),
     createdAt: (parent: Submission) => parent.createdAt.toISOString(),
     updatedAt: (parent: Submission) => parent.updatedAt.toISOString(),
+    user: (parent: Submission) =>
+      db.user.findUnique({ where: { id: parent.userId } }),
   },
 
   User: {

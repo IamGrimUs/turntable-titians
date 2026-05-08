@@ -25,6 +25,7 @@ export const typeDefs = gql`
     voteCount: Int!
     createdAt: String!
     updatedAt: String!
+    user: User!
   }
 
   type Vote {
