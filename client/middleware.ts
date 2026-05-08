@@ -19,6 +19,9 @@ export default auth((req) => {
     return NextResponse.redirect(signInUrl)
   }
 
+  // Intentional: any logged-in user without a username is forced through onboarding
+  // before accessing any page. This is mandatory per the product spec — username
+  // must be set before the app is usable.
   if (isLoggedIn && !session.user.username) {
     return NextResponse.redirect(new URL('/onboarding', nextUrl))
   }

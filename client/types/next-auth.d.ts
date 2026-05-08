@@ -12,3 +12,9 @@ declare module 'next-auth' {
     username?: string | null
   }
 }
+
+declare module '@auth/core/adapters' {
+  interface AdapterUser {
+    username?: string | null
+  }
+}

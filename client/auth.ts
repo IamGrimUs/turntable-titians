@@ -18,7 +18,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     session({ session, user }) {
       session.user.id = user.id
-      session.user.username = (user as { username?: string | null }).username ?? null
+      session.user.username = user.username ?? null
       return session
     },
   },
