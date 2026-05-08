@@ -23,6 +23,7 @@ export const GET_BATTLE = gql`
     battle(id: $id) {
       id
       title
+      type
       description
       startDate
       endDate
@@ -35,10 +36,8 @@ export const GET_BATTLE = gql`
         description
         voteCount
         createdAt
-        votes {
-          id
-          userId
-        }
+        votes { id userId }
+        user { id username name image }
       }
       createdAt
       updatedAt
@@ -113,6 +112,21 @@ export const VOTE_MUTATION = gql`
 export const DELETE_VOTE_MUTATION = gql`
   mutation DeleteVote($submissionId: ID!) {
     deleteVote(submissionId: $submissionId)
+  }
+`;
+
+export const CREATE_SUBMISSION = gql`
+  mutation CreateSubmission($battleId: ID!, $videoUrl: String!, $title: String, $description: String) {
+    createSubmission(battleId: $battleId, videoUrl: $videoUrl, title: $title, description: $description) {
+      id
+      userId
+      videoUrl
+      title
+      description
+      voteCount
+      createdAt
+      user { id username name image }
+    }
   }
 `;
 
