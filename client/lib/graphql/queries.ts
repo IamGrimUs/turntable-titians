@@ -70,3 +70,47 @@ export const CREATE_BATTLE = gql`
   }
 `;
 
+export const ME_QUERY = gql`
+  query Me {
+    me {
+      id
+      username
+      name
+      email
+      image
+      externalCrews
+    }
+  }
+`;
+
+export const UPDATE_PROFILE_MUTATION = gql`
+  mutation UpdateProfile($username: String, $image: String, $externalCrews: [String!]) {
+    updateProfile(username: $username, image: $image, externalCrews: $externalCrews) {
+      id
+      username
+      name
+      email
+      image
+      externalCrews
+    }
+  }
+`;
+
+export const VOTE_MUTATION = gql`
+  mutation Vote($submissionId: ID!) {
+    vote(submissionId: $submissionId) {
+      id
+      submissionId
+      battleId
+      userId
+      createdAt
+    }
+  }
+`;
+
+export const DELETE_VOTE_MUTATION = gql`
+  mutation DeleteVote($submissionId: ID!) {
+    deleteVote(submissionId: $submissionId)
+  }
+`;
+

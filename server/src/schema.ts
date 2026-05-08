@@ -4,6 +4,7 @@ export const typeDefs = gql`
   type Battle {
     id: ID!
     title: String!
+    type: String!
     description: String
     startDate: String!
     endDate: String!
@@ -29,15 +30,25 @@ export const typeDefs = gql`
   type Vote {
     id: ID!
     submissionId: ID!
+    battleId: ID!
     userId: ID!
     createdAt: String!
   }
 
   type User {
     id: ID!
-    username: String!
+    username: String
+    name: String
     email: String!
+    image: String
+    externalCrews: [String!]!
     submissions: [Submission!]!
+    createdAt: String!
+  }
+
+  type Crew {
+    id: ID!
+    name: String!
     createdAt: String!
   }
 
@@ -51,28 +62,35 @@ export const typeDefs = gql`
   type Query {
     battles: [Battle!]!
     battle(id: ID!): Battle
+    battleTypes: [String!]!
     submission(id: ID!): Submission
     submissions(battleId: ID!): [Submission!]!
     user(id: ID!): User
+    me: User
     health: HealthStatus!
   }
 
   type Mutation {
     createBattle(
       title: String!
+      type: String!
       description: String
       startDate: String!
       endDate: String!
     ): Battle!
     createSubmission(
       battleId: ID!
-      userId: ID!
       videoUrl: String!
       title: String
       description: String
     ): Submission!
-    vote(submissionId: ID!, userId: ID!): Vote!
-    deleteVote(submissionId: ID!, userId: ID!): Boolean!
+    updateProfile(
+      username: String
+      image: String
+      externalCrews: [String!]
+    ): User!
+    vote(submissionId: ID!): Vote!
+    deleteVote(submissionId: ID!): Boolean!
   }
 
   type HealthStatus {
@@ -80,4 +98,3 @@ export const typeDefs = gql`
     message: String!
   }
 `;
-

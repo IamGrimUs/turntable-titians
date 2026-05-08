@@ -1,107 +1,174 @@
-// Mock data store - replace with database later
-const battles: any[] = [];
-const submissions: any[] = [];
-const votes: any[] = [];
-let battleIdCounter = 1;
-let submissionIdCounter = 1;
-let voteIdCounter = 1;
+import { Battle, Submission, Vote } from '@prisma/client'
+import { GraphQLError } from 'graphql'
+import { db } from './db'
+
+interface Context {
+  userId: string | null
+}
+
+function requireAuth(userId: string | null): string {
+  if (!userId) throw new GraphQLError('Not authenticated', {
+    extensions: { code: 'UNAUTHENTICATED' },
+  })
+  return userId
+}
 
 export const resolvers = {
   Query: {
-    battles: () => battles,
-    battle: (_, { id }) => battles.find((b) => b.id === id) || null,
-    submission: (_, { id }) => submissions.find((s) => s.id === id) || null,
-    submissions: (_, { battleId }) =>
-      submissions.filter((s) => s.battleId === battleId),
-    user: () => null, // TODO: Implement user lookup
+    battles: () => db.battle.findMany({ orderBy: { createdAt: 'desc' } }),
+    battle: (_: unknown, { id }: { id: string }) =>
+      db.battle.findUnique({ where: { id } }),
+    battleTypes: () =>
+      db.battle
+        .findMany({ distinct: ['type'], select: { type: true } })
+        .then((rows) => rows.map((r) => r.type)),
+    submission: (_: unknown, { id }: { id: string }) =>
+      db.submission.findUnique({ where: { id } }),
+    submissions: (_: unknown, { battleId }: { battleId: string }) =>
+      db.submission.findMany({ where: { battleId }, orderBy: { createdAt: 'desc' } }),
+    user: (_: unknown, { id }: { id: string }) =>
+      db.user.findUnique({ where: { id } }),
+    me: (_: unknown, __: unknown, ctx: Context) => {
+      if (!ctx.userId) return null
+      return db.user.findUnique({ where: { id: ctx.userId } })
+    },
     health: () => ({
       status: 'ok',
       message: 'Turntable Titans GraphQL API is running',
     }),
   },
+
   Mutation: {
-    createBattle: (_, { title, description, startDate, endDate }) => {
-      const battle = {
-        id: String(battleIdCounter++),
+    createBattle: (
+      _: unknown,
+      {
         title,
-        description: description || null,
+        type,
+        description,
         startDate,
         endDate,
-        status: 'UPCOMING' as const,
-        submissions: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      battles.push(battle);
-      return battle;
+      }: { title: string; type: string; description?: string; startDate: string; endDate: string },
+      ctx: Context
+    ) => {
+      requireAuth(ctx.userId)
+      return db.battle.create({
+        data: { title, type, description, startDate: new Date(startDate), endDate: new Date(endDate) },
+      })
     },
-    createSubmission: (_, { battleId, userId, videoUrl, title, description }) => {
-      const submission = {
-        id: String(submissionIdCounter++),
+
+    createSubmission: (
+      _: unknown,
+      {
         battleId,
-        userId,
         videoUrl,
-        title: title || null,
-        description: description || null,
-        votes: [],
-        voteCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      submissions.push(submission);
-      return submission;
+        title,
+        description,
+      }: { battleId: string; videoUrl: string; title?: string; description?: string },
+      ctx: Context
+    ) => {
+      const userId = requireAuth(ctx.userId)
+      return db.submission.create({
+        data: { battleId, userId, videoUrl, title, description },
+      })
     },
-    vote: (_, { submissionId, userId }) => {
-      // Check if user already voted for this submission
-      const existingVote = votes.find(
-        (v) => v.submissionId === submissionId && v.userId === userId
-      );
-      if (existingVote) {
-        throw new Error('User has already voted for this submission');
+
+    updateProfile: async (
+      _: unknown,
+      {
+        username,
+        image,
+        externalCrews,
+      }: { username?: string; image?: string; externalCrews?: string[] },
+      ctx: Context
+    ) => {
+      const userId = requireAuth(ctx.userId)
+      if (username) {
+        const existing = await db.user.findUnique({ where: { username } })
+        if (existing && existing.id !== userId) {
+          throw new GraphQLError('Username already taken', {
+            extensions: { code: 'BAD_USER_INPUT' },
+          })
+        }
       }
-
-      const vote = {
-        id: String(voteIdCounter++),
-        submissionId,
-        userId,
-        createdAt: new Date().toISOString(),
-      };
-      votes.push(vote);
-
-      // Update submission vote count
-      const submission = submissions.find((s) => s.id === submissionId);
-      if (submission) {
-        submission.voteCount = votes.filter((v) => v.submissionId === submissionId).length;
-      }
-
-      return vote;
+      return db.user.update({
+        where: { id: userId },
+        data: {
+          ...(username !== undefined && { username }),
+          ...(image !== undefined && { image }),
+          ...(externalCrews !== undefined && { externalCrews }),
+        },
+      })
     },
-    deleteVote: (_, { submissionId, userId }) => {
-      const voteIndex = votes.findIndex(
-        (v) => v.submissionId === submissionId && v.userId === userId
-      );
-      if (voteIndex === -1) {
-        return false;
-      }
-      votes.splice(voteIndex, 1);
 
-      // Update submission vote count
-      const submission = submissions.find((s) => s.id === submissionId);
-      if (submission) {
-        submission.voteCount = votes.filter((v) => v.submissionId === submissionId).length;
-      }
+    vote: async (_: unknown, { submissionId }: { submissionId: string }, ctx: Context) => {
+      const userId = requireAuth(ctx.userId)
+      const submission = await db.submission.findUnique({
+        where: { id: submissionId },
+        select: { battleId: true },
+      })
+      if (!submission) throw new GraphQLError('Submission not found', {
+        extensions: { code: 'NOT_FOUND' },
+      })
+      const { battleId } = submission
+      const existing = await db.vote.findUnique({ where: { userId_battleId: { userId, battleId } } })
+      if (existing) throw new GraphQLError('Already voted in this battle', {
+        extensions: { code: 'BAD_USER_INPUT' },
+      })
+      return db.vote.create({ data: { submissionId, battleId, userId } })
+    },
 
-      return true;
+    deleteVote: async (_: unknown, { submissionId }: { submissionId: string }, ctx: Context) => {
+      const userId = requireAuth(ctx.userId)
+      const submission = await db.submission.findUnique({
+        where: { id: submissionId },
+        select: { battleId: true },
+      })
+      if (!submission) return false
+      const { battleId } = submission
+      const vote = await db.vote.findUnique({ where: { userId_battleId: { userId, battleId } } })
+      if (!vote) return false
+      await db.vote.delete({ where: { id: vote.id } })
+      return true
     },
   },
+
   Battle: {
-    submissions: (parent) =>
-      submissions.filter((s) => s.battleId === parent.id),
+    submissions: (parent: Battle) =>
+      db.submission.findMany({ where: { battleId: parent.id } }),
+    status: (parent: Battle) => {
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const battleStart = new Date(parent.startDate)
+      const startDay = new Date(
+        battleStart.getFullYear(),
+        battleStart.getMonth(),
+        battleStart.getDate()
+      )
+      return startDay <= today ? 'ACTIVE' : 'UPCOMING'
+    },
+    startDate: (parent: Battle) => parent.startDate.toISOString(),
+    endDate: (parent: Battle) => parent.endDate.toISOString(),
+    createdAt: (parent: Battle) => parent.createdAt.toISOString(),
+    updatedAt: (parent: Battle) => parent.updatedAt.toISOString(),
   },
-  Submission: {
-    votes: (parent) => votes.filter((v) => v.submissionId === parent.id),
-    voteCount: (parent) =>
-      votes.filter((v) => v.submissionId === parent.id).length,
-  },
-};
 
+  Submission: {
+    votes: (parent: Submission) =>
+      db.vote.findMany({ where: { submissionId: parent.id } }),
+    voteCount: (parent: Submission) =>
+      db.vote.count({ where: { submissionId: parent.id } }),
+    createdAt: (parent: Submission) => parent.createdAt.toISOString(),
+    updatedAt: (parent: Submission) => parent.updatedAt.toISOString(),
+  },
+
+  User: {
+    submissions: (parent: { id: string }) =>
+      db.submission.findMany({ where: { userId: parent.id } }),
+    externalCrews: (parent: { externalCrews: string[] }) => parent.externalCrews,
+    createdAt: (parent: { createdAt: Date }) => parent.createdAt.toISOString(),
+  },
+
+  Vote: {
+    createdAt: (parent: Vote) => parent.createdAt.toISOString(),
+  },
+}
