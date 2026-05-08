@@ -62,6 +62,7 @@ model Vote {
   battle       Battle     @relation(fields: [battleId], references: [id])
 
   @@unique([userId, battleId])
+  @@index([battleId])
 }
 
 enum BattleStatus {
@@ -118,7 +119,7 @@ model CrewMember {
   userId String
   crewId String
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   crew Crew @relation(fields: [crewId], references: [id])
 
   @@id([userId, crewId])

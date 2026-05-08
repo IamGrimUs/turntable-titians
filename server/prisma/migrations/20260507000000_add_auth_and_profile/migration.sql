@@ -5,7 +5,7 @@ ADD COLUMN     "image" TEXT,
 ADD COLUMN     "name" TEXT,
 ALTER COLUMN "username" DROP NOT NULL;
 
--- Truncate existing votes to allow adding NOT NULL battleId column
+-- Dev-only: truncates votes before adding NOT NULL battleId column (safe; no production data)
 TRUNCATE TABLE "Vote";
 
 -- AlterTable
