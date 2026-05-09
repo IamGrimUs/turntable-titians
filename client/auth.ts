@@ -9,6 +9,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Google,
     Resend({
+      apiKey: process.env.AUTH_RESEND_KEY,
       from: 'Battle Skratch <noreply@battleskratch.com>',
     }),
   ],
