@@ -39,8 +39,10 @@ export default function OnboardingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename: file.name, contentType: file.type }),
       })
+      if (!res.ok) throw new Error(`Upload init failed: ${res.status}`)
       const { url, publicUrl } = await res.json()
-      await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+      const putRes = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+      if (!putRes.ok) throw new Error(`R2 upload failed: ${putRes.status}`)
       setImageUrl(publicUrl)
     } catch {
       setError('Image upload failed. Try again.')
