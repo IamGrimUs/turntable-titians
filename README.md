@@ -70,7 +70,7 @@ DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/turntabletitans?schema=p
 
 ```bash
 pnpm --filter server prisma:generate
-pnpm --filter server prisma:migrate -- --name init
+pnpm --filter server prisma:migrate -- --turntableTitans init
 ```
 
 4. (Optional) Inspect data with Prisma Studio:
