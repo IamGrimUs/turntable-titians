@@ -1,35 +1,14 @@
 'use client'
 
 import { signIn } from 'next-auth/react'
-import { useState } from 'react'
+import { useActionState } from 'react'
+import { sendMagicLink } from './actions'
 
 const fieldClass =
   'w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
 
 export default function SignInPage() {
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await signIn('resend', { email, redirect: false })
-      console.log('[signIn result]', result)
-      if (result?.error) {
-        setError(`Failed to send magic link: ${result.error}`)
-      } else {
-        setSent(true)
-      }
-    } catch (err) {
-      console.error('[signIn error]', err)
-      setError('Failed to send magic link. Please try again.')
-    }
-    setLoading(false)
-  }
+  const [state, action, pending] = useActionState(sendMagicLink, undefined)
 
   return (
     <div className="min-h-full flex items-center justify-center p-8">
@@ -79,33 +58,26 @@ export default function SignInPage() {
             </div>
           </div>
 
-          {error && (
-            <p className="text-center text-sm text-red-500 py-2">{error}</p>
+          {state?.error && (
+            <p className="text-center text-sm text-red-500 py-2">{state.error}</p>
           )}
 
-          {sent ? (
-            <p className="text-center text-sm text-muted-foreground py-2">
-              Check your email — we sent a magic link to <strong>{email}</strong>.
-            </p>
-          ) : (
-            <form onSubmit={handleMagicLink} className="space-y-3">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className={fieldClass}
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full rounded-md bg-amber-500 px-6 py-3 text-sm font-black uppercase tracking-widest text-black hover:bg-amber-400 disabled:opacity-50 transition-all"
-              >
-                {loading ? 'Sending…' : 'Send Magic Link'}
-              </button>
-            </form>
-          )}
+          <form action={action} className="space-y-3">
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="your@email.com"
+              className={fieldClass}
+            />
+            <button
+              type="submit"
+              disabled={pending}
+              className="w-full rounded-md bg-amber-500 px-6 py-3 text-sm font-black uppercase tracking-widest text-black hover:bg-amber-400 disabled:opacity-50 transition-all"
+            >
+              {pending ? 'Sending…' : 'Send Magic Link'}
+            </button>
+          </form>
         </div>
       </div>
     </div>
