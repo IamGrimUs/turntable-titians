@@ -16,11 +16,17 @@ export default function SignInPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const result = await signIn('resend', { email, redirect: false })
-    if (result?.error) {
+    try {
+      const result = await signIn('resend', { email, redirect: false })
+      console.log('[signIn result]', result)
+      if (result?.error) {
+        setError(`Failed to send magic link: ${result.error}`)
+      } else {
+        setSent(true)
+      }
+    } catch (err) {
+      console.error('[signIn error]', err)
       setError('Failed to send magic link. Please try again.')
-    } else {
-      setSent(true)
     }
     setLoading(false)
   }
