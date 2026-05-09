@@ -4,7 +4,10 @@ import { signIn } from '@/auth'
 import { AuthError } from 'next-auth'
 import { redirect } from 'next/navigation'
 
-export async function sendMagicLink(formData: FormData) {
+export async function sendMagicLink(
+  _prevState: { error: string } | undefined,
+  formData: FormData
+) {
   const email = formData.get('email') as string
   try {
     await signIn('resend', {
