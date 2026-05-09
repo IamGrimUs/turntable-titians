@@ -37,10 +37,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: '/auth/signin',
     verifyRequest: '/auth/verify-request',
   },
+  session: { strategy: 'jwt' },
   callbacks: {
-    session({ session, user }) {
-      session.user.id = user.id
-      session.user.username = user.username ?? null
+    jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+        token.username = (user as { username?: string | null }).username ?? null
+      }
+      return token
+    },
+    session({ session, token }) {
+      session.user.id = token.id as string
+      session.user.username = (token.username as string | null) ?? null
       return session
     },
   },
