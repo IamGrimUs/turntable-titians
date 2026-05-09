@@ -12,7 +12,7 @@ export async function sendMagicLink(
   try {
     await signIn('resend', {
       email,
-      redirectTo: `/auth/verify-request?email=${encodeURIComponent(email)}`,
+      redirectTo: '/',
     })
   } catch (error) {
     if (error instanceof AuthError) {
