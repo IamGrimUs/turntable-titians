@@ -75,6 +75,7 @@ export default function OnboardingPage() {
         },
       })
       await update({ username })
+      router.refresh()
       router.push('/battles')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
