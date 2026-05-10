@@ -70,7 +70,7 @@ export default function ProfilePage() {
     setSuccess(false)
     try {
       await updateProfile({ variables: { username, image: imageUrl, externalCrews: crews } })
-      await update()
+      await update({ username })
       setSuccess(true)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

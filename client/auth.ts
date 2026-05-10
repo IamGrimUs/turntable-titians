@@ -39,17 +39,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: { strategy: 'jwt' },
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
         token.username = (user as { username?: string | null }).username ?? null
       }
-      if (trigger === 'update' && token.id) {
-        const dbUser = await db.user.findUnique({
-          where: { id: token.id as string },
-          select: { username: true },
-        })
-        token.username = dbUser?.username ?? null
+      if (trigger === 'update' && session?.username !== undefined) {
+        token.username = session.username
       }
       return token
     },
