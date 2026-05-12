@@ -9,10 +9,9 @@ import { Button } from '@/components/ui/button';
 
 function BattleCard({ battle }: { battle: any }) {
   const submissionCount = battle.submissions?.length || 0;
-  const statusVariantMap: Record<string, 'upcoming' | 'active' | 'voting' | 'completed'> = {
+  const statusVariantMap: Record<string, 'upcoming' | 'active' | 'completed'> = {
     UPCOMING: 'upcoming',
     ACTIVE: 'active',
-    VOTING: 'voting',
     COMPLETED: 'completed',
   };
 

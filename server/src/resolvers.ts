@@ -119,9 +119,10 @@ export const resolvers = {
       })
       const { battleId } = submission
       const battleStatus = computeBattleStatus(submission.battle.startDate, submission.battle.endDate)
-      if (battleStatus === 'COMPLETED') throw new GraphQLError('Battle has ended', {
-        extensions: { code: 'BAD_USER_INPUT' },
-      })
+      if (battleStatus !== 'ACTIVE') throw new GraphQLError(
+        battleStatus === 'COMPLETED' ? 'Battle has ended' : 'Battle has not started yet',
+        { extensions: { code: 'BAD_USER_INPUT' } }
+      )
       const existing = await db.vote.findUnique({ where: { userId_battleId: { userId, battleId } } })
       if (existing) throw new GraphQLError('Already voted in this battle', {
         extensions: { code: 'BAD_USER_INPUT' },
@@ -149,9 +150,10 @@ export const resolvers = {
       if (!submission) return false
       const { battleId } = submission
       const battleStatus = computeBattleStatus(submission.battle.startDate, submission.battle.endDate)
-      if (battleStatus === 'COMPLETED') throw new GraphQLError('Battle has ended', {
-        extensions: { code: 'BAD_USER_INPUT' },
-      })
+      if (battleStatus !== 'ACTIVE') throw new GraphQLError(
+        battleStatus === 'COMPLETED' ? 'Battle has ended' : 'Battle has not started yet',
+        { extensions: { code: 'BAD_USER_INPUT' } }
+      )
       const vote = await db.vote.findUnique({ where: { userId_battleId: { userId, battleId } } })
       if (!vote) return false
       await db.vote.delete({ where: { id: vote.id } })

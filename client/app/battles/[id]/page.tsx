@@ -127,8 +127,8 @@ export default function BattleDetailPage() {
         {battle.status === 'ACTIVE' && (() => {
           const today = new Date()
           const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-          const endDay = new Date(battle.endDate)
-          const end = new Date(endDay.getFullYear(), endDay.getMonth(), endDay.getDate())
+          const [eyear, emonth, eday] = battle.endDate.split('T')[0].split('-').map(Number)
+          const end = new Date(eyear, emonth - 1, eday)
           const diffMs = end.getTime() - todayDay.getTime()
           const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
           const label = diffDays === 0 ? 'Closes today' : `${diffDays} day${diffDays === 1 ? '' : 's'} remaining`
