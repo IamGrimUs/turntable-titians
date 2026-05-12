@@ -56,7 +56,6 @@ export const typeDefs = gql`
   enum BattleStatus {
     UPCOMING
     ACTIVE
-    VOTING
     COMPLETED
   }
 
