@@ -31,6 +31,9 @@ interface Props {
   userVotedSubmissionId: string | null
   currentUserId: string | null
   onVoteChange: () => void
+  isLeading: boolean
+  isWinner: boolean
+  battleStatus: 'UPCOMING' | 'ACTIVE' | 'COMPLETED'
 }
 
 const podiumBorder: Record<number, string> = {
@@ -45,7 +48,7 @@ const podiumBadge: Record<number, string> = {
   3: 'bg-amber-700 text-white',
 }
 
-export function SubmissionCard({ submission, rank, userVotedSubmissionId, currentUserId, onVoteChange }: Props) {
+export function SubmissionCard({ submission, rank, userVotedSubmissionId, currentUserId, onVoteChange, isLeading, isWinner, battleStatus }: Props) {
   const [vote, { loading: voting }] = useMutation(VOTE_MUTATION)
   const [deleteVote, { loading: deleting }] = useMutation(DELETE_VOTE_MUTATION)
   const [voteError, setVoteError] = useState('')
@@ -83,6 +86,16 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
           className={`absolute top-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}
         >
           #{rank}
+        </span>
+      )}
+      {isWinner && (
+        <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-400 text-black">
+          Winner
+        </span>
+      )}
+      {isLeading && !isWinner && (
+        <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">
+          Leading
         </span>
       )}
 
@@ -140,7 +153,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground font-mono">{submission.voteCount}</span>
-            {currentUserId && (
+            {currentUserId && battleStatus === 'ACTIVE' && (
               <button
                 onClick={handleVote}
                 disabled={hasVotedElsewhere || loading}
