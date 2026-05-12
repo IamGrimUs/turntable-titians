@@ -1,6 +1,7 @@
 import { Battle, Submission, Vote } from '@prisma/client'
 import { GraphQLError } from 'graphql'
 import { db } from './db'
+import { computeBattleStatus } from './battleStatus'
 
 interface Context {
   userId: string | null
@@ -147,17 +148,7 @@ export const resolvers = {
   Battle: {
     submissions: (parent: Battle) =>
       db.submission.findMany({ where: { battleId: parent.id } }),
-    status: (parent: Battle) => {
-      const now = new Date()
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      const battleStart = new Date(parent.startDate)
-      const startDay = new Date(
-        battleStart.getFullYear(),
-        battleStart.getMonth(),
-        battleStart.getDate()
-      )
-      return startDay <= today ? 'ACTIVE' : 'UPCOMING'
-    },
+    status: (parent: Battle) => computeBattleStatus(parent.startDate, parent.endDate),
     startDate: (parent: Battle) => parent.startDate.toISOString(),
     endDate: (parent: Battle) => parent.endDate.toISOString(),
     createdAt: (parent: Battle) => parent.createdAt.toISOString(),
