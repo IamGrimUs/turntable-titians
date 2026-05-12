@@ -109,12 +109,19 @@ export const resolvers = {
       const userId = requireAuth(ctx.userId)
       const submission = await db.submission.findUnique({
         where: { id: submissionId },
-        select: { battleId: true },
+        select: {
+          battleId: true,
+          battle: { select: { startDate: true, endDate: true } },
+        },
       })
       if (!submission) throw new GraphQLError('Submission not found', {
         extensions: { code: 'NOT_FOUND' },
       })
       const { battleId } = submission
+      const battleStatus = computeBattleStatus(submission.battle.startDate, submission.battle.endDate)
+      if (battleStatus === 'COMPLETED') throw new GraphQLError('Battle has ended', {
+        extensions: { code: 'BAD_USER_INPUT' },
+      })
       const existing = await db.vote.findUnique({ where: { userId_battleId: { userId, battleId } } })
       if (existing) throw new GraphQLError('Already voted in this battle', {
         extensions: { code: 'BAD_USER_INPUT' },
@@ -134,10 +141,17 @@ export const resolvers = {
       const userId = requireAuth(ctx.userId)
       const submission = await db.submission.findUnique({
         where: { id: submissionId },
-        select: { battleId: true },
+        select: {
+          battleId: true,
+          battle: { select: { startDate: true, endDate: true } },
+        },
       })
       if (!submission) return false
       const { battleId } = submission
+      const battleStatus = computeBattleStatus(submission.battle.startDate, submission.battle.endDate)
+      if (battleStatus === 'COMPLETED') throw new GraphQLError('Battle has ended', {
+        extensions: { code: 'BAD_USER_INPUT' },
+      })
       const vote = await db.vote.findUnique({ where: { userId_battleId: { userId, battleId } } })
       if (!vote) return false
       await db.vote.delete({ where: { id: vote.id } })
