@@ -40,10 +40,9 @@ interface Battle {
   submissions: Submission[]
 }
 
-const statusVariantMap: Record<string, 'upcoming' | 'active' | 'voting' | 'completed'> = {
+const statusVariantMap: Record<string, 'upcoming' | 'active' | 'completed'> = {
   UPCOMING: 'upcoming',
   ACTIVE: 'active',
-  VOTING: 'voting',
   COMPLETED: 'completed',
 }
 
