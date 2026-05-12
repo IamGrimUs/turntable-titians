@@ -21,7 +21,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           body: JSON.stringify({
             from: provider.from,
             to: identifier,
-            subject: 'Sign in to Turntable Titans',
+            subject: 'Sign in to Battle Skratch',
             html: `<p>Click <a href="${url}">here</a> to sign in.</p>`,
           }),
         })

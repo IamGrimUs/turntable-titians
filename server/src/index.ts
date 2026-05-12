@@ -68,7 +68,7 @@ async function startServer() {
   app.get('/health', async (req, res) => {
     try {
       await db.$queryRaw`SELECT 1`;
-      res.json({ status: 'ok', db: 'connected', message: 'Turntable Titans GraphQL API is running' });
+      res.json({ status: 'ok', db: 'connected', message: 'Battle Skratch GraphQL API is running' });
     } catch (err) {
       res.status(500).json({ status: 'error', db: 'disconnected', message: 'DB connection failed' });
     }

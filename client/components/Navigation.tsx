@@ -6,8 +6,8 @@ export function Navigation() {
     <nav className="border-b border-border/60 bg-background">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-xl font-light text-foreground tracking-tight">
-            Turntable Titans
+          <Link href="/" className="text-2xl font-graffiti text-foreground">
+            Battle Skratch
           </Link>
           <div className="flex gap-2">
             <Button asChild variant="ghost" size="sm">

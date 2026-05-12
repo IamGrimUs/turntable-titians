@@ -89,8 +89,8 @@ export default function ProfilePage() {
     <div className="min-h-full p-8 flex items-start justify-center">
       <div className="w-full max-w-xl">
         <div className="mb-8">
-          <p className="text-xs font-bold tracking-[0.3em] uppercase text-amber-500 mb-2">
-            Turntable Titans
+          <p className="text-xl font-graffiti text-amber-500 mb-2">
+            Battle Skratch
           </p>
           <h1 className="text-3xl font-black tracking-tight uppercase text-foreground">
             Edit Profile

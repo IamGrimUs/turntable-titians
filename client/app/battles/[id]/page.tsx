@@ -106,8 +106,8 @@ export default function BattleDetailPage() {
     <div className="p-8 max-w-5xl mx-auto">
       {/* Battle Header */}
       <div className="mb-8">
-        <p className="text-xs font-bold tracking-[0.3em] uppercase text-amber-500 mb-2">
-          Turntable Titans
+        <p className="text-xl font-graffiti text-amber-500 mb-2">
+          Battle Skratch
         </p>
         <div className="flex flex-wrap items-start gap-3 mb-3">
           <h1 className="text-3xl font-black tracking-tight uppercase text-foreground">

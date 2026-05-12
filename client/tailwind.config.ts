@@ -18,6 +18,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        graffiti: ['var(--font-graffiti)', 'cursive'],
       },
       colors: {
         border: 'hsl(var(--border))',

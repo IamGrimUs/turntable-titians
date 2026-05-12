@@ -9,4 +9,5 @@ node_modules/
 .claude/settings.local.json
 CLAUDE.md
 docs/superpowers/
+docs/agents/
 

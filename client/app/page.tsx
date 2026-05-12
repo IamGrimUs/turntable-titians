@@ -5,8 +5,8 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-full p-8">
       <div className="text-center max-w-2xl">
-        <h1 className="text-4xl font-semibold mb-4 text-foreground tracking-tight">
-          Turntable Titans
+        <h1 className="text-5xl font-graffiti mb-4 text-foreground">
+          Battle Skratch
         </h1>
         <p className="text-lg text-muted-foreground mb-8">
           Where DJs battle for glory

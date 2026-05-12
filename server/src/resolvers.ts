@@ -35,7 +35,7 @@ export const resolvers = {
     },
     health: () => ({
       status: 'ok',
-      message: 'Turntable Titans GraphQL API is running',
+      message: 'Battle Skratch GraphQL API is running',
     }),
   },
 
