@@ -8,6 +8,7 @@ import { GET_BATTLE } from '@/lib/graphql/queries'
 import { Badge } from '@/components/ui/badge'
 import { SubmitEntryForm } from './SubmitEntryForm'
 import { SubmissionCard } from './SubmissionCard'
+import { WinnerBanner } from './WinnerBanner'
 
 interface SubmissionUser {
   id: string
@@ -35,7 +36,7 @@ interface Battle {
   description: string | null
   startDate: string
   endDate: string
-  status: 'UPCOMING' | 'ACTIVE' | 'VOTING' | 'COMPLETED'
+  status: 'UPCOMING' | 'ACTIVE' | 'COMPLETED'
   submissions: Submission[]
 }
 
@@ -92,6 +93,16 @@ export default function BattleDetailPage() {
 
   const showForm = battle.status === 'ACTIVE' && !!currentUserId && !hasSubmitted
 
+  const maxVoteCount = sortedSubmissions.length > 0
+    ? Math.max(...sortedSubmissions.map((s) => s.voteCount))
+    : 0
+
+  const winners = battle.status === 'COMPLETED' && maxVoteCount > 0
+    ? sortedSubmissions
+        .filter((s) => s.voteCount === maxVoteCount)
+        .map((s) => ({ ...s.user, voteCount: s.voteCount }))
+    : []
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Battle Header */}
@@ -114,10 +125,25 @@ export default function BattleDetailPage() {
         <p className="text-xs text-muted-foreground">
           {new Date(battle.startDate).toLocaleDateString()} → {new Date(battle.endDate).toLocaleDateString()}
         </p>
+        {battle.status === 'ACTIVE' && (() => {
+          const today = new Date()
+          const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+          const endDay = new Date(battle.endDate)
+          const end = new Date(endDay.getFullYear(), endDay.getMonth(), endDay.getDate())
+          const diffMs = end.getTime() - todayDay.getTime()
+          const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+          const label = diffDays === 0 ? 'Closes today' : `${diffDays} day${diffDays === 1 ? '' : 's'} remaining`
+          return (
+            <p className="text-xs font-bold text-amber-500 mt-1">{label}</p>
+          )
+        })()}
         {battle.description && (
           <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{battle.description}</p>
         )}
       </div>
+
+      {/* Winner Banner */}
+      <WinnerBanner winners={winners} />
 
       {/* Submit Entry Form */}
       {showForm && (
@@ -147,6 +173,9 @@ export default function BattleDetailPage() {
               userVotedSubmissionId={userVotedSubmissionId}
               currentUserId={currentUserId}
               onVoteChange={() => refetch()}
+              battleStatus={battle.status}
+              isLeading={battle.status === 'ACTIVE' && maxVoteCount > 0 && submission.voteCount === maxVoteCount}
+              isWinner={battle.status === 'COMPLETED' && maxVoteCount > 0 && submission.voteCount === maxVoteCount}
             />
           ))}
         </div>
