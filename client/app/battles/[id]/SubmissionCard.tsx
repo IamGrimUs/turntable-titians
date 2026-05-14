@@ -172,6 +172,29 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const initial = displayName.charAt(0).toUpperCase()
   const loading = voting || deleting
 
+  const showOrnament = (rank === 1 || rank === 2) && (isWinner || isLeading)
+
+  const cardGlowStyle: CSSProperties = (() => {
+    if (!showOrnament) return {}
+    const isGold = rank === 1
+    if (isGold) {
+      return {
+        animation: isWinner ? 'card-glow-gold 2.5s ease-in-out alternate infinite' : 'none',
+        boxShadow: '0 0 10px 2px rgba(251, 191, 36, 0.2)',
+        background: isWinner
+          ? 'radial-gradient(ellipse at top center, rgba(251,191,36,0.09) 0%, transparent 65%), hsl(var(--card))'
+          : 'radial-gradient(ellipse at top center, rgba(251,191,36,0.05) 0%, transparent 65%), hsl(var(--card))',
+      }
+    }
+    return {
+      animation: isWinner ? 'card-glow-silver 2.5s ease-in-out alternate infinite' : 'none',
+      boxShadow: '0 0 10px 2px rgba(148, 163, 184, 0.15)',
+      background: isWinner
+        ? 'radial-gradient(ellipse at top center, rgba(148,163,184,0.07) 0%, transparent 65%), hsl(var(--card))'
+        : 'radial-gradient(ellipse at top center, rgba(148,163,184,0.04) 0%, transparent 65%), hsl(var(--card))',
+    }
+  })()
+
   async function handleVote() {
     setVoteError('')
     try {
@@ -187,103 +210,108 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   }
 
   return (
-    <div
-      className={`rounded-lg border bg-card overflow-hidden relative ${
-        isPodium ? podiumBorder[rank] : 'border-border'
-      }`}
-    >
-      {isPodium && (
-        <span
-          className={`absolute top-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}
-        >
-          #{rank}
-        </span>
-      )}
-      {isWinner && (
-        <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-400 text-black">
-          Winner
-        </span>
-      )}
-      {isLeading && !isWinner && (
-        <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">
-          Leading
-        </span>
-      )}
-
-      {/* Video */}
-      <div className="aspect-video bg-muted">
-        {embedUrl ? (
-          <iframe
-            src={embedUrl}
-            title={submission.title ?? 'Submission video'}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <a
-              href={submission.videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-amber-500 underline underline-offset-2"
-            >
-              Watch video
-            </a>
-          </div>
+    <div className="relative">
+      {showOrnament && rank === 1 && <CrownOrnament />}
+      {showOrnament && rank === 2 && <LaurelOrnament />}
+      <div
+        className={`rounded-lg border bg-card overflow-hidden relative ${
+          isPodium ? podiumBorder[rank] : 'border-border'
+        }`}
+        style={cardGlowStyle}
+      >
+        {isPodium && rank >= 3 && (
+          <span
+            className={`absolute top-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}
+          >
+            #{rank}
+          </span>
         )}
-      </div>
-
-      {/* Card body */}
-      <div className="p-4 space-y-3">
-        {submission.title && (
-          <p className="text-sm font-bold text-foreground leading-snug">{submission.title}</p>
+        {isWinner && (
+          <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-400 text-black">
+            Winner
+          </span>
         )}
-        {submission.description && (
-          <p className="text-xs text-muted-foreground leading-relaxed">{submission.description}</p>
+        {isLeading && !isWinner && (
+          <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">
+            Leading
+          </span>
         )}
 
-        {/* DJ info + vote */}
-        <div className="flex items-center justify-between pt-1">
-          <Link href={`/users/${submission.user.id}`} className="flex items-center gap-2 group">
-            {submission.user.image ? (
-              <img
-                src={submission.user.image}
-                alt={displayName}
-                className="w-7 h-7 rounded-full object-cover border border-border"
-              />
-            ) : (
-              <span className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-center border border-amber-500/30">
-                {initial}
-              </span>
-            )}
-            <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
-              {displayName}
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground font-mono">{submission.voteCount}</span>
-            {currentUserId && battleStatus === 'ACTIVE' && (
-              <button
-                onClick={handleVote}
-                disabled={hasVotedElsewhere || loading}
-                className={`text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
-                  isVotedHere
-                    ? 'bg-amber-500 text-black hover:bg-amber-400'
-                    : hasVotedElsewhere
-                    ? 'bg-muted text-muted-foreground opacity-50'
-                    : 'border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black'
-                }`}
+        {/* Video */}
+        <div className="aspect-video bg-muted">
+          {embedUrl ? (
+            <iframe
+              src={embedUrl}
+              title={submission.title ?? 'Submission video'}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <a
+                href={submission.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-amber-500 underline underline-offset-2"
               >
-                {loading ? '…' : isVotedHere ? 'Voted' : 'Vote'}
-              </button>
-            )}
-          </div>
+                Watch video
+              </a>
+            </div>
+          )}
         </div>
-        {voteError && (
-          <p className="text-xs text-red-400">{voteError}</p>
-        )}
+
+        {/* Card body */}
+        <div className="p-4 space-y-3">
+          {submission.title && (
+            <p className="text-sm font-bold text-foreground leading-snug">{submission.title}</p>
+          )}
+          {submission.description && (
+            <p className="text-xs text-muted-foreground leading-relaxed">{submission.description}</p>
+          )}
+
+          {/* DJ info + vote */}
+          <div className="flex items-center justify-between pt-1">
+            <Link href={`/users/${submission.user.id}`} className="flex items-center gap-2 group">
+              {submission.user.image ? (
+                <img
+                  src={submission.user.image}
+                  alt={displayName}
+                  className="w-7 h-7 rounded-full object-cover border border-border"
+                />
+              ) : (
+                <span className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-center border border-amber-500/30">
+                  {initial}
+                </span>
+              )}
+              <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+                {displayName}
+              </span>
+            </Link>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-mono">{submission.voteCount}</span>
+              {currentUserId && battleStatus === 'ACTIVE' && (
+                <button
+                  onClick={handleVote}
+                  disabled={hasVotedElsewhere || loading}
+                  className={`text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
+                    isVotedHere
+                      ? 'bg-amber-500 text-black hover:bg-amber-400'
+                      : hasVotedElsewhere
+                      ? 'bg-muted text-muted-foreground opacity-50'
+                      : 'border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black'
+                  }`}
+                >
+                  {loading ? '…' : isVotedHere ? 'Voted' : 'Vote'}
+                </button>
+              )}
+            </div>
+          </div>
+          {voteError && (
+            <p className="text-xs text-red-400">{voteError}</p>
+          )}
+        </div>
       </div>
     </div>
   )
