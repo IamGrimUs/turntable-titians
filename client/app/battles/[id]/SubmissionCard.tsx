@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useMutation } from '@apollo/client'
 import { VOTE_MUTATION, DELETE_VOTE_MUTATION } from '@/lib/graphql/queries'
@@ -46,6 +46,117 @@ const podiumBadge: Record<number, string> = {
   1: 'bg-amber-400 text-black',
   2: 'bg-slate-400 text-black',
   3: 'bg-amber-700 text-white',
+}
+
+function CrownOrnament() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        transform: 'translate(33%, -50%) rotate(25deg)',
+        transformOrigin: 'bottom left',
+        width: 48,
+        height: 36,
+        animation: 'ornament-float 3s ease-in-out infinite',
+        zIndex: 20,
+        pointerEvents: 'none',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          backgroundColor: '#FBBF24',
+          clipPath: 'polygon(0% 100%, 0% 40%, 25% 70%, 50% 0%, 75% 70%, 100% 40%, 100% 100%)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)',
+            backgroundSize: '200% 100%',
+            animation: 'ornament-shimmer 2.2s ease infinite',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function LaurelOrnament() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        transform: 'translate(33%, -50%) rotate(25deg)',
+        transformOrigin: 'bottom left',
+        width: 44,
+        height: 44,
+        animation: 'ornament-float 3s ease-in-out infinite',
+        zIndex: 20,
+        pointerEvents: 'none',
+      }}
+    >
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        {/* Left arc */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: '10%',
+            width: '55%',
+            height: '80%',
+            border: '3px solid #CBD5E1',
+            borderRight: 'none',
+            borderRadius: '50% 0 0 50%',
+          }}
+        />
+        {/* Right arc */}
+        <div
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: '10%',
+            width: '55%',
+            height: '80%',
+            border: '3px solid #CBD5E1',
+            borderLeft: 'none',
+            borderRadius: '0 50% 50% 0',
+          }}
+        />
+        {/* Center dot */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            backgroundColor: '#CBD5E1',
+          }}
+        />
+        {/* Shimmer */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%)',
+            backgroundSize: '200% 100%',
+            animation: 'ornament-shimmer 2.2s ease infinite',
+          }}
+        />
+      </div>
+    </div>
+  )
 }
 
 export function SubmissionCard({ submission, rank, userVotedSubmissionId, currentUserId, onVoteChange, isLeading, isWinner, battleStatus }: Props) {
