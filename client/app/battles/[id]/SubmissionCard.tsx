@@ -105,45 +105,24 @@ function LaurelOrnament() {
       }}
     >
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        {/* Left arc */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: '10%',
-            width: '55%',
-            height: '80%',
-            border: '3px solid #CBD5E1',
-            borderRight: 'none',
-            borderRadius: '50% 0 0 50%',
-          }}
-        />
-        {/* Right arc */}
-        <div
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: '10%',
-            width: '55%',
-            height: '80%',
-            border: '3px solid #CBD5E1',
-            borderLeft: 'none',
-            borderRadius: '0 50% 50% 0',
-          }}
-        />
-        {/* Center dot */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            backgroundColor: '#CBD5E1',
-          }}
-        />
+        <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+          {/* Left stem */}
+          <path d="M22 39 C12 36 5 26 9 12" stroke="#CBD5E1" strokeWidth="1.5" strokeLinecap="round"/>
+          {/* Left leaves — ellipses rotated along the stem arc */}
+          <ellipse cx="8"  cy="30" rx="5" ry="2.5" transform="rotate(-50 8 30)"  fill="#CBD5E1"/>
+          <ellipse cx="6"  cy="21" rx="5" ry="2.5" transform="rotate(-30 6 21)"  fill="#CBD5E1"/>
+          <ellipse cx="9"  cy="13" rx="5" ry="2.5" transform="rotate(-10 9 13)"  fill="#CBD5E1"/>
+          <ellipse cx="16" cy="8"  rx="5" ry="2.5" transform="rotate(20 16 8)"   fill="#CBD5E1"/>
+          {/* Right stem */}
+          <path d="M22 39 C32 36 39 26 35 12" stroke="#CBD5E1" strokeWidth="1.5" strokeLinecap="round"/>
+          {/* Right leaves — mirrored */}
+          <ellipse cx="36" cy="30" rx="5" ry="2.5" transform="rotate(50 36 30)"  fill="#CBD5E1"/>
+          <ellipse cx="38" cy="21" rx="5" ry="2.5" transform="rotate(30 38 21)"  fill="#CBD5E1"/>
+          <ellipse cx="35" cy="13" rx="5" ry="2.5" transform="rotate(10 35 13)"  fill="#CBD5E1"/>
+          <ellipse cx="28" cy="8"  rx="5" ry="2.5" transform="rotate(-20 28 8)"  fill="#CBD5E1"/>
+          {/* Center tie */}
+          <circle cx="22" cy="40" r="2.5" fill="#CBD5E1"/>
+        </svg>
         {/* Shimmer */}
         <div
           style={{
