@@ -59,7 +59,6 @@ function CrownOrnament() {
         transformOrigin: 'bottom left',
         width: 48,
         height: 36,
-        animation: 'ornament-float 3s ease-in-out infinite',
         zIndex: 20,
         pointerEvents: 'none',
       }}
@@ -99,7 +98,6 @@ function LaurelOrnament() {
         transformOrigin: 'bottom left',
         width: 44,
         height: 44,
-        animation: 'ornament-float 3s ease-in-out infinite',
         zIndex: 20,
         pointerEvents: 'none',
       }}
@@ -123,16 +121,6 @@ function LaurelOrnament() {
           {/* Center tie */}
           <circle cx="22" cy="40" r="2.5" fill="#CBD5E1"/>
         </svg>
-        {/* Shimmer */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%)',
-            backgroundSize: '200% 100%',
-            animation: 'ornament-shimmer 2.2s ease infinite',
-          }}
-        />
       </div>
     </div>
   )
