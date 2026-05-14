@@ -57,3 +57,23 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+@keyframes ornament-float {
+  0%, 100% { transform: rotate(25deg) translateY(0); }
+  50%       { transform: rotate(25deg) translateY(-6px); }
+}
+
+@keyframes ornament-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes card-glow-gold {
+  from { box-shadow: 0 0 10px 2px rgba(251, 191, 36, 0.2); }
+  to   { box-shadow: 0 0 28px 6px rgba(251, 191, 36, 0.5); }
+}
+
+@keyframes card-glow-silver {
+  from { box-shadow: 0 0 10px 2px rgba(148, 163, 184, 0.15); }
+  to   { box-shadow: 0 0 22px 5px rgba(148, 163, 184, 0.35); }
+}
