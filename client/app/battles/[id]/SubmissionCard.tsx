@@ -61,23 +61,27 @@ function CrownOrnament() {
         height: 36,
         zIndex: 20,
         pointerEvents: 'none',
+        // drop-shadow respects clip-path on the child, tracing the crown silhouette
+        filter: 'drop-shadow(0px 3px 5px rgba(0,0,0,0.55)) drop-shadow(0px 1px 2px rgba(120,53,15,0.7))',
       }}
     >
       <div
         style={{
           width: '100%',
           height: '100%',
-          backgroundColor: '#FBBF24',
+          // light gold top-left → rich amber centre → deep brown bottom-right
+          background: 'linear-gradient(145deg, #FEF3C7 0%, #FDE68A 18%, #FBBF24 45%, #D97706 72%, #92400E 100%)',
           clipPath: 'polygon(0% 100%, 0% 40%, 25% 70%, 50% 0%, 75% 70%, 100% 40%, 100% 100%)',
           position: 'relative',
           overflow: 'hidden',
         }}
       >
+        {/* specular highlight sweep */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)',
+            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 50%, transparent 100%)',
             backgroundSize: '200% 100%',
             animation: 'ornament-shimmer 2.2s ease infinite',
           }}
@@ -102,26 +106,41 @@ function LaurelOrnament() {
         pointerEvents: 'none',
       }}
     >
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+      <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+        <defs>
+          {/* radial gradient — upper-left highlight gives each leaf a 3-D bump */}
+          <radialGradient id="leafGrad" cx="30%" cy="28%" r="70%">
+            <stop offset="0%"   stopColor="#F8FAFC"/>
+            <stop offset="45%"  stopColor="#CBD5E1"/>
+            <stop offset="100%" stopColor="#475569"/>
+          </radialGradient>
+          <radialGradient id="dotGrad" cx="35%" cy="30%" r="65%">
+            <stop offset="0%"   stopColor="#F1F5F9"/>
+            <stop offset="100%" stopColor="#475569"/>
+          </radialGradient>
+          <filter id="laurelShadow" x="-25%" y="-25%" width="150%" height="150%">
+            <feDropShadow dx="0" dy="2" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.45"/>
+          </filter>
+        </defs>
+        <g filter="url(#laurelShadow)">
           {/* Left stem */}
-          <path d="M22 39 C12 36 5 26 9 12" stroke="#CBD5E1" strokeWidth="1.5" strokeLinecap="round"/>
-          {/* Left leaves — ellipses rotated along the stem arc */}
-          <ellipse cx="8"  cy="30" rx="5" ry="2.5" transform="rotate(-50 8 30)"  fill="#CBD5E1"/>
-          <ellipse cx="6"  cy="21" rx="5" ry="2.5" transform="rotate(-30 6 21)"  fill="#CBD5E1"/>
-          <ellipse cx="9"  cy="13" rx="5" ry="2.5" transform="rotate(-10 9 13)"  fill="#CBD5E1"/>
-          <ellipse cx="16" cy="8"  rx="5" ry="2.5" transform="rotate(20 16 8)"   fill="#CBD5E1"/>
+          <path d="M22 39 C12 36 5 26 9 12" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round"/>
+          {/* Left leaves */}
+          <ellipse cx="8"  cy="30" rx="5" ry="2.5" transform="rotate(-50 8 30)"  fill="url(#leafGrad)"/>
+          <ellipse cx="6"  cy="21" rx="5" ry="2.5" transform="rotate(-30 6 21)"  fill="url(#leafGrad)"/>
+          <ellipse cx="9"  cy="13" rx="5" ry="2.5" transform="rotate(-10 9 13)"  fill="url(#leafGrad)"/>
+          <ellipse cx="16" cy="8"  rx="5" ry="2.5" transform="rotate(20 16 8)"   fill="url(#leafGrad)"/>
           {/* Right stem */}
-          <path d="M22 39 C32 36 39 26 35 12" stroke="#CBD5E1" strokeWidth="1.5" strokeLinecap="round"/>
-          {/* Right leaves — mirrored */}
-          <ellipse cx="36" cy="30" rx="5" ry="2.5" transform="rotate(50 36 30)"  fill="#CBD5E1"/>
-          <ellipse cx="38" cy="21" rx="5" ry="2.5" transform="rotate(30 38 21)"  fill="#CBD5E1"/>
-          <ellipse cx="35" cy="13" rx="5" ry="2.5" transform="rotate(10 35 13)"  fill="#CBD5E1"/>
-          <ellipse cx="28" cy="8"  rx="5" ry="2.5" transform="rotate(-20 28 8)"  fill="#CBD5E1"/>
+          <path d="M22 39 C32 36 39 26 35 12" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round"/>
+          {/* Right leaves */}
+          <ellipse cx="36" cy="30" rx="5" ry="2.5" transform="rotate(50 36 30)"  fill="url(#leafGrad)"/>
+          <ellipse cx="38" cy="21" rx="5" ry="2.5" transform="rotate(30 38 21)"  fill="url(#leafGrad)"/>
+          <ellipse cx="35" cy="13" rx="5" ry="2.5" transform="rotate(10 35 13)"  fill="url(#leafGrad)"/>
+          <ellipse cx="28" cy="8"  rx="5" ry="2.5" transform="rotate(-20 28 8)"  fill="url(#leafGrad)"/>
           {/* Center tie */}
-          <circle cx="22" cy="40" r="2.5" fill="#CBD5E1"/>
-        </svg>
-      </div>
+          <circle cx="22" cy="40" r="2.5" fill="url(#dotGrad)"/>
+        </g>
+      </svg>
     </div>
   )
 }
