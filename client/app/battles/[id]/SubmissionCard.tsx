@@ -172,7 +172,9 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const initial = displayName.charAt(0).toUpperCase()
   const loading = voting || deleting
 
-  const showOrnament = (rank === 1 || rank === 2) && (isWinner || isLeading)
+  const showOrnament =
+    (rank === 1 && (isWinner || isLeading)) ||
+    (rank === 2 && battleStatus !== 'UPCOMING' && submission.voteCount > 0)
 
   const cardGlowStyle: CSSProperties = (() => {
     if (!showOrnament) return {}
@@ -186,10 +188,11 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
           : 'radial-gradient(ellipse at top center, rgba(251,191,36,0.05) 0%, transparent 65%), hsl(var(--card))',
       }
     }
+    const isRunnerUpConfirmed = battleStatus === 'COMPLETED'
     return {
-      animation: isWinner ? 'card-glow-silver 2.5s ease-in-out alternate infinite' : 'none',
+      animation: isRunnerUpConfirmed ? 'card-glow-silver 2.5s ease-in-out alternate infinite' : 'none',
       boxShadow: '0 0 10px 2px rgba(148, 163, 184, 0.15)',
-      background: isWinner
+      background: isRunnerUpConfirmed
         ? 'radial-gradient(ellipse at top center, rgba(148,163,184,0.07) 0%, transparent 65%), hsl(var(--card))'
         : 'radial-gradient(ellipse at top center, rgba(148,163,184,0.04) 0%, transparent 65%), hsl(var(--card))',
     }
