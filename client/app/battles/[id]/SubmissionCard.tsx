@@ -5,6 +5,7 @@ import { useMutation } from '@apollo/client'
 import Link from 'next/link'
 import { useState, type CSSProperties } from 'react'
 import { getEmbedUrl } from './getEmbedUrl'
+import { VideoModal } from './VideoModal'
 
 interface SubmissionUser {
   id: string
@@ -38,8 +39,8 @@ interface Props {
 
 const podiumBorder: Record<number, string> = {
   1: 'border-amber-400',
-  2: 'border-slate-400',
-  3: 'border-amber-700'
+  2: 'border-border',
+  3: 'border-border'
 }
 
 const podiumBadge: Record<number, string> = {
@@ -48,7 +49,7 @@ const podiumBadge: Record<number, string> = {
   3: 'bg-amber-700 text-white'
 }
 
-function GraffitiCrown() {
+function GraffitiCrown({ hidden }: { hidden: boolean }) {
   return (
     <img
       src="/crown.svg"
@@ -57,11 +58,12 @@ function GraffitiCrown() {
         position: 'absolute',
         top: '-13%',
         left: '-22%',
-        transform: 'rotate(-0.08turn)',
         width: 180,
         height: 'auto',
         pointerEvents: 'none',
-        zIndex: 20
+        zIndex: hidden ? -1 : 20,
+        transform: hidden ? 'rotate(-0.08turn) translate(1%, 1%)' : 'rotate(-0.08turn) translate(0%, 0%)',
+        transition: 'transform 0.3s ease'
       }}
     />
   )
@@ -71,6 +73,8 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const [vote, { loading: voting }] = useMutation(VOTE_MUTATION)
   const [deleteVote, { loading: deleting }] = useMutation(DELETE_VOTE_MUTATION)
   const [voteError, setVoteError] = useState('')
+  const [cardHovered, setCardHovered] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const embedUrl = getEmbedUrl(submission.videoUrl)
   const isPodium = rank <= 3
@@ -87,14 +91,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
       return {
         animation: 'card-glow-gold 5s ease-in-out alternate infinite',
         boxShadow: '0 0 12px 3px rgba(251, 191, 36, 0.35)',
-        background: 'radial-gradient(ellipse at top center, rgba(251,191,36,0.18) 0%, transparent 70%), hsl(var(--card))',
-      }
-    }
-    if (rank === 2 && battleStatus !== 'UPCOMING' && submission.voteCount > 0) {
-      return {
-        animation: 'card-glow-silver 5s ease-in-out alternate infinite',
-        boxShadow: '0 0 10px 2px rgba(148, 163, 184, 0.25)',
-        background: 'radial-gradient(ellipse at top center, rgba(148,163,184,0.14) 0%, transparent 70%), hsl(var(--card))',
+        background: 'radial-gradient(ellipse at top center, rgba(251,191,36,0.18) 0%, transparent 70%), hsl(var(--card))'
       }
     }
     return {}
@@ -115,17 +112,36 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   }
 
   return (
-    <div className="relative">
-      {showCrown && <GraffitiCrown />}
+    <div className="relative isolate" onMouseEnter={() => setCardHovered(true)} onMouseLeave={() => setCardHovered(false)}>
+      {showCrown && <GraffitiCrown hidden={cardHovered} />}
       <div className={`rounded-lg border-2 bg-card overflow-hidden relative ${isPodium ? podiumBorder[rank] : 'border-border'}`} style={cardGlowStyle}>
-        {isPodium && rank >= 3 && <span className={`absolute top-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
         {isWinner && <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-400 text-black">Winner</span>}
-        {isLeading && !isWinner && <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
 
         {/* Video */}
-        <div className="aspect-video bg-muted">
+        <div
+          className="aspect-video bg-muted relative cursor-pointer"
+          onClick={() => embedUrl && setIsModalOpen(true)}
+        >
           {embedUrl ? (
-            <iframe src={embedUrl} title={submission.title ?? 'Submission video'} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+            <>
+              <iframe
+                src={embedUrl}
+                title={submission.title ?? 'Submission video'}
+                className="w-full h-full pointer-events-none"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsModalOpen(true) }}
+                className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 border border-white/20 rounded px-2 py-1 text-white text-xs font-semibold z-10"
+                aria-label="Watch fullscreen"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+                Watch
+              </button>
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <a href={submission.videoUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-amber-500 underline underline-offset-2">
@@ -136,7 +152,10 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
         </div>
 
         {/* Card body */}
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3 relative">
+          {isLeading && !isWinner && submission.voteCount > 0 && <span className="absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
+          {rank === 2 && submission.voteCount > 0 && <span className="absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
+          {rank === 3 && submission.voteCount > 0 && <span className={`absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
           {submission.title && <p className="text-sm font-bold text-foreground leading-snug">{submission.title}</p>}
           {submission.description && <p className="text-xs text-muted-foreground leading-relaxed">{submission.description}</p>}
 
@@ -168,6 +187,22 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
           {voteError && <p className="text-xs text-red-400">{voteError}</p>}
         </div>
       </div>
+
+      {isModalOpen && embedUrl && (
+        <VideoModal
+          embedUrl={embedUrl}
+          title={submission.title}
+          user={submission.user}
+          voteCount={submission.voteCount}
+          isVotedHere={isVotedHere}
+          hasVotedElsewhere={hasVotedElsewhere}
+          loading={loading}
+          battleStatus={battleStatus}
+          currentUserId={currentUserId}
+          onVote={handleVote}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
     </div>
   )
 }
