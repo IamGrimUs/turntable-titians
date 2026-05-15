@@ -41,11 +41,16 @@ export function VideoModal({
   const initial = displayName.charAt(0).toUpperCase()
 
   useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
+    return () => {
+      document.body.style.overflow = prev
+      document.removeEventListener('keydown', handleKey)
+    }
   }, [onClose])
 
   return createPortal(
@@ -106,7 +111,7 @@ export function VideoModal({
             </span>
             {currentUserId && battleStatus === 'ACTIVE' && (
               <button
-                onClick={onVote}
+                onClick={(e) => { e.stopPropagation(); onVote() }}
                 disabled={hasVotedElsewhere || loading}
                 className={`text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
                   isVotedHere
