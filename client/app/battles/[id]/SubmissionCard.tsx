@@ -67,53 +67,6 @@ function GraffitiCrown() {
   )
 }
 
-function LaurelOrnament() {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        transform: 'translate(33%, -50%) rotate(25deg)',
-        transformOrigin: 'bottom left',
-        width: 44,
-        height: 44,
-        zIndex: 20,
-        pointerEvents: 'none',
-      }}
-    >
-      <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
-        <defs>
-          <radialGradient id="leafGrad" cx="30%" cy="28%" r="70%">
-            <stop offset="0%"   stopColor="#F8FAFC"/>
-            <stop offset="45%"  stopColor="#CBD5E1"/>
-            <stop offset="100%" stopColor="#475569"/>
-          </radialGradient>
-          <radialGradient id="dotGrad" cx="35%" cy="30%" r="65%">
-            <stop offset="0%"   stopColor="#F1F5F9"/>
-            <stop offset="100%" stopColor="#475569"/>
-          </radialGradient>
-          <filter id="laurelShadow" x="-25%" y="-25%" width="150%" height="150%">
-            <feDropShadow dx="0" dy="2" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.45"/>
-          </filter>
-        </defs>
-        <g filter="url(#laurelShadow)">
-          <path d="M22 39 C12 36 5 26 9 12" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round"/>
-          <ellipse cx="8"  cy="30" rx="5" ry="2.5" transform="rotate(-50 8 30)"  fill="url(#leafGrad)"/>
-          <ellipse cx="6"  cy="21" rx="5" ry="2.5" transform="rotate(-30 6 21)"  fill="url(#leafGrad)"/>
-          <ellipse cx="9"  cy="13" rx="5" ry="2.5" transform="rotate(-10 9 13)"  fill="url(#leafGrad)"/>
-          <ellipse cx="16" cy="8"  rx="5" ry="2.5" transform="rotate(20 16 8)"   fill="url(#leafGrad)"/>
-          <path d="M22 39 C32 36 39 26 35 12" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round"/>
-          <ellipse cx="36" cy="30" rx="5" ry="2.5" transform="rotate(50 36 30)"  fill="url(#leafGrad)"/>
-          <ellipse cx="38" cy="21" rx="5" ry="2.5" transform="rotate(30 38 21)"  fill="url(#leafGrad)"/>
-          <ellipse cx="35" cy="13" rx="5" ry="2.5" transform="rotate(10 35 13)"  fill="url(#leafGrad)"/>
-          <ellipse cx="28" cy="8"  rx="5" ry="2.5" transform="rotate(-20 28 8)"  fill="url(#leafGrad)"/>
-          <circle cx="22" cy="40" r="2.5" fill="url(#dotGrad)"/>
-        </g>
-      </svg>
-    </div>
-  )
-}
 
 export function SubmissionCard({ submission, rank, userVotedSubmissionId, currentUserId, onVoteChange, isLeading, isWinner, battleStatus }: Props) {
   const [vote, { loading: voting }] = useMutation(VOTE_MUTATION)
@@ -129,7 +82,6 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const loading = voting || deleting
 
   const showCrown = rank === 1 && (isWinner || isLeading)
-  const showLaurel = rank === 2 && battleStatus !== 'UPCOMING' && submission.voteCount > 0
 
   const cardGlowStyle: CSSProperties = (() => {
     if (rank === 1 && (isWinner || isLeading)) {
@@ -139,16 +91,6 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
         background: isWinner
           ? 'radial-gradient(ellipse at top center, rgba(251,191,36,0.09) 0%, transparent 65%), hsl(var(--card))'
           : 'radial-gradient(ellipse at top center, rgba(251,191,36,0.05) 0%, transparent 65%), hsl(var(--card))',
-      }
-    }
-    if (rank === 2 && showLaurel) {
-      const confirmed = battleStatus === 'COMPLETED'
-      return {
-        animation: confirmed ? 'card-glow-silver 2.5s ease-in-out alternate infinite' : 'none',
-        boxShadow: '0 0 10px 2px rgba(148, 163, 184, 0.15)',
-        background: confirmed
-          ? 'radial-gradient(ellipse at top center, rgba(148,163,184,0.07) 0%, transparent 65%), hsl(var(--card))'
-          : 'radial-gradient(ellipse at top center, rgba(148,163,184,0.04) 0%, transparent 65%), hsl(var(--card))',
       }
     }
     return {}
@@ -171,7 +113,6 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   return (
     <div className="relative">
       {showCrown && <GraffitiCrown />}
-      {showLaurel && <LaurelOrnament />}
       <div className={`rounded-lg border bg-card overflow-hidden relative ${isPodium ? podiumBorder[rank] : 'border-border'}`} style={cardGlowStyle}>
         {isPodium && rank >= 3 && <span className={`absolute top-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
         {isWinner && <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-400 text-black">Winner</span>}
