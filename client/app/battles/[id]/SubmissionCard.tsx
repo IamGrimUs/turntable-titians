@@ -87,20 +87,24 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
     if (rank === 1 && (isWinner || isLeading)) {
       return {
         animation: isWinner ? 'card-glow-gold 2.5s ease-in-out alternate infinite' : 'none',
-        boxShadow: '0 0 10px 2px rgba(251, 191, 36, 0.2)',
+        boxShadow: isWinner
+          ? '0 0 24px 6px rgba(251, 191, 36, 0.45)'
+          : '0 0 16px 4px rgba(251, 191, 36, 0.3)',
         background: isWinner
-          ? 'radial-gradient(ellipse at top center, rgba(251,191,36,0.09) 0%, transparent 65%), hsl(var(--card))'
-          : 'radial-gradient(ellipse at top center, rgba(251,191,36,0.05) 0%, transparent 65%), hsl(var(--card))',
+          ? 'radial-gradient(ellipse at top center, rgba(251,191,36,0.18) 0%, transparent 70%), hsl(var(--card))'
+          : 'radial-gradient(ellipse at top center, rgba(251,191,36,0.10) 0%, transparent 70%), hsl(var(--card))',
       }
     }
     if (rank === 2 && battleStatus !== 'UPCOMING' && submission.voteCount > 0) {
       const confirmed = battleStatus === 'COMPLETED'
       return {
         animation: confirmed ? 'card-glow-silver 2.5s ease-in-out alternate infinite' : 'none',
-        boxShadow: '0 0 10px 2px rgba(148, 163, 184, 0.15)',
+        boxShadow: confirmed
+          ? '0 0 20px 5px rgba(148, 163, 184, 0.35)'
+          : '0 0 14px 3px rgba(148, 163, 184, 0.22)',
         background: confirmed
-          ? 'radial-gradient(ellipse at top center, rgba(148,163,184,0.07) 0%, transparent 65%), hsl(var(--card))'
-          : 'radial-gradient(ellipse at top center, rgba(148,163,184,0.04) 0%, transparent 65%), hsl(var(--card))',
+          ? 'radial-gradient(ellipse at top center, rgba(148,163,184,0.14) 0%, transparent 70%), hsl(var(--card))'
+          : 'radial-gradient(ellipse at top center, rgba(148,163,184,0.08) 0%, transparent 70%), hsl(var(--card))',
       }
     }
     return {}
