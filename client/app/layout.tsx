@@ -3,6 +3,7 @@ import { Inter, Permanent_Marker } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { Sidebar } from '@/components/Sidebar';
+import { BottomNav } from '@/components/BottomNav';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const permanentMarker = Permanent_Marker({ subsets: ['latin'], weight: '400', variable: '--font-graffiti' });
@@ -23,10 +24,11 @@ export default function RootLayout({
         <Providers>
           <div className="flex h-screen">
             <Sidebar />
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
               {children}
             </main>
           </div>
+          <BottomNav />
         </Providers>
       </body>
     </html>
