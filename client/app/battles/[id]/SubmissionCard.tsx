@@ -154,8 +154,8 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
         {/* Card body */}
         <div className="p-4 space-y-3 relative">
           {isLeading && !isWinner && submission.voteCount > 0 && <span className="absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
-          {rank === 2 && submission.voteCount > 0 && <span className="absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
-          {rank === 3 && submission.voteCount > 0 && <span className={`absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
+          {rank === 2 && !isLeading && submission.voteCount > 0 && <span className="absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
+          {rank === 3 && !isLeading && submission.voteCount > 0 && <span className={`absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
           {submission.title && <p className="text-sm font-bold text-foreground leading-snug">{submission.title}</p>}
           {submission.description && <p className="text-xs text-muted-foreground leading-relaxed">{submission.description}</p>}
 
