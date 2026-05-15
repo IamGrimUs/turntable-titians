@@ -67,7 +67,6 @@ function GraffitiCrown() {
   )
 }
 
-
 export function SubmissionCard({ submission, rank, userVotedSubmissionId, currentUserId, onVoteChange, isLeading, isWinner, battleStatus }: Props) {
   const [vote, { loading: voting }] = useMutation(VOTE_MUTATION)
   const [deleteVote, { loading: deleting }] = useMutation(DELETE_VOTE_MUTATION)
@@ -86,25 +85,16 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const cardGlowStyle: CSSProperties = (() => {
     if (rank === 1 && (isWinner || isLeading)) {
       return {
-        animation: isWinner ? 'card-glow-gold 2.5s ease-in-out alternate infinite' : 'none',
-        boxShadow: isWinner
-          ? '0 0 24px 6px rgba(251, 191, 36, 0.45)'
-          : '0 0 16px 4px rgba(251, 191, 36, 0.3)',
-        background: isWinner
-          ? 'radial-gradient(ellipse at top center, rgba(251,191,36,0.18) 0%, transparent 70%), hsl(var(--card))'
-          : 'radial-gradient(ellipse at top center, rgba(251,191,36,0.10) 0%, transparent 70%), hsl(var(--card))',
+        animation: 'card-glow-gold 2.5s ease-in-out alternate infinite',
+        boxShadow: '0 0 24px 6px rgba(251, 191, 36, 0.45)',
+        background: 'radial-gradient(ellipse at top center, rgba(251,191,36,0.18) 0%, transparent 70%), hsl(var(--card))',
       }
     }
     if (rank === 2 && battleStatus !== 'UPCOMING' && submission.voteCount > 0) {
-      const confirmed = battleStatus === 'COMPLETED'
       return {
-        animation: confirmed ? 'card-glow-silver 2.5s ease-in-out alternate infinite' : 'none',
-        boxShadow: confirmed
-          ? '0 0 20px 5px rgba(148, 163, 184, 0.35)'
-          : '0 0 14px 3px rgba(148, 163, 184, 0.22)',
-        background: confirmed
-          ? 'radial-gradient(ellipse at top center, rgba(148,163,184,0.14) 0%, transparent 70%), hsl(var(--card))'
-          : 'radial-gradient(ellipse at top center, rgba(148,163,184,0.08) 0%, transparent 70%), hsl(var(--card))',
+        animation: 'card-glow-silver 2.5s ease-in-out alternate infinite',
+        boxShadow: '0 0 20px 5px rgba(148, 163, 184, 0.35)',
+        background: 'radial-gradient(ellipse at top center, rgba(148,163,184,0.14) 0%, transparent 70%), hsl(var(--card))',
       }
     }
     return {}
@@ -127,7 +117,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   return (
     <div className="relative">
       {showCrown && <GraffitiCrown />}
-      <div className={`rounded-lg border bg-card overflow-hidden relative ${isPodium ? podiumBorder[rank] : 'border-border'}`} style={cardGlowStyle}>
+      <div className={`rounded-lg border-2 bg-card overflow-hidden relative ${isPodium ? podiumBorder[rank] : 'border-border'}`} style={cardGlowStyle}>
         {isPodium && rank >= 3 && <span className={`absolute top-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
         {isWinner && <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-400 text-black">Winner</span>}
         {isLeading && !isWinner && <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
