@@ -85,15 +85,15 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const cardGlowStyle: CSSProperties = (() => {
     if (rank === 1 && (isWinner || isLeading)) {
       return {
-        animation: 'card-glow-gold 2.5s ease-in-out alternate infinite',
-        boxShadow: '0 0 24px 6px rgba(251, 191, 36, 0.45)',
+        animation: 'card-glow-gold 5s ease-in-out alternate infinite',
+        boxShadow: '0 0 12px 3px rgba(251, 191, 36, 0.35)',
         background: 'radial-gradient(ellipse at top center, rgba(251,191,36,0.18) 0%, transparent 70%), hsl(var(--card))',
       }
     }
     if (rank === 2 && battleStatus !== 'UPCOMING' && submission.voteCount > 0) {
       return {
-        animation: 'card-glow-silver 2.5s ease-in-out alternate infinite',
-        boxShadow: '0 0 20px 5px rgba(148, 163, 184, 0.35)',
+        animation: 'card-glow-silver 5s ease-in-out alternate infinite',
+        boxShadow: '0 0 10px 2px rgba(148, 163, 184, 0.25)',
         background: 'radial-gradient(ellipse at top center, rgba(148,163,184,0.14) 0%, transparent 70%), hsl(var(--card))',
       }
     }

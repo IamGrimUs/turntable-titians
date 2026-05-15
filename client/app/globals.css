@@ -64,11 +64,11 @@
 }
 
 @keyframes card-glow-gold {
-  from { box-shadow: 0 0 24px 6px rgba(251, 191, 36, 0.45); }
-  to   { box-shadow: 0 0 48px 12px rgba(251, 191, 36, 0.75); }
+  from { box-shadow: 0 0 12px 3px rgba(251, 191, 36, 0.35); }
+  to   { box-shadow: 0 0 24px 6px rgba(251, 191, 36, 0.65); }
 }
 
 @keyframes card-glow-silver {
-  from { box-shadow: 0 0 20px 5px rgba(148, 163, 184, 0.35); }
-  to   { box-shadow: 0 0 40px 10px rgba(148, 163, 184, 0.6); }
+  from { box-shadow: 0 0 10px 2px rgba(148, 163, 184, 0.25); }
+  to   { box-shadow: 0 0 20px 4px rgba(148, 163, 184, 0.5); }
 }
