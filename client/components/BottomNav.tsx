@@ -64,7 +64,10 @@ export function BottomNav() {
           </Link>
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
-            className="flex flex-1 flex-col items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className={cn(
+              'flex flex-1 flex-col items-center justify-center gap-1 text-xs transition-colors',
+              'text-muted-foreground hover:text-foreground'
+            )}
           >
             <LogOut className="h-5 w-5" />
             <span>Sign Out</span>
