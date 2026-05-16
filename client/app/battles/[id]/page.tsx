@@ -99,6 +99,8 @@ export default function BattleDetailPage() {
     ? Math.max(...sortedSubmissions.map((s) => s.voteCount))
     : 0
 
+  const hasWinner = battle.status === 'COMPLETED' && maxVoteCount > 0
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Battle Header */}
@@ -162,9 +164,9 @@ export default function BattleDetailPage() {
 
       {/* Submissions Grid */}
       {sortedSubmissions.length === 0 ? (
-        <p className="mt-8 text-muted-foreground text-base text-center py-16">No submissions yet.</p>
+        <p className={`${hasWinner ? 'mt-12' : 'mt-8'} text-muted-foreground text-base text-center py-16`}>No submissions yet.</p>
       ) : (
-        <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className={`${hasWinner ? 'mt-12' : 'mt-8'} grid gap-6 md:grid-cols-2 lg:grid-cols-3`}>
           {sortedSubmissions.map((submission, index) => (
             <SubmissionCard
               key={submission.id}
