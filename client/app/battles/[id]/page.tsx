@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@apollo/client'
 import { useSession } from 'next-auth/react'
@@ -53,6 +53,7 @@ export default function BattleDetailPage() {
   const { data: session } = useSession()
   const { data, loading, error, refetch } = useQuery(GET_BATTLE, { variables: { id } })
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const handleCloseForm = useCallback(() => setIsFormOpen(false), [])
 
   if (loading) {
     return (
@@ -155,7 +156,7 @@ export default function BattleDetailPage() {
         <SubmitEntryForm
           battleId={battle.id}
           onSuccess={() => refetch()}
-          onClose={() => setIsFormOpen(false)}
+          onClose={handleCloseForm}
         />
       )}
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useMutation } from '@apollo/client'
 import { CREATE_SUBMISSION } from '@/lib/graphql/queries'
 
@@ -29,10 +30,18 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
     return () => cancelAnimationFrame(frame)
   }, [])
 
-  function handleClose() {
+  // Body scroll lock
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
+  const handleClose = useCallback(() => {
     setEntered(false)
     setTimeout(onClose, 300)
-  }
+  }, [onClose])
 
   // Escape key dismissal
   useEffect(() => {
@@ -41,7 +50,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [handleClose])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -62,7 +71,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
     }
   }
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -83,7 +92,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
             type="button"
             onClick={handleClose}
             aria-label="Close"
-            className="text-muted-foreground hover:text-foreground text-2xl leading-none transition-colors"
+            className="p-2 text-muted-foreground hover:text-foreground text-2xl leading-none transition-colors"
           >
             ×
           </button>
@@ -96,6 +105,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
               id="videoUrl"
               type="url"
               required
+              autoFocus
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               placeholder="https://youtube.com/watch?v=..."
@@ -134,6 +144,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
           </button>
         </form>
       </div>
-    </>
+    </>,
+    document.body
   )
 }
