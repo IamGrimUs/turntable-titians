@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@apollo/client'
 import { useSession } from 'next-auth/react'
@@ -7,6 +8,7 @@ import Link from 'next/link'
 import { GET_BATTLE } from '@/lib/graphql/queries'
 import { Badge } from '@/components/ui/badge'
 import { SubmitEntryForm } from './SubmitEntryForm'
+import { SubmitFAB } from './SubmitFAB'
 import { SubmissionCard } from './SubmissionCard'
 import { WinnerBanner } from './WinnerBanner'
 
@@ -102,6 +104,8 @@ export default function BattleDetailPage() {
         .map((s) => ({ ...s.user, voteCount: s.voteCount }))
     : []
 
+  const [isFormOpen, setIsFormOpen] = useState(false)
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Battle Header */}
@@ -110,7 +114,7 @@ export default function BattleDetailPage() {
           Battle Skratch
         </p>
         <div className="flex flex-wrap items-start gap-3 mb-3">
-          <h1 className="text-3xl font-black tracking-tight uppercase text-foreground">
+          <h1 className="text-5xl font-graffiti text-foreground">
             {battle.title}
           </h1>
           <Badge variant={statusVariantMap[battle.status] ?? 'upcoming'}>
@@ -121,7 +125,7 @@ export default function BattleDetailPage() {
           </Badge>
         </div>
         <div className="mt-3 h-px bg-gradient-to-r from-amber-500 to-transparent mb-4" />
-        <p className="text-xs text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           {new Date(battle.startDate).toLocaleDateString()} → {new Date(battle.endDate).toLocaleDateString()}
         </p>
         {battle.status === 'ACTIVE' && (() => {
@@ -133,25 +137,32 @@ export default function BattleDetailPage() {
           const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
           const label = diffDays === 0 ? 'Closes today' : `${diffDays} day${diffDays === 1 ? '' : 's'} remaining`
           return (
-            <p className="text-xs font-bold text-amber-500 mt-1">{label}</p>
+            <p className="text-base font-bold text-amber-500 mt-1">{label}</p>
           )
         })()}
         {battle.description && (
-          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{battle.description}</p>
+          <p className="mt-3 text-base text-muted-foreground leading-relaxed">{battle.description}</p>
         )}
       </div>
 
       {/* Winner Banner */}
       <WinnerBanner winners={winners} />
 
-      {/* Submit Entry Form */}
+      {/* Submit Entry FAB + bottom sheet */}
       {showForm && (
-        <SubmitEntryForm battleId={battle.id} onSuccess={() => refetch()} />
+        <SubmitFAB onClick={() => setIsFormOpen(true)} />
+      )}
+      {showForm && isFormOpen && (
+        <SubmitEntryForm
+          battleId={battle.id}
+          onSuccess={() => refetch()}
+          onClose={() => setIsFormOpen(false)}
+        />
       )}
 
       {/* Sign-in prompt for unauthenticated users on active battles */}
       {battle.status === 'ACTIVE' && !currentUserId && (
-        <div className="rounded-lg border border-border bg-card p-4 mb-8 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border bg-card p-4 mb-8 text-base text-muted-foreground">
           <Link href="/auth/signin" className="text-amber-500 hover:underline font-semibold">
             Sign in
           </Link>{' '}
@@ -161,7 +172,7 @@ export default function BattleDetailPage() {
 
       {/* Submissions Grid */}
       {sortedSubmissions.length === 0 ? (
-        <p className="text-muted-foreground text-sm text-center py-16">No submissions yet.</p>
+        <p className="text-muted-foreground text-base text-center py-16">No submissions yet.</p>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {sortedSubmissions.map((submission, index) => (
