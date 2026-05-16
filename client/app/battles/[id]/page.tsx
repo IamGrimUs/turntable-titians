@@ -52,6 +52,7 @@ export default function BattleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { data: session } = useSession()
   const { data, loading, error, refetch } = useQuery(GET_BATTLE, { variables: { id } })
+  const [isFormOpen, setIsFormOpen] = useState(false)
 
   if (loading) {
     return (
@@ -103,8 +104,6 @@ export default function BattleDetailPage() {
         .filter((s) => s.voteCount === maxVoteCount)
         .map((s) => ({ ...s.user, voteCount: s.voteCount }))
     : []
-
-  const [isFormOpen, setIsFormOpen] = useState(false)
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
