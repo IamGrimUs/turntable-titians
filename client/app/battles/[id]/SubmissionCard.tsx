@@ -3,7 +3,7 @@
 import { DELETE_VOTE_MUTATION, VOTE_MUTATION } from '@/lib/graphql/queries'
 import { useMutation } from '@apollo/client'
 import Link from 'next/link'
-import { useState, type CSSProperties } from 'react'
+import { useState, useRef, useEffect, type CSSProperties } from 'react'
 import { getEmbedUrl } from './getEmbedUrl'
 import { VideoModal } from './VideoModal'
 
@@ -75,8 +75,21 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const [voteError, setVoteError] = useState('')
   const [cardHovered, setCardHovered] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [hasBeenHovered, setHasBeenHovered] = useState(false)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    }
+  }, [])
 
   const embedUrl = getEmbedUrl(submission.videoUrl)
+  const videoId = embedUrl?.split('/').pop() || null
+  const hoverEmbedUrl = videoId
+    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}`
+    : null
+
   const isPodium = rank <= 3
   const isVotedHere = userVotedSubmissionId === submission.id
   const hasVotedElsewhere = userVotedSubmissionId !== null && !isVotedHere
@@ -112,7 +125,21 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   }
 
   return (
-    <div className="relative isolate" onMouseEnter={() => setCardHovered(true)} onMouseLeave={() => setCardHovered(false)}>
+    <div
+      className="relative isolate"
+      onMouseEnter={() => {
+        setCardHovered(true)
+        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+        hoverTimerRef.current = setTimeout(() => setHasBeenHovered(true), 250)
+      }}
+      onMouseLeave={() => {
+        setCardHovered(false)
+        if (hoverTimerRef.current) {
+          clearTimeout(hoverTimerRef.current)
+          hoverTimerRef.current = null
+        }
+      }}
+    >
       {showCrown && <GraffitiCrown hidden={cardHovered} />}
       <div className={`rounded-lg border-2 bg-card overflow-hidden relative ${isWinner || (rank === 1 && isLeading) ? 'border-amber-400' : isPodium ? podiumBorder[rank] : 'border-border'}`} style={cardGlowStyle}>
         {/* Video */}
@@ -126,18 +153,29 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
           {embedUrl ? (
             <>
               <img
-                src={`https://img.youtube.com/vi/${embedUrl.split('/').pop()}/hqdefault.jpg`}
+                src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
                 alt={submission.title ?? 'Submission thumbnail'}
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover absolute inset-0 z-0 transition-opacity duration-300 ${cardHovered && hasBeenHovered ? 'opacity-0' : 'opacity-100'}`}
               />
-              {/* Custom play button overlay */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                    <polygon points="5,3 19,12 5,21" />
-                  </svg>
+              {hasBeenHovered && hoverEmbedUrl && (
+                <iframe
+                  src={hoverEmbedUrl}
+                  allow="autoplay"
+                  title={submission.title ?? 'Video preview'}
+                  style={{ border: 'none' }}
+                  className={`w-full h-full absolute inset-0 z-[1] transition-opacity duration-300 pointer-events-none ${cardHovered ? 'opacity-100' : 'opacity-0'}`}
+                  tabIndex={-1}
+                />
+              )}
+              {!cardHovered && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                      <polygon points="5,3 19,12 5,21" />
+                    </svg>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
