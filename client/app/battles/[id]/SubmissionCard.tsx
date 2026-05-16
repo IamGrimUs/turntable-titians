@@ -232,7 +232,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
           battleStatus={battleStatus}
           currentUserId={currentUserId}
           onVote={handleVote}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => { setIsModalOpen(false); setHasBeenHovered(false) }}
         />
       )}
     </div>
