@@ -68,7 +68,6 @@ model Vote {
 enum BattleStatus {
   UPCOMING
   ACTIVE
-  VOTING
   COMPLETED
 }
 

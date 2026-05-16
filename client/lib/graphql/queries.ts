@@ -12,6 +12,7 @@ export const GET_BATTLES = gql`
       submissions {
         id
         voteCount
+        user { id username name image }
       }
       createdAt
     }

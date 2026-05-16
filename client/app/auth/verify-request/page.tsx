@@ -12,7 +12,7 @@ export default function VerifyRequestPage({
           <p className="text-xl font-graffiti text-amber-500 mb-2">
             Battle Skratch
           </p>
-          <h1 className="text-3xl font-black tracking-tight uppercase text-foreground">
+          <h1 className="text-3xl font-graffiti text-foreground">
             Check Your Email
           </h1>
           <div className="mt-3 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent" />

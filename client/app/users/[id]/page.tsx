@@ -60,7 +60,7 @@ export default function UserProfilePage() {
           </div>
         )}
         <div>
-          <h1 className="text-2xl font-black tracking-tight uppercase text-foreground">
+          <h1 className="text-2xl font-graffiti text-foreground">
             {user.username ?? user.name ?? 'Anonymous'}
           </h1>
           {user.externalCrews.length > 0 && (

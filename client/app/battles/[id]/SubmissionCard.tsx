@@ -84,10 +84,10 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const initial = displayName.charAt(0).toUpperCase()
   const loading = voting || deleting
 
-  const showCrown = rank === 1 && (isWinner || isLeading)
+  const showCrown = isWinner || (rank === 1 && isLeading)
 
   const cardGlowStyle: CSSProperties = (() => {
-    if (rank === 1 && (isWinner || isLeading)) {
+    if (isWinner || (rank === 1 && isLeading)) {
       return {
         animation: 'card-glow-gold 5s ease-in-out alternate infinite',
         boxShadow: '0 0 12px 3px rgba(251, 191, 36, 0.35)',
@@ -114,33 +114,30 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   return (
     <div className="relative isolate" onMouseEnter={() => setCardHovered(true)} onMouseLeave={() => setCardHovered(false)}>
       {showCrown && <GraffitiCrown hidden={cardHovered} />}
-      <div className={`rounded-lg border-2 bg-card overflow-hidden relative ${isPodium ? podiumBorder[rank] : 'border-border'}`} style={cardGlowStyle}>
-        {isWinner && <span className="absolute top-2 left-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-400 text-black">Winner</span>}
-
+      <div className={`rounded-lg border-2 bg-card overflow-hidden relative ${isWinner || (rank === 1 && isLeading) ? 'border-amber-400' : isPodium ? podiumBorder[rank] : 'border-border'}`} style={cardGlowStyle}>
         {/* Video */}
         <div
           className="aspect-video bg-muted relative cursor-pointer"
           onClick={() => embedUrl && setIsModalOpen(true)}
         >
+          {isLeading && !isWinner && submission.voteCount > 0 && <span className="absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
+          {rank === 2 && !isLeading && !isWinner && submission.voteCount > 0 && <span className="absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
+          {rank === 3 && !isLeading && !isWinner && submission.voteCount > 0 && <span className={`absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
           {embedUrl ? (
             <>
-              <iframe
-                src={embedUrl}
-                title={submission.title ?? 'Submission video'}
-                className="w-full h-full pointer-events-none"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
+              <img
+                src={`https://img.youtube.com/vi/${embedUrl.split('/').pop()}/hqdefault.jpg`}
+                alt={submission.title ?? 'Submission thumbnail'}
+                className="w-full h-full object-cover"
               />
-              <button
-                onClick={(e) => { e.stopPropagation(); setIsModalOpen(true) }}
-                className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 border border-white/20 rounded px-2 py-1 text-white text-xs font-semibold z-10"
-                aria-label="Watch fullscreen"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                </svg>
-                Watch
-              </button>
+              {/* Custom play button overlay */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                    <polygon points="5,3 19,12 5,21" />
+                  </svg>
+                </div>
+              </div>
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -153,11 +150,8 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
 
         {/* Card body */}
         <div className="p-4 space-y-3 relative">
-          {isLeading && !isWinner && submission.voteCount > 0 && <span className="absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
-          {rank === 2 && !isLeading && submission.voteCount > 0 && <span className="absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
-          {rank === 3 && !isLeading && submission.voteCount > 0 && <span className={`absolute top-4 right-4 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
-          {submission.title && <p className="text-sm font-bold text-foreground leading-snug">{submission.title}</p>}
-          {submission.description && <p className="text-xs text-muted-foreground leading-relaxed">{submission.description}</p>}
+          {submission.title && <p className="text-base font-bold text-foreground leading-snug">{submission.title}</p>}
+          {submission.description && <p className="text-base text-muted-foreground leading-relaxed">{submission.description}</p>}
 
           {/* DJ info + vote */}
           <div className="flex items-center justify-between pt-1">
@@ -167,16 +161,16 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
               ) : (
                 <span className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-center border border-amber-500/30">{initial}</span>
               )}
-              <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{displayName}</span>
+              <span className="text-base font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{displayName}</span>
             </Link>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground font-mono">{submission.voteCount}</span>
+              <span className="text-base text-muted-foreground font-mono">{submission.voteCount}</span>
               {currentUserId && battleStatus === 'ACTIVE' && (
                 <button
                   onClick={handleVote}
                   disabled={hasVotedElsewhere || loading}
-                  className={`text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
+                  className={`text-base font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
                     isVotedHere ? 'bg-amber-500 text-black hover:bg-amber-400' : hasVotedElsewhere ? 'bg-muted text-muted-foreground opacity-50' : 'border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black'
                   }`}>
                   {loading ? '…' : isVotedHere ? 'Voted' : 'Vote'}
@@ -184,7 +178,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
               )}
             </div>
           </div>
-          {voteError && <p className="text-xs text-red-400">{voteError}</p>}
+          {voteError && <p className="text-base text-red-400">{voteError}</p>}
         </div>
       </div>
 
