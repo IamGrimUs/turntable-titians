@@ -73,7 +73,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
 
       {/* Sheet panel */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg max-h-[90dvh] overflow-y-auto rounded-t-xl border border-border bg-card p-6 pb-[env(safe-area-inset-bottom)] shadow-xl transition-transform duration-300 ease-out ${
+        className={`fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg max-h-[90dvh] overflow-y-auto rounded-t-xl border border-border bg-card p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-xl transition-transform duration-300 ease-out ${
           entered ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
