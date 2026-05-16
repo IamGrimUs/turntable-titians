@@ -29,10 +29,15 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
     return () => cancelAnimationFrame(frame)
   }, [])
 
+  function handleClose() {
+    setEntered(false)
+    setTimeout(onClose, 300)
+  }
+
   // Escape key dismissal
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
@@ -51,7 +56,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
         },
       })
       onSuccess()
-      onClose()
+      handleClose()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Submission failed')
     }
@@ -61,14 +66,14 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 bg-black/60"
-        onClick={onClose}
+        className={`fixed inset-0 z-50 bg-black/60 transition-opacity duration-300 ${entered ? 'opacity-100' : 'opacity-0'}`}
+        onClick={handleClose}
         aria-hidden="true"
       />
 
       {/* Sheet panel */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg rounded-t-xl border border-border bg-card p-6 shadow-xl transition-transform duration-300 ease-out ${
+        className={`fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg max-h-[90dvh] overflow-y-auto rounded-t-xl border border-border bg-card p-6 pb-[env(safe-area-inset-bottom)] shadow-xl transition-transform duration-300 ease-out ${
           entered ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
@@ -76,7 +81,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
           <h2 className="text-lg font-graffiti text-foreground">Submit Your Entry</h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close"
             className="text-muted-foreground hover:text-foreground text-2xl leading-none transition-colors"
           >
