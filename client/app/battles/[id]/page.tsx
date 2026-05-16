@@ -162,9 +162,9 @@ export default function BattleDetailPage() {
 
       {/* Submissions Grid */}
       {sortedSubmissions.length === 0 ? (
-        <p className="text-muted-foreground text-base text-center py-16">No submissions yet.</p>
+        <p className="mt-8 text-muted-foreground text-base text-center py-16">No submissions yet.</p>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {sortedSubmissions.map((submission, index) => (
             <SubmissionCard
               key={submission.id}
