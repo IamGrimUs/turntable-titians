@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge'
 import { SubmitEntryForm } from './SubmitEntryForm'
 import { SubmitFAB } from './SubmitFAB'
 import { SubmissionCard } from './SubmissionCard'
-import { WinnerBanner } from './WinnerBanner'
 
 interface SubmissionUser {
   id: string
@@ -100,12 +99,6 @@ export default function BattleDetailPage() {
     ? Math.max(...sortedSubmissions.map((s) => s.voteCount))
     : 0
 
-  const winners = battle.status === 'COMPLETED' && maxVoteCount > 0
-    ? sortedSubmissions
-        .filter((s) => s.voteCount === maxVoteCount)
-        .map((s) => ({ ...s.user, voteCount: s.voteCount }))
-    : []
-
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Battle Header */}
@@ -144,9 +137,6 @@ export default function BattleDetailPage() {
           <p className="mt-3 text-base text-muted-foreground leading-relaxed">{battle.description}</p>
         )}
       </div>
-
-      {/* Winner Banner */}
-      <WinnerBanner winners={winners} />
 
       {/* Submit Entry FAB + bottom sheet */}
       {showForm && (
