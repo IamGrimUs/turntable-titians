@@ -26,7 +26,8 @@ export default function OnboardingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (session?.user && !seeded) {
-    setUsername(session.user.name?.replace(/\s+/g, '').toLowerCase() ?? '')
+    // Suggest a handle from the person's name, keeping only characters usernames allow.
+    setUsername((session.user.name ?? '').toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 30))
     setImageUrl(session.user.image ?? '')
     setSeeded(true)
   }
@@ -100,6 +101,7 @@ export default function OnboardingPage() {
                 type="text"
                 required
                 value={username}
+                maxLength={30}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="your_dj_handle"
                 className={fieldClass}
@@ -146,6 +148,7 @@ export default function OnboardingPage() {
                 <input
                   type="text"
                   value={crewInput}
+                  maxLength={40}
                   onChange={(e) => setCrewInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCrew() } }}
                   placeholder="e.g. Rock Steady Crew"

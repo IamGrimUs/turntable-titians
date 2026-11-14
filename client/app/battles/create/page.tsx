@@ -85,6 +85,7 @@ export default function CreateBattlePage() {
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="e.g. Summer Scratch Showdown"
+                maxLength={100}
                 className={fieldClass}
               />
             </div>
@@ -120,6 +121,7 @@ export default function CreateBattlePage() {
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="What's this battle about?"
+                maxLength={1000}
                 rows={3}
                 className={`${fieldClass} resize-none`}
               />

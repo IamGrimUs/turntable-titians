@@ -2,6 +2,16 @@ import { Battle, Submission, Vote } from '@prisma/client'
 import { GraphQLError } from 'graphql'
 import { db } from './db'
 import { computeBattleStatus } from './battleStatus'
+import {
+  LIMITS,
+  cleanCrews,
+  cleanHttpsUrl,
+  cleanMultiLine,
+  cleanSingleLine,
+  cleanUsername,
+  getAllowedImageHosts,
+  parseBattleDates,
+} from './validation'
 
 interface Context {
   userId: string | null
@@ -12,6 +22,10 @@ function requireAuth(userId: string | null): string {
     extensions: { code: 'UNAUTHENTICATED' },
   })
   return userId
+}
+
+function sameList(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((value, i) => value === b[i])
 }
 
 export const resolvers = {
@@ -40,7 +54,7 @@ export const resolvers = {
   },
 
   Mutation: {
-    createBattle: (
+    createBattle: async (
       _: unknown,
       {
         title,
@@ -48,28 +62,62 @@ export const resolvers = {
         description,
         startDate,
         endDate,
-      }: { title: string; type: string; description?: string; startDate: string; endDate: string },
+      }: { title: string; type: string; description?: string | null; startDate: string; endDate: string },
       ctx: Context
     ) => {
       requireAuth(ctx.userId)
+      const cleanTitle = cleanSingleLine(title, 'Title', { max: LIMITS.title, required: true })!
+      const cleanType = cleanSingleLine(type, 'Battle type', { max: LIMITS.battleType, required: true })!
+      const cleanDescription = cleanMultiLine(description, 'Description', { max: LIMITS.description })
+      const { start, end } = parseBattleDates(startDate, endDate)
       return db.battle.create({
-        data: { title, type, description, startDate: new Date(startDate), endDate: new Date(endDate) },
+        data: { title: cleanTitle, type: cleanType, description: cleanDescription, startDate: start, endDate: end },
       })
     },
 
-    createSubmission: (
+    createSubmission: async (
       _: unknown,
       {
         battleId,
         videoUrl,
         title,
         description,
-      }: { battleId: string; videoUrl: string; title?: string; description?: string },
+      }: { battleId: string; videoUrl: string; title?: string | null; description?: string | null },
       ctx: Context
     ) => {
       const userId = requireAuth(ctx.userId)
+      const cleanUrl = cleanHttpsUrl(videoUrl, 'Video link', { max: LIMITS.url })
+      const cleanTitle = cleanSingleLine(title, 'Title', { max: LIMITS.title })
+      const cleanDescription = cleanMultiLine(description, 'Description', { max: LIMITS.description })
+
+      const battle = await db.battle.findUnique({
+        where: { id: battleId },
+        select: { startDate: true, endDate: true },
+      })
+      if (!battle) throw new GraphQLError('Battle not found', { extensions: { code: 'NOT_FOUND' } })
+
+      // Entries are only open while the battle is running, same rule as voting.
+      const status = computeBattleStatus(battle.startDate, battle.endDate)
+      if (status !== 'ACTIVE') {
+        throw new GraphQLError(
+          status === 'COMPLETED' ? 'Battle has ended' : 'Battle has not started yet',
+          { extensions: { code: 'BAD_USER_INPUT' } }
+        )
+      }
+
+      // The web form already hides the entry button after you enter; enforce it here too.
+      const existing = await db.submission.findFirst({
+        where: { battleId, userId },
+        select: { id: true },
+      })
+      if (existing) {
+        throw new GraphQLError('You have already submitted an entry to this battle.', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        })
+      }
+
       return db.submission.create({
-        data: { battleId, userId, videoUrl, title, description },
+        data: { battleId, userId, videoUrl: cleanUrl, title: cleanTitle, description: cleanDescription },
       })
     },
 
@@ -79,28 +127,70 @@ export const resolvers = {
         username,
         image,
         externalCrews,
-      }: { username?: string; image?: string; externalCrews?: string[] },
+      }: { username?: string | null; image?: string | null; externalCrews?: string[] | null },
       ctx: Context
     ) => {
       const userId = requireAuth(ctx.userId)
-      if (username !== undefined && username !== '') {
-        const existing = await db.user.findUnique({ where: { username } })
-        if (existing && existing.id !== userId) {
-          throw new GraphQLError('Username already taken', {
+
+      // Rules apply only to values that are actually changing, so an account created
+      // before these rules existed can still save its other settings.
+      const current = await db.user.findUnique({
+        where: { id: userId },
+        select: { username: true, image: true, externalCrews: true },
+      })
+
+      let nextUsername: string | undefined
+      if (username !== undefined && username !== null) {
+        const trimmed = username.trim()
+        if (trimmed === '') {
+          throw new GraphQLError('Username cannot be empty', {
             extensions: { code: 'BAD_USER_INPUT' },
           })
         }
-      } else if (username === '') {
-        throw new GraphQLError('Username cannot be empty', {
-          extensions: { code: 'BAD_USER_INPUT' },
-        })
+        if (trimmed !== current?.username) {
+          nextUsername = cleanUsername(trimmed)
+          // Case-insensitive, so "Admin" cannot impersonate "admin".
+          const taken = await db.user.findFirst({
+            where: { username: { equals: nextUsername, mode: 'insensitive' }, NOT: { id: userId } },
+            select: { id: true },
+          })
+          if (taken) {
+            throw new GraphQLError('Username already taken', {
+              extensions: { code: 'BAD_USER_INPUT' },
+            })
+          }
+        } else {
+          nextUsername = trimmed
+        }
       }
+
+      let nextImage: string | null | undefined
+      if (image !== undefined) {
+        if (image === null || image.trim() === '') {
+          nextImage = null
+        } else if (image === current?.image) {
+          nextImage = image
+        } else {
+          nextImage = cleanHttpsUrl(image, 'Profile image', {
+            max: LIMITS.url,
+            allowedHosts: getAllowedImageHosts(),
+          })
+        }
+      }
+
+      let nextCrews: string[] | undefined
+      if (externalCrews !== undefined && externalCrews !== null) {
+        nextCrews = sameList(externalCrews, current?.externalCrews ?? [])
+          ? externalCrews
+          : cleanCrews(externalCrews)
+      }
+
       return db.user.update({
         where: { id: userId },
         data: {
-          ...(username !== undefined && { username }),
-          ...(image !== undefined && { image }),
-          ...(externalCrews !== undefined && { externalCrews }),
+          ...(nextUsername !== undefined && { username: nextUsername }),
+          ...(nextImage !== undefined && { image: nextImage }),
+          ...(nextCrews !== undefined && { externalCrews: nextCrews }),
         },
       })
     },

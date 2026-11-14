@@ -109,6 +109,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               placeholder="https://youtube.com/watch?v=..."
+              maxLength={500}
               className={fieldClass}
             />
           </div>
@@ -120,6 +121,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Give your set a name"
+              maxLength={100}
               className={fieldClass}
             />
           </div>
@@ -130,6 +132,7 @@ export function SubmitEntryForm({ battleId, onSuccess, onClose }: Props) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Tell the community about your set..."
+              maxLength={1000}
               rows={3}
               className={fieldClass}
             />
