@@ -172,10 +172,17 @@ export const resolvers = {
   },
 
   Submission: {
-    votes: (parent: Submission) =>
-      db.vote.findMany({ where: { submissionId: parent.id } }),
     voteCount: (parent: Submission) =>
       db.vote.count({ where: { submissionId: parent.id } }),
+    // Only ever answers for the caller themselves, so ballots stay secret.
+    viewerHasVoted: async (parent: Submission, _args: unknown, ctx: Context) => {
+      if (!ctx.userId) return false
+      const vote = await db.vote.findFirst({
+        where: { submissionId: parent.id, userId: ctx.userId },
+        select: { id: true },
+      })
+      return vote !== null
+    },
     createdAt: (parent: Submission) => parent.createdAt.toISOString(),
     updatedAt: (parent: Submission) => parent.updatedAt.toISOString(),
     user: (parent: Submission) =>

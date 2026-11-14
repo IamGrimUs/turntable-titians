@@ -22,7 +22,7 @@ interface Submission {
   description: string | null
   voteCount: number
   createdAt: string
-  votes: { id: string; userId: string }[]
+  viewerHasVoted: boolean
   user: SubmissionUser
 }
 
