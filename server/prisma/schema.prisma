@@ -123,3 +123,13 @@ model CrewMember {
 
   @@id([userId, crewId])
 }
+
+// Counters for the sign-in rate limiter (see client/lib/rate-limit.ts).
+// Keys are HMAC hashes, so no plaintext emails or IPs are stored here.
+model RateLimit {
+  key         String   @id
+  count       Int
+  windowStart DateTime
+
+  @@index([windowStart])
+}
