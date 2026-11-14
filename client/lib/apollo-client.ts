@@ -16,6 +16,23 @@ async function fetchApiToken(): Promise<string | null> {
   }
 }
 
+/**
+ * Forget the cached API token and all cached query results, then refetch any
+ * active queries as whoever is signed in now. Call this whenever the signed-in
+ * user changes (sign-out or sign-in in another tab, expired session) so one
+ * user's token and viewer-specific data never carry over to the next.
+ */
+export async function resetAuthState(): Promise<void> {
+  cachedToken = null;
+  tokenExpiry = 0;
+  try {
+    await client.resetStore();
+  } catch {
+    // A refetch of an active query failed (e.g. now unauthenticated); the
+    // store is still cleared, so there is nothing more to do.
+  }
+}
+
 const authLink = new ApolloLink((operation, forward) =>
   fromPromise(fetchApiToken()).flatMap((token) => {
     if (token) {
