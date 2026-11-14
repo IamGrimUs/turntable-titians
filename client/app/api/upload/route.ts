@@ -1,16 +1,10 @@
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-
-const r2 = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-})
+import { buildAvatarKey, validateUploadRequest } from '@/lib/upload-rules'
+import { getBucket, getR2Client, missingR2Env } from '@/lib/r2'
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -18,20 +12,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { filename, contentType } = await req.json()
-  if (!filename || !contentType) {
-    return NextResponse.json({ error: 'filename and contentType required' }, { status: 400 })
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid upload request.' }, { status: 400 })
   }
 
-  const key = `avatars/${session.user.id}/${Date.now()}-${filename}`
+  const check = validateUploadRequest(body)
+  if (!check.ok) {
+    return NextResponse.json({ error: check.message }, { status: check.status })
+  }
+
+  // Name the missing settings in the server log (never their values) so a
+  // misconfigured deploy is obvious, and keep the response generic.
+  const missing = missingR2Env()
+  if (missing.length > 0) {
+    console.error(`[upload] not configured, missing environment variables: ${missing.join(', ')}`)
+    return NextResponse.json({ error: 'Image uploads are not configured.' }, { status: 500 })
+  }
+
+  const r2 = getR2Client()
+
+  // The key never contains the user's filename: only their id and a random id.
+  const key = buildAvatarKey(session.user.id, check.extension, randomUUID())
+
   const command = new PutObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME!,
+    Bucket: getBucket(),
     Key: key,
-    ContentType: contentType,
+    ContentType: check.contentType,
+    ContentLength: check.size,
   })
 
-  const url = await getSignedUrl(r2, command, { expiresIn: 300 })
-  const publicUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`
+  // Sign the content type and exact length into the URL so storage itself
+  // rejects any upload that differs from what we validated above.
+  const url = await getSignedUrl(r2, command, {
+    expiresIn: 300,
+    signableHeaders: new Set(['content-type', 'content-length']),
+  })
+  const publicUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL!.trim()}/${key}`
 
   return NextResponse.json({ url, publicUrl })
 }

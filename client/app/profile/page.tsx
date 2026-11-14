@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react'
 import { useQuery, useMutation } from '@apollo/client'
 import { useState, useRef } from 'react'
 import { ME_QUERY, UPDATE_PROFILE_MUTATION } from '@/lib/graphql/queries'
+import { uploadAvatar, cleanupOldAvatars, UploadError } from '@/lib/uploadAvatar'
 
 const fieldClass =
   'w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
@@ -37,18 +38,9 @@ export default function ProfilePage() {
     setUploading(true)
     setError('')
     try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, contentType: file.type }),
-      })
-      if (!res.ok) throw new Error(`Upload init failed: ${res.status}`)
-      const { url, publicUrl } = await res.json()
-      const putRes = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
-      if (!putRes.ok) throw new Error(`R2 upload failed: ${putRes.status}`)
-      setImageUrl(publicUrl)
-    } catch {
-      setError('Image upload failed.')
+      setImageUrl(await uploadAvatar(file))
+    } catch (err) {
+      setError(err instanceof UploadError ? err.message : 'Image upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
@@ -70,6 +62,7 @@ export default function ProfilePage() {
     setSuccess(false)
     try {
       await updateProfile({ variables: { username, image: imageUrl, externalCrews: crews } })
+      void cleanupOldAvatars() // tidy up replaced avatars; best effort, never blocks the save
       await update({ username })
       setSuccess(true)
     } catch (err: unknown) {
@@ -126,7 +119,7 @@ export default function ProfilePage() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/webp"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0]
