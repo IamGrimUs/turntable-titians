@@ -26,7 +26,7 @@ interface Submission {
   description: string | null
   voteCount: number
   createdAt: string
-  votes: { id: string; userId: string }[]
+  viewerHasVoted: boolean
   user: SubmissionUser
 }
 
@@ -86,7 +86,7 @@ export default function BattleDetailPage() {
 
   const userVotedSubmissionId =
     currentUserId
-      ? (sortedSubmissions.find((s) => s.votes.some((v) => v.userId === currentUserId))?.id ?? null)
+      ? (sortedSubmissions.find((s) => s.viewerHasVoted)?.id ?? null)
       : null
 
   const hasSubmitted = currentUserId

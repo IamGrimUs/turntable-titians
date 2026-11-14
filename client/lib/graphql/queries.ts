@@ -37,7 +37,7 @@ export const GET_BATTLE = gql`
         description
         voteCount
         createdAt
-        votes { id userId }
+        viewerHasVoted
         user { id username name image }
       }
       createdAt
@@ -102,7 +102,6 @@ export const VOTE_MUTATION = gql`
       id
       submissionId
       battleId
-      userId
       createdAt
     }
   }

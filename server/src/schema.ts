@@ -21,8 +21,9 @@ export const typeDefs = gql`
     videoUrl: String!
     title: String
     description: String
-    votes: [Vote!]!
     voteCount: Int!
+    """Whether the authenticated caller has voted for this submission. False when logged out."""
+    viewerHasVoted: Boolean!
     createdAt: String!
     updatedAt: String!
     user: User!
@@ -32,7 +33,6 @@ export const typeDefs = gql`
     id: ID!
     submissionId: ID!
     battleId: ID!
-    userId: ID!
     createdAt: String!
   }
 
