@@ -40,7 +40,6 @@ export const typeDefs = gql`
     id: ID!
     username: String
     name: String
-    email: String!
     image: String
     externalCrews: [String!]!
     submissions: [Submission!]!

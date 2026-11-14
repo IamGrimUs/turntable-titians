@@ -78,7 +78,6 @@ export const ME_QUERY = gql`
       id
       username
       name
-      email
       image
       externalCrews
     }
@@ -91,7 +90,6 @@ export const UPDATE_PROFILE_MUTATION = gql`
       id
       username
       name
-      email
       image
       externalCrews
     }
