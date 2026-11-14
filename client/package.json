@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "prisma:generate": "prisma generate --schema ../server/prisma/schema.prisma"
+    "prisma:generate": "prisma generate --schema ../server/prisma/schema.prisma",
+    "test": "vitest run"
   },
   "prisma": {
     "schema": "../server/prisma/schema.prisma"
@@ -44,6 +45,7 @@
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.6"
   }
 }
