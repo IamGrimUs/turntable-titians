@@ -8,6 +8,7 @@ import { jwtVerify } from 'jose';
 import { typeDefs } from './schema';
 import { resolvers } from './resolvers';
 import { db } from './db';
+import { getInternalApiSecret } from './config';
 
 dotenv.config();
 
@@ -15,9 +16,8 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 const allowedOrigins = CLIENT_URL.split(',').map((o) => o.trim());
-const INTERNAL_API_SECRET = new TextEncoder().encode(
-  process.env.INTERNAL_API_SECRET || 'dev-secret-change-me'
-);
+// Throws at startup if the secret is missing, so we never run with a guessable one.
+const INTERNAL_API_SECRET = getInternalApiSecret();
 
 interface GraphQLContext {
   userId: string | null;
