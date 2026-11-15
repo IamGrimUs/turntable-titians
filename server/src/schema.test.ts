@@ -91,4 +91,13 @@ describe('public GraphQL schema privacy', () => {
       'votesCast', 'votesReceived', 'createdAt', 'lastSignInAt', 'email',
     ])
   })
+
+  it('adminUpdateUser takes exactly the documented arguments and has no email argument', () => {
+    const field = schema.getMutationType()!.getFields().adminUpdateUser
+    expect(field).toBeDefined()
+    const names = field.args.map((a) => a.name)
+    expect(names).not.toContain('email')
+    expect(names.sort()).toEqual(['externalCrews', 'name', 'removeAvatar', 'userId', 'username'])
+    expect(String(field.type)).toBe('AdminUser!')
+  })
 })

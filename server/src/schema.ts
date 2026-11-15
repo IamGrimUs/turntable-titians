@@ -169,6 +169,13 @@ export const typeDefs = gql`
       image: String
       externalCrews: [String!]
     ): User!
+    adminUpdateUser(
+      userId: ID!
+      username: String
+      name: String
+      externalCrews: [String!]
+      removeAvatar: Boolean
+    ): AdminUser!
     vote(submissionId: ID!): Vote!
     deleteVote(submissionId: ID!): Boolean!
   }
