@@ -10,6 +10,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     "We couldn't send the sign-in email. If you've asked for several, wait a while and try again.",
   OAuthAccountNotLinked:
     'That email is already registered with a different sign-in method. Use the method you signed up with.',
+  EmailBlocked: "That email address can't be used to sign in.",
   Verification: 'That sign-in link has expired or was already used. Request a new one.',
 }
 

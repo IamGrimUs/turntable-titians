@@ -7,6 +7,8 @@ import { refreshTokenFromProfile } from '@/lib/session-refresh'
 import { refreshRoleIntoToken } from '@/lib/session-role'
 import type { Role } from '@/lib/admin-access'
 import { sendVerificationEmail } from '@/lib/send-verification-email'
+import { decideSignIn } from '@/lib/signin-decision'
+import { signSuspensionNotice } from '@/lib/suspension'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(db),
@@ -24,6 +26,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: { strategy: 'jwt' },
   callbacks: {
+    // Runs for Google sign-in AND when a magic link is requested, before the email is
+    // sent (Auth.js calls it ahead of sendVerificationRequest). Returning a path redirects
+    // there instead of signing in or sending anything. It fails closed: if the lookup
+    // fails, nobody is let through and no email is sent.
+    async signIn({ user }) {
+      const email = user.email?.trim().toLowerCase()
+      if (!email) return false
+      try {
+        const [row, banned] = await Promise.all([
+          db.user.findFirst({
+            where: { email: { equals: email, mode: 'insensitive' } },
+            select: { id: true, suspendedAt: true, suspendedUntil: true },
+          }),
+          db.bannedEmail.findUnique({ where: { email } }),
+        ])
+        const decision = decideSignIn({ user: row, emailBlocked: banned !== null })
+        if (decision.allow) return true
+        if (decision.reason === 'BLOCKED') return '/auth/signin?error=EmailBlocked'
+        // Only a signed notice goes in the URL, never the suspension reason.
+        const notice = await signSuspensionNotice(decision.userId, process.env.AUTH_SECRET!)
+        return `/auth/suspended?notice=${notice}`
+      } catch (err) {
+        console.error('[auth] sign-in check failed; refusing the sign-in', err instanceof Error ? err.name : err)
+        return false
+      }
+    },
     async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id
