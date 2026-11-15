@@ -1,8 +1,12 @@
 const { buildHeaders } = require('./security-headers')
+const { buildRedirects } = require('./redirects')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async redirects() {
+    return buildRedirects()
+  },
   async headers() {
     return [
       {

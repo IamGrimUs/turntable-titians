@@ -83,11 +83,9 @@ async function startServer() {
     '/graphql',
     cors<cors.CorsRequest>({
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error(`CORS: origin ${origin} not allowed`));
-        }
+        // A disallowed origin simply gets no CORS headers, so the browser blocks it. Passing an
+        // Error here would turn every such request into a noisy 500 in the server logs.
+        callback(null, !origin || allowedOrigins.includes(origin));
       },
       credentials: true,
     }),
