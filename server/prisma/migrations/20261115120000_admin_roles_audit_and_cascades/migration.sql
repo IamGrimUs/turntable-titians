@@ -1,9 +1,12 @@
--- Admin roles, suspensions, audit log, banned emails, and cascading deletes.
+-- Admin roles, suspensions, audit log, banned emails, cascading deletes, and indexes on the
+-- foreign keys the user-deletion cascade and admin stats look up by (Vote.submissionId, Submission.userId).
 --
 -- Adding the Vote -> User foreign key fails if any vote points at a user that no longer exists
 -- (Vote.userId had no relation before). Check for orphans first; expect 0 rows:
 --   SELECT v.id FROM "Vote" v LEFT JOIN "User" u ON u.id = v."userId" WHERE u.id IS NULL;
 -- The other four relations already have foreign keys, so they cannot hold orphans.
+--
+-- If this migration fails partway: pnpm exec prisma migrate resolve --rolled-back 20261115120000_admin_roles_audit_and_cascades, fix the cause, then re-run migrate deploy
 
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('USER', 'ADMIN', 'OWNER');
@@ -47,6 +50,12 @@ CREATE TABLE "AdminAuditLog" (
 
 -- CreateIndex
 CREATE INDEX "AdminAuditLog_createdAt_idx" ON "AdminAuditLog"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "Vote_submissionId_idx" ON "Vote"("submissionId");
+
+-- CreateIndex
+CREATE INDEX "Submission_userId_idx" ON "Submission"("userId");
 
 -- DropForeignKey
 ALTER TABLE "Submission" DROP CONSTRAINT "Submission_userId_fkey";
