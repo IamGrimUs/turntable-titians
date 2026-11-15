@@ -3,7 +3,7 @@ import { formatVoteCount } from '@/lib/vote-visibility'
 
 /**
  * Shows a vote count, or, when the server is withholding it, an unmistakable
- * "Hidden" marker so people know the number is hidden on purpose, not missing.
+ * "vote count hidden" marker so people know the number is hidden on purpose, not missing.
  */
 export function VoteCount({ voteCount, suffix = '', className = '' }: { voteCount: number | null; suffix?: string; className?: string }) {
   const v = formatVoteCount(voteCount)
@@ -12,10 +12,10 @@ export function VoteCount({ voteCount, suffix = '', className = '' }: { voteCoun
       <span
         title={v.hint}
         aria-label={v.hint}
-        className={`inline-flex items-center gap-1 text-muted-foreground ${className}`}
+        className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground ${className}`}
       >
         <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span className="text-base font-semibold uppercase tracking-wider">{v.text}</span>
+        <span className="text-base font-semibold">{v.text}</span>
       </span>
     )
   }
