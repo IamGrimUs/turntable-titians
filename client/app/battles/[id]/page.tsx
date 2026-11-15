@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { SubmitEntryForm } from './SubmitEntryForm'
 import { SubmitFAB } from './SubmitFAB'
 import { SubmissionCard } from './SubmissionCard'
+import { Lock } from 'lucide-react'
+import { rankSubmissions, VOTES_HIDDEN_HINT } from '@/lib/vote-visibility'
 
 interface SubmissionUser {
   id: string
@@ -24,7 +26,7 @@ interface Submission {
   videoUrl: string
   title: string | null
   description: string | null
-  voteCount: number
+  voteCount: number | null
   createdAt: string
   viewerHasVoted: boolean
   user: SubmissionUser
@@ -82,7 +84,11 @@ export default function BattleDetailPage() {
 
   const currentUserId = (session?.user as { id?: string } | undefined)?.id ?? null
 
-  const sortedSubmissions = [...battle.submissions].sort((a, b) => b.voteCount - a.voteCount)
+  // While voting is open the order stays neutral (oldest first) so it can't reveal who is ahead.
+  const { ordered: sortedSubmissions, votesRevealed, maxVoteCount, hasWinner } = rankSubmissions(
+    battle.submissions,
+    battle.status
+  )
 
   const userVotedSubmissionId =
     currentUserId
@@ -94,12 +100,6 @@ export default function BattleDetailPage() {
     : false
 
   const showForm = battle.status === 'ACTIVE' && !!currentUserId && !hasSubmitted
-
-  const maxVoteCount = sortedSubmissions.length > 0
-    ? Math.max(...sortedSubmissions.map((s) => s.voteCount))
-    : 0
-
-  const hasWinner = battle.status === 'COMPLETED' && maxVoteCount > 0
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -137,6 +137,15 @@ export default function BattleDetailPage() {
         })()}
         {battle.description && (
           <p className="mt-3 text-base text-muted-foreground leading-relaxed">{battle.description}</p>
+        )}
+        {battle.status === 'ACTIVE' && (
+          <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+            <p>
+              <span className="font-semibold text-foreground">{VOTES_HIDDEN_HINT}.</span>{' '}
+              Votes are secret while voting is open, so no one can be swayed by the standings. Results are revealed once the battle ends.
+            </p>
+          </div>
         )}
       </div>
 
@@ -176,8 +185,8 @@ export default function BattleDetailPage() {
               currentUserId={currentUserId}
               onVoteChange={() => refetch()}
               battleStatus={battle.status}
-              isLeading={battle.status === 'ACTIVE' && maxVoteCount > 0 && submission.voteCount === maxVoteCount}
-              isWinner={battle.status === 'COMPLETED' && maxVoteCount > 0 && submission.voteCount === maxVoteCount}
+              isLeading={false}
+              isWinner={votesRevealed && maxVoteCount > 0 && submission.voteCount === maxVoteCount}
             />
           ))}
         </div>

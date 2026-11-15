@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@apollo/client'
+import { VoteCount } from '@/components/VoteCount'
 import { useParams } from 'next/navigation'
 import { gql } from '@apollo/client'
 
@@ -86,13 +87,13 @@ export default function UserProfilePage() {
           <p className="text-sm text-muted-foreground">No submissions yet.</p>
         ) : (
           <div className="space-y-2">
-            {user.submissions.map((sub: { id: string; title?: string; voteCount: number; createdAt: string }) => (
+            {user.submissions.map((sub: { id: string; title?: string; voteCount: number | null; createdAt: string }) => (
               <div
                 key={sub.id}
                 className="flex justify-between items-center rounded-md border border-border px-4 py-3 text-sm"
               >
                 <span className="text-foreground">{sub.title ?? 'Untitled'}</span>
-                <span className="text-muted-foreground">{sub.voteCount} votes</span>
+                <VoteCount voteCount={sub.voteCount} suffix=" votes" className="text-muted-foreground" />
               </div>
             ))}
           </div>

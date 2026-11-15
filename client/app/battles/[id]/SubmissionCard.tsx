@@ -5,6 +5,7 @@ import { useMutation } from '@apollo/client'
 import Link from 'next/link'
 import { useState, useRef, useEffect, type CSSProperties } from 'react'
 import { getEmbedUrl } from './getEmbedUrl'
+import { VoteCount } from '@/components/VoteCount'
 import { VideoModal } from './VideoModal'
 
 interface SubmissionUser {
@@ -20,7 +21,7 @@ interface Submission {
   videoUrl: string
   title: string | null
   description: string | null
-  voteCount: number
+  voteCount: number | null
   createdAt: string
   viewerHasVoted: boolean
   user: SubmissionUser
@@ -90,7 +91,9 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
     ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}`
     : null
 
-  const isPodium = rank <= 3
+  // Podium styling is by vote rank, so it only applies once results are revealed.
+  // While voting is open, rank is just entry order and must not look like standings.
+  const isPodium = battleStatus === 'COMPLETED' && rank <= 3
   const isVotedHere = userVotedSubmissionId === submission.id
   const hasVotedElsewhere = userVotedSubmissionId !== null && !isVotedHere
   const displayName = submission.user.username ?? submission.user.name ?? 'DJ'
@@ -147,9 +150,9 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
           className="aspect-video bg-muted relative cursor-pointer"
           onClick={() => embedUrl && setIsModalOpen(true)}
         >
-          {isLeading && !isWinner && submission.voteCount > 0 && <span className="absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
-          {rank === 2 && !isLeading && !isWinner && submission.voteCount > 0 && <span className="absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
-          {rank === 3 && !isLeading && !isWinner && submission.voteCount > 0 && <span className={`absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
+          {isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className="absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
+          {rank === 2 && !isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className="absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
+          {rank === 3 && !isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className={`absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
           {embedUrl ? (
             <>
               <img
@@ -203,7 +206,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
             </Link>
 
             <div className="flex items-center gap-2">
-              <span className="text-base text-muted-foreground font-mono">{submission.voteCount}</span>
+              <VoteCount voteCount={submission.voteCount} className="text-base text-muted-foreground font-mono" />
               {currentUserId && battleStatus === 'ACTIVE' && (
                 <button
                   onClick={handleVote}

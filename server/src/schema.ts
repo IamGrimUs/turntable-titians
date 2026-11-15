@@ -21,7 +21,8 @@ export const typeDefs = gql`
     videoUrl: String!
     title: String
     description: String
-    voteCount: Int!
+    """Total votes. Null until the battle is COMPLETED: counts are hidden while voting is open."""
+    voteCount: Int
     """Whether the authenticated caller has voted for this submission. False when logged out."""
     viewerHasVoted: Boolean!
     createdAt: String!
