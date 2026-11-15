@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
-import { auth } from '@/auth'
+import { activeSessionUserId } from '@/lib/active-session-user'
 import { db } from '@/lib/db'
 import { getBucket, getR2Client, missingR2Env } from '@/lib/r2'
 import { avatarPrefix, keyFromImageUrl, selectStaleAvatarKeys, type StoredObject } from '@/lib/avatar-cleanup'
@@ -14,8 +14,7 @@ const MAX_LIST_PAGES = 5
  * only ever affect their own `avatars/<their id>/` folder.
  */
 export async function POST() {
-  const session = await auth()
-  const userId = session?.user?.id
+  const userId = await activeSessionUserId()
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

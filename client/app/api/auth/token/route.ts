@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
 import { SignJWT } from 'jose'
+import { activeSessionUserId } from '@/lib/active-session-user'
 
 export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ token: null })
+  // No token when signed out, suspended, or deleted (the server refuses them too; this stops
+  // the browser from even trying).
+  const userId = await activeSessionUserId()
+  if (!userId) return NextResponse.json({ token: null })
 
   // Fail closed: never sign tokens with an empty key if the secret is missing.
   const rawSecret = process.env.INTERNAL_API_SECRET?.trim()
@@ -13,7 +15,7 @@ export async function GET() {
     return NextResponse.json({ token: null }, { status: 500 })
   }
 
-  const apiToken = await new SignJWT({ userId: session.user.id })
+  const apiToken = await new SignJWT({ userId })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('1h')
     .sign(new TextEncoder().encode(rawSecret))
