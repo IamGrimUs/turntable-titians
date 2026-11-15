@@ -10,6 +10,7 @@ import {
   flattenReason,
   formatLocalDateTime,
   internalCrewNames,
+  shouldRefreshAfterFailure,
   suspendUntilToIso,
   toDateTimeLocalValue,
   userLabel,
@@ -26,17 +27,20 @@ describe('adminErrorMessage', () => {
   const gql = (code: string, message: string) => ({ graphQLErrors: [{ message, extensions: { code } }] })
 
   it('shows the server message for user-safe codes', () => {
-    for (const code of ['BAD_USER_INPUT', 'FORBIDDEN', 'NOT_FOUND', 'UNAUTHENTICATED']) {
+    for (const code of ['BAD_USER_INPUT', 'FORBIDDEN', 'NOT_FOUND', 'RATE_LIMITED', 'UNAUTHENTICATED']) {
       expect(adminErrorMessage(gql(code, 'Username already taken'))).toBe('Username already taken')
     }
   })
   it('hides everything else behind the generic message', () => {
     expect(adminErrorMessage(gql('INTERNAL_SERVER_ERROR', 'prisma exploded'))).toBe(GENERIC_ERROR_MESSAGE)
-    expect(adminErrorMessage(gql('RATE_LIMITED', 'slow down'))).toBe(GENERIC_ERROR_MESSAGE)
     expect(adminErrorMessage(new Error('Failed to fetch'))).toBe(GENERIC_ERROR_MESSAGE)
     expect(adminErrorMessage({ graphQLErrors: [] })).toBe(GENERIC_ERROR_MESSAGE)
     expect(adminErrorMessage(null)).toBe(GENERIC_ERROR_MESSAGE)
     expect(adminErrorMessage(undefined)).toBe(GENERIC_ERROR_MESSAGE)
+  })
+  it('shows the server rate-limit message', () => {
+    const message = 'You are doing that too often. Please slow down and try again shortly.'
+    expect(adminErrorMessage(gql('RATE_LIMITED', message))).toBe(message)
   })
   it('does not trust a safe code with no message', () => {
     expect(adminErrorMessage({ graphQLErrors: [{ message: '', extensions: { code: 'BAD_USER_INPUT' } }] })).toBe(
@@ -52,6 +56,39 @@ describe('adminErrorMessage', () => {
         ],
       }),
     ).toBe('User not found')
+  })
+})
+
+describe('shouldRefreshAfterFailure', () => {
+  const gql = (code: string) => ({ graphQLErrors: [{ message: 'm', extensions: { code } }] })
+
+  it('refreshes when the user is gone or changed under the admin', () => {
+    expect(shouldRefreshAfterFailure(gql('NOT_FOUND'), false)).toBe(true)
+    expect(shouldRefreshAfterFailure(gql('FORBIDDEN'), false)).toBe(true)
+    expect(shouldRefreshAfterFailure(gql('NOT_FOUND'), true)).toBe(true)
+  })
+  it('does not refresh while the admin is fixing the form', () => {
+    expect(shouldRefreshAfterFailure(gql('BAD_USER_INPUT'), false)).toBe(false)
+    expect(shouldRefreshAfterFailure(gql('BAD_USER_INPUT'), true)).toBe(false)
+    expect(shouldRefreshAfterFailure(gql('RATE_LIMITED'), true)).toBe(false)
+  })
+  it('refreshes after a delete whose response was lost, but not other network failures', () => {
+    const network = { graphQLErrors: [], networkError: new Error('Failed to fetch') }
+    expect(shouldRefreshAfterFailure(network, true)).toBe(true)
+    expect(shouldRefreshAfterFailure(new Error('Failed to fetch'), true)).toBe(true)
+    expect(shouldRefreshAfterFailure(network, false)).toBe(false)
+  })
+  it('refreshes when any of several errors qualifies', () => {
+    expect(
+      shouldRefreshAfterFailure(
+        { graphQLErrors: [{ extensions: { code: 'BAD_USER_INPUT' } }, { extensions: { code: 'NOT_FOUND' } }] },
+        false,
+      ),
+    ).toBe(true)
+  })
+  it('tolerates junk', () => {
+    expect(shouldRefreshAfterFailure(null, false)).toBe(false)
+    expect(shouldRefreshAfterFailure(undefined, true)).toBe(true)
   })
 })
 

@@ -11,6 +11,7 @@ import { SuspendUserDialog } from '@/components/admin/SuspendUserDialog'
 import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog'
 import { ConfirmUserDialog } from '@/components/admin/ConfirmUserDialog'
 import type { Role } from '@/lib/admin-access'
+import { shouldRefreshAfterFailure } from '@/lib/admin-user-dialogs'
 import { ADMIN_USERS_QUERY } from '@/lib/graphql/admin'
 import {
   DEFAULT_SORT,
@@ -111,6 +112,16 @@ export default function AdminUsersPage() {
       void refetch()
     },
     [refetch]
+  )
+
+  // A dialog's action failed. When the row may be stale (already deleted or changed by someone
+  // else, or a delete whose answer was lost) reload the table; the dialog stays open with its message.
+  const pendingKind = pendingAction?.action
+  const onActionFailed = useCallback(
+    (failure: unknown) => {
+      if (shouldRefreshAfterFailure(failure, pendingKind === 'delete')) void refetch()
+    },
+    [pendingKind, refetch]
   )
 
   // A different action or row mounts a fresh dialog: fresh form state and a fresh showModal().
@@ -264,13 +275,31 @@ export default function AdminUsersPage() {
       )}
 
       {pendingAction?.action === 'edit' && (
-        <EditUserDialog key={dialogKey} row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
+        <EditUserDialog
+          key={dialogKey}
+          row={pendingAction.row}
+          onClose={closeDialog}
+          onSuccess={onActionDone}
+          onFailure={onActionFailed}
+        />
       )}
       {pendingAction?.action === 'suspend' && (
-        <SuspendUserDialog key={dialogKey} row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
+        <SuspendUserDialog
+          key={dialogKey}
+          row={pendingAction.row}
+          onClose={closeDialog}
+          onSuccess={onActionDone}
+          onFailure={onActionFailed}
+        />
       )}
       {pendingAction?.action === 'delete' && (
-        <DeleteUserDialog key={dialogKey} row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
+        <DeleteUserDialog
+          key={dialogKey}
+          row={pendingAction.row}
+          onClose={closeDialog}
+          onSuccess={onActionDone}
+          onFailure={onActionFailed}
+        />
       )}
       {(pendingAction?.action === 'reinstate' ||
         pendingAction?.action === 'makeAdmin' ||
@@ -281,6 +310,7 @@ export default function AdminUsersPage() {
           row={pendingAction.row}
           onClose={closeDialog}
           onSuccess={onActionDone}
+          onFailure={onActionFailed}
         />
       )}
     </div>

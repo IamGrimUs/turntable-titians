@@ -6,9 +6,10 @@ import { adminErrorMessage } from '@/lib/admin-user-dialogs'
 /**
  * The submit flow every admin dialog shares: one request at a time (a double click sends one),
  * the failure message kept for the dialog to show, and `onSuccess(message)` called on success.
+ * `onFailure(error)`, when given, is told about the raw error (the page uses it to reload a stale table).
  * After a success the dialog stays "submitting" so it can not be sent twice while it closes.
  */
-export function useDialogSubmit(onSuccess: (message: string) => void) {
+export function useDialogSubmit(onSuccess: (message: string) => void, onFailure?: (error: unknown) => void) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inFlight = useRef(false)
@@ -24,13 +25,14 @@ export function useDialogSubmit(onSuccess: (message: string) => void) {
         message = await run()
       } catch (e) {
         setError(adminErrorMessage(e))
+        onFailure?.(e)
         inFlight.current = false
         setSubmitting(false)
         return
       }
       onSuccess(message)
     },
-    [onSuccess],
+    [onSuccess, onFailure],
   )
 
   return { submitting, error, setError, submit }

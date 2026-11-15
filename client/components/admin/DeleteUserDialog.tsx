@@ -13,14 +13,16 @@ export interface DeleteUserDialogProps {
   row: AdminUserRow
   onClose: () => void
   onSuccess: (message: string) => void
+  /** Told about a failed action (the page reloads the table when the row may be stale). */
+  onFailure?: (error: unknown) => void
 }
 
-export function DeleteUserDialog({ row, onClose, onSuccess }: DeleteUserDialogProps) {
+export function DeleteUserDialog({ row, onClose, onSuccess, onFailure }: DeleteUserDialogProps) {
   const [typed, setTyped] = useState('')
   const [blockEmail, setBlockEmail] = useState(false)
 
   const [deleteUser] = useMutation(ADMIN_DELETE_USER)
-  const { submitting, error, submit } = useDialogSubmit(onSuccess)
+  const { submitting, error, submit } = useDialogSubmit(onSuccess, onFailure)
 
   const label = userLabel(row)
   const target = deleteConfirmTarget(row)

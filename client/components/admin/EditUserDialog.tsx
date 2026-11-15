@@ -19,9 +19,11 @@ export interface EditUserDialogProps {
   row: AdminUserRow
   onClose: () => void
   onSuccess: (message: string) => void
+  /** Told about a failed action (the page reloads the table when the row may be stale). */
+  onFailure?: (error: unknown) => void
 }
 
-export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps) {
+export function EditUserDialog({ row, onClose, onSuccess, onFailure }: EditUserDialogProps) {
   const [username, setUsername] = useState(row.username ?? '')
   const [name, setName] = useState(row.name ?? '')
   const [removeAvatar, setRemoveAvatar] = useState(false)
@@ -30,7 +32,7 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
   const [crewInput, setCrewInput] = useState('')
 
   const [updateUser] = useMutation(ADMIN_UPDATE_USER)
-  const { submitting, error, submit } = useDialogSubmit(onSuccess)
+  const { submitting, error, submit } = useDialogSubmit(onSuccess, onFailure)
 
   // The user's own crew list. network-only: never edit against a stale copy.
   const crewsQuery = useQuery<{ user: { externalCrews: string[] } | null }>(USER_EXTERNAL_CREWS_QUERY, {

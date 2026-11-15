@@ -17,7 +17,7 @@ export const DIALOG_LIMITS = {
 export const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.'
 
 // Error codes whose server messages are written to be shown to users as-is.
-const USER_SAFE_CODES = new Set(['BAD_USER_INPUT', 'FORBIDDEN', 'NOT_FOUND', 'UNAUTHENTICATED'])
+const USER_SAFE_CODES = new Set(['BAD_USER_INPUT', 'FORBIDDEN', 'NOT_FOUND', 'RATE_LIMITED', 'UNAUTHENTICATED'])
 
 /**
  * The message to show for a failed admin mutation: the server's own message for deliberate
@@ -35,6 +35,22 @@ export function adminErrorMessage(error: unknown): string {
     }
   }
   return GENERIC_ERROR_MESSAGE
+}
+
+/**
+ * True when the table behind a dialog may be out of date after this failure and should be
+ * reloaded: the user was already deleted or changed by someone else (NOT_FOUND, FORBIDDEN),
+ * or, for a delete, the request failed on the network and may have gone through anyway.
+ * A rejected form (BAD_USER_INPUT) never reloads: the admin is still fixing it.
+ */
+export function shouldRefreshAfterFailure(error: unknown, isDelete: boolean): boolean {
+  const e = error as { graphQLErrors?: readonly unknown[] } | null | undefined
+  const graphQLErrors = Array.isArray(e?.graphQLErrors) ? e.graphQLErrors : []
+  for (const item of graphQLErrors) {
+    const code = (item as { extensions?: { code?: unknown } } | null)?.extensions?.code
+    if (code === 'NOT_FOUND' || code === 'FORBIDDEN') return true
+  }
+  return isDelete && graphQLErrors.length === 0
 }
 
 /** Who a dialog talks about: the username, else the email (an account with no username yet). */

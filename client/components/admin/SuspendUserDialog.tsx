@@ -21,15 +21,17 @@ export interface SuspendUserDialogProps {
   row: AdminUserRow
   onClose: () => void
   onSuccess: (message: string) => void
+  /** Told about a failed action (the page reloads the table when the row may be stale). */
+  onFailure?: (error: unknown) => void
 }
 
-export function SuspendUserDialog({ row, onClose, onSuccess }: SuspendUserDialogProps) {
+export function SuspendUserDialog({ row, onClose, onSuccess, onFailure }: SuspendUserDialogProps) {
   const [reason, setReason] = useState('')
   const [untilValue, setUntilValue] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
   const [suspendUser] = useMutation(ADMIN_SUSPEND_USER)
-  const { submitting, error, submit } = useDialogSubmit(onSuccess)
+  const { submitting, error, submit } = useDialogSubmit(onSuccess, onFailure)
 
   const label = userLabel(row)
   const parsedUntil = suspendUntilToIso(untilValue)
@@ -73,7 +75,10 @@ export function SuspendUserDialog({ row, onClose, onSuccess }: SuspendUserDialog
             maxLength={DIALOG_LIMITS.suspensionReason}
             disabled={submitting}
             aria-describedby="suspend-reason-help suspend-reason-warning"
-            onChange={(e) => setReason(flattenReason(e.target.value))}
+            onChange={(e) => {
+              setReason(flattenReason(e.target.value))
+              setFormError(null)
+            }}
             onKeyDown={(e) => {
               // One line only: the server refuses line breaks.
               if (e.key === 'Enter') e.preventDefault()
@@ -106,7 +111,10 @@ export function SuspendUserDialog({ row, onClose, onSuccess }: SuspendUserDialog
             min={toDateTimeLocalValue(new Date())}
             disabled={submitting}
             aria-describedby="suspend-until-help"
-            onChange={(e) => setUntilValue(e.target.value)}
+            onChange={(e) => {
+              setUntilValue(e.target.value)
+              setFormError(null)
+            }}
             className={fieldClass}
           />
           <p id="suspend-until-help" className="text-base text-muted-foreground">

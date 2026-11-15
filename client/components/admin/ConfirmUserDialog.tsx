@@ -16,12 +16,14 @@ export interface ConfirmUserDialogProps {
   row: AdminUserRow
   onClose: () => void
   onSuccess: (message: string) => void
+  /** Told about a failed action (the page reloads the table when the row may be stale). */
+  onFailure?: (error: unknown) => void
 }
 
-export function ConfirmUserDialog({ action, row, onClose, onSuccess }: ConfirmUserDialogProps) {
+export function ConfirmUserDialog({ action, row, onClose, onSuccess, onFailure }: ConfirmUserDialogProps) {
   const [reinstateUser] = useMutation(ADMIN_REINSTATE_USER)
   const [setRole] = useMutation(ADMIN_SET_USER_ROLE)
-  const { submitting, error, submit } = useDialogSubmit(onSuccess)
+  const { submitting, error, submit } = useDialogSubmit(onSuccess, onFailure)
 
   const label = userLabel(row)
 

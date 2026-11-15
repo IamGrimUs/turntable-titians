@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { Role } from '@/lib/admin-access'
+import { formatLocalDateTime } from '@/lib/admin-user-dialogs'
 import {
   crewsCell,
   formatJoined,
@@ -128,7 +129,7 @@ function RoleBadge({ role }: { role: Role }) {
 function StatusBadge({ row }: { row: AdminUserRow }) {
   if (row.status === 'ACTIVE') return <Badge variant="active">Active</Badge>
   const details = [
-    row.suspendedUntil ? `Until ${formatJoined(row.suspendedUntil)}` : 'No end date',
+    row.suspendedUntil ? `Until ${formatLocalDateTime(row.suspendedUntil)}` : 'No end date',
     row.suspensionReason ? `Reason: ${row.suspensionReason}` : null,
   ]
     .filter(Boolean)
