@@ -85,11 +85,11 @@ export async function checkSignIn(
   const run = input.mode === 'consume' ? consume : peek
   try {
     if (input.ip) {
-      const ip = await run(db, { key: hashKey('signin-ip', input.ip, secret), ...SIGNIN_LIMITS.ip })
+      const ip = await run(db, { key: await hashKey('signin-ip', input.ip, secret), ...SIGNIN_LIMITS.ip })
       if (!ip.allowed) return { allowed: false, reason: 'ip', retryAfterSeconds: ip.retryAfterSeconds }
     }
     const email = await run(db, {
-      key: hashKey('signin-email', normalizeEmailForLimit(input.email), secret),
+      key: await hashKey('signin-email', normalizeEmailForLimit(input.email), secret),
       ...SIGNIN_LIMITS.email,
     })
     if (!email.allowed) return { allowed: false, reason: 'email', retryAfterSeconds: email.retryAfterSeconds }
