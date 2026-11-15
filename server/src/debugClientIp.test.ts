@@ -5,7 +5,7 @@ const req = (over: Record<string, unknown> = {}) =>
   ({
     ip: '203.0.113.7',
     ips: ['203.0.113.7'],
-    headers: { 'x-forwarded-for': '198.51.100.1, 203.0.113.7', authorization: 'Bearer secret-token', cookie: 'a=b' },
+    headers: { 'x-forwarded-for': '198.51.100.1, 203.0.113.7', 'x-real-ip': '192.0.2.44', authorization: 'Bearer secret-token', cookie: 'a=b' },
     socket: { remoteAddress: '100.64.0.5' },
     app: { get: (k: string) => (k === 'trust proxy' ? 1 : undefined) },
     ...over,
@@ -29,6 +29,7 @@ describe('createClientIpLogger', () => {
     expect(line).toContain('203.0.113.7');
     expect(line).toContain('198.51.100.1, 203.0.113.7');
     expect(line).toContain('100.64.0.5');
+    expect(line).toContain('"xRealIp":"192.0.2.44"');
     expect(line).toContain('replica-a');
     expect(line).toContain('"trustProxy":1');
   });

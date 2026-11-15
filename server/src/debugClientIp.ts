@@ -30,6 +30,8 @@ export function createClientIpLogger({
           reqIp: req.ip ?? null,
           reqIps: req.ips ?? null,
           xForwardedFor: req.headers['x-forwarded-for'] ?? null,
+          // Railway documents this header as the real client address (Express ignores it).
+          xRealIp: req.headers['x-real-ip'] ?? null,
           remoteAddress: req.socket?.remoteAddress ?? null,
         })
       );
