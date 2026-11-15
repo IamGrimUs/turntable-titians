@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { Home, Swords, Plus, HelpCircle, User, LogIn, LogOut } from 'lucide-react';
+import { Home, Swords, Plus, HelpCircle, Shield, User, LogIn, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isAdminRole } from '@/lib/admin-access';
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +23,11 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  // The session role is only a hint, used here just to show the icon; the /admin layout
+  // checks the real role in the database.
+  const items = isAdminRole(session?.user?.role)
+    ? [...navigation, { name: 'Admin', href: '/admin', icon: Shield }]
+    : navigation;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -33,7 +39,7 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 space-y-1 px-2 py-4">
-          {navigation.map((item) => {
+          {items.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== '/' && pathname?.startsWith(item.href));

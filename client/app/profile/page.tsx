@@ -1,9 +1,12 @@
 'use client'
 
+import Link from 'next/link'
 import { useSession } from 'next-auth/react'
+import { Shield } from 'lucide-react'
 import { useQuery, useMutation } from '@apollo/client'
 import { useState, useRef } from 'react'
 import { ME_QUERY, UPDATE_PROFILE_MUTATION } from '@/lib/graphql/queries'
+import { isAdminRole } from '@/lib/admin-access'
 import { uploadAvatar, cleanupOldAvatars, UploadError } from '@/lib/uploadAvatar'
 
 const fieldClass =
@@ -11,7 +14,7 @@ const fieldClass =
 const labelClass = 'block text-base font-bold tracking-widest uppercase text-muted-foreground'
 
 export default function ProfilePage() {
-  const { update } = useSession()
+  const { data: session, update } = useSession()
   const { data, loading: queryLoading } = useQuery(ME_QUERY)
   const [updateProfile, { loading: saving }] = useMutation(UPDATE_PROFILE_MUTATION)
 
@@ -90,6 +93,16 @@ export default function ProfilePage() {
           </h1>
           <div className="mt-3 h-px bg-gradient-to-r from-amber-500 to-transparent" />
         </div>
+
+        {isAdminRole(session?.user?.role) && (
+          <Link
+            href="/admin"
+            className="mb-4 flex items-center gap-2 rounded-md border border-border px-4 py-3 text-base font-semibold text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+          >
+            <Shield className="h-5 w-5" aria-hidden="true" />
+            Admin portal
+          </Link>
+        )}
 
         <div className="rounded-lg border border-border bg-card p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
