@@ -3,6 +3,7 @@ import { GraphQLError } from 'graphql'
 import { db } from './db'
 import { computeBattleStatus } from './battleStatus'
 import { requireAuth, type Context } from './context'
+import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
 import {
   LIMITS,
   cleanCrews,
@@ -41,6 +42,7 @@ export const resolvers = {
       status: 'ok',
       message: 'Battle Skratch GraphQL API is running',
     }),
+    ...adminQuery,
   },
 
   Mutation: {
@@ -256,6 +258,7 @@ export const resolvers = {
       await db.vote.delete({ where: { id: vote.id } })
       return true
     },
+    ...adminMutation,
   },
 
   Battle: {
@@ -301,6 +304,8 @@ export const resolvers = {
     externalCrews: (parent: { externalCrews: string[] }) => parent.externalCrews,
     createdAt: (parent: { createdAt: Date }) => parent.createdAt.toISOString(),
   },
+
+  AdminUser,
 
   Vote: {
     createdAt: (parent: Vote) => parent.createdAt.toISOString(),

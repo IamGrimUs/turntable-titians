@@ -59,6 +59,78 @@ export const typeDefs = gql`
     COMPLETED
   }
 
+  enum UserRole {
+    USER
+    ADMIN
+    OWNER
+  }
+
+  enum UserStatus {
+    ACTIVE
+    SUSPENDED
+  }
+
+  enum AdminUserFilter {
+    ALL
+    ACTIVE
+    SUSPENDED
+    ADMINS
+  }
+
+  enum AdminUserSortKey {
+    role
+    username
+    crews
+    status
+    entries
+    battlesWon
+    votesCast
+    votesReceived
+    createdAt
+    lastSignInAt
+    email
+  }
+
+  enum SortDirection {
+    ASC
+    DESC
+  }
+
+  """Admin-only view of a user. Never reachable from public queries; email lives only here."""
+  type AdminUser {
+    id: ID!
+    username: String
+    name: String
+    image: String
+    email: String!
+    role: UserRole!
+    status: UserStatus!
+    suspendedUntil: String
+    suspensionReason: String
+    crews: [String!]!
+    entries: Int!
+    battlesWon: Int!
+    votesCast: Int!
+    votesReceived: Int!
+    createdAt: String!
+    lastSignInAt: String!
+  }
+
+  type AdminUserCounts {
+    all: Int!
+    active: Int!
+    suspended: Int!
+    admins: Int!
+  }
+
+  type AdminUserPage {
+    rows: [AdminUser!]!
+    total: Int!
+    page: Int!
+    pageCount: Int!
+    counts: AdminUserCounts!
+  }
+
   type Query {
     battles: [Battle!]!
     battle(id: ID!): Battle
@@ -68,6 +140,14 @@ export const typeDefs = gql`
     user(id: ID!): User
     me: User
     health: HealthStatus!
+    adminUsers(
+      search: String
+      filter: AdminUserFilter = ALL
+      sortKey: AdminUserSortKey = createdAt
+      sortDir: SortDirection = DESC
+      page: Int = 1
+      pageSize: Int = 25
+    ): AdminUserPage!
   }
 
   type Mutation {
