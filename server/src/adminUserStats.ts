@@ -95,22 +95,26 @@ export function buildAdminUserRows(input: StatsInput, now: Date = new Date()): A
     for (const userId of winners) winsByUser.set(userId, (winsByUser.get(userId) ?? 0) + 1)
   }
 
-  return input.users.map((u) => ({
-    id: u.id,
-    username: u.username,
-    name: u.name,
-    image: u.image,
-    email: u.email,
-    role: u.role,
-    status: isSuspended(u, now) ? 'SUSPENDED' : 'ACTIVE',
-    suspendedUntil: u.suspendedUntil,
-    suspensionReason: u.suspensionReason,
-    crews: mergeCrews(u.internalCrewNames, u.externalCrews),
-    entries: entriesByUser.get(u.id) ?? 0,
-    battlesWon: winsByUser.get(u.id) ?? 0,
-    votesCast: input.votesCastByUser.get(u.id) ?? 0,
-    votesReceived: votesReceivedByUser.get(u.id) ?? 0,
-    createdAt: u.createdAt,
-    lastSignInAt: u.lastSignInAt,
-  }))
+  return input.users.map((u) => {
+    // An expired suspension no longer counts, so its reason and end date are not shown either.
+    const suspended = isSuspended(u, now)
+    return {
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      image: u.image,
+      email: u.email,
+      role: u.role,
+      status: suspended ? ('SUSPENDED' as const) : ('ACTIVE' as const),
+      suspendedUntil: suspended ? u.suspendedUntil : null,
+      suspensionReason: suspended ? u.suspensionReason : null,
+      crews: mergeCrews(u.internalCrewNames, u.externalCrews),
+      entries: entriesByUser.get(u.id) ?? 0,
+      battlesWon: winsByUser.get(u.id) ?? 0,
+      votesCast: input.votesCastByUser.get(u.id) ?? 0,
+      votesReceived: votesReceivedByUser.get(u.id) ?? 0,
+      createdAt: u.createdAt,
+      lastSignInAt: u.lastSignInAt,
+    }
+  })
 }

@@ -220,6 +220,52 @@ describe('buildAdminUserRows', () => {
     expect(byId(rows, 'expired').status).toBe('ACTIVE')
   })
 
+  it('hides the reason and end date once a suspension has expired', () => {
+    const rows = buildAdminUserRows(
+      input({
+        users: [
+          user('expired', {
+            suspendedAt: day('2026-11-01'),
+            suspendedUntil: day('2026-11-10'),
+            suspensionReason: 'spam',
+          }),
+        ],
+      }),
+      now
+    )
+    const row = byId(rows, 'expired')
+    expect(row.status).toBe('ACTIVE')
+    expect(row.suspensionReason).toBeNull()
+    expect(row.suspendedUntil).toBeNull()
+  })
+
+  it('keeps the reason and end date while suspended, with or without an end date', () => {
+    const rows = buildAdminUserRows(
+      input({
+        users: [
+          user('timed', {
+            suspendedAt: day('2026-11-01'),
+            suspendedUntil: day('2026-11-20'),
+            suspensionReason: 'spam',
+          }),
+          user('open-ended', { suspendedAt: day('2026-11-01'), suspensionReason: 'abuse' }),
+        ],
+      }),
+      now
+    )
+    expect(byId(rows, 'timed').suspensionReason).toBe('spam')
+    expect(byId(rows, 'timed').suspendedUntil).toEqual(day('2026-11-20'))
+    expect(byId(rows, 'open-ended').suspensionReason).toBe('abuse')
+    expect(byId(rows, 'open-ended').suspendedUntil).toBeNull()
+  })
+
+  it('has null suspension details for a never-suspended user', () => {
+    const row = byId(buildAdminUserRows(input({ users: [user('clean')] }), now), 'clean')
+    expect(row.status).toBe('ACTIVE')
+    expect(row.suspensionReason).toBeNull()
+    expect(row.suspendedUntil).toBeNull()
+  })
+
   it('merges internal and external crews without case-insensitive duplicates', () => {
     const rows = buildAdminUserRows(
       input({
