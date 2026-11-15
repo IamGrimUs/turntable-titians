@@ -18,11 +18,11 @@ function UrlError() {
   const code = useSearchParams().get('error')
   if (!code) return null
   const message = ERROR_MESSAGES[code] ?? 'Something went wrong signing you in. Please try again.'
-  return <p className="text-center text-sm text-red-500 py-2">{message}</p>
+  return <p className="text-center text-base text-red-500 py-2">{message}</p>
 }
 
 const fieldClass =
-  'w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
+  'w-full rounded-md border border-border bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
 
 export default function SignInPage() {
   const [state, action, pending] = useActionState(sendMagicLink, undefined)
@@ -43,7 +43,7 @@ export default function SignInPage() {
         <div className="rounded-lg border border-border bg-card p-6 space-y-4">
           <button
             onClick={() => signIn('google', { callbackUrl: '/' })}
-            className="w-full rounded-md border border-border px-6 py-3 text-sm font-semibold text-foreground hover:bg-accent transition-colors flex items-center justify-center gap-3"
+            className="w-full rounded-md border border-border px-6 py-3 text-base font-semibold text-foreground hover:bg-accent transition-colors flex items-center justify-center gap-3"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -70,7 +70,7 @@ export default function SignInPage() {
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-border" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
+            <div className="relative flex justify-center text-base uppercase">
               <span className="bg-card px-2 text-muted-foreground">or</span>
             </div>
           </div>
@@ -80,7 +80,7 @@ export default function SignInPage() {
           </Suspense>
 
           {state?.error && (
-            <p className="text-center text-sm text-red-500 py-2">{state.error}</p>
+            <p className="text-center text-base text-red-500 py-2">{state.error}</p>
           )}
 
           <form action={action} className="space-y-3">
@@ -94,7 +94,7 @@ export default function SignInPage() {
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded-md bg-amber-500 px-6 py-3 text-sm font-black uppercase tracking-widest text-black hover:bg-amber-400 disabled:opacity-50 transition-all"
+              className="w-full rounded-md bg-amber-500 px-6 py-3 text-base font-black uppercase tracking-widest text-black hover:bg-amber-400 disabled:opacity-50 transition-all"
             >
               {pending ? 'Sending…' : 'Send Magic Link'}
             </button>

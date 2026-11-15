@@ -16,9 +16,9 @@ const CREATE_BATTLE = gql`
 `
 
 const fieldClass =
-  'w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
+  'w-full rounded-md border border-border bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
 
-const labelClass = 'block text-xs font-bold tracking-widest uppercase text-muted-foreground'
+const labelClass = 'block text-base font-bold tracking-widest uppercase text-muted-foreground'
 
 export default function CreateBattlePage() {
   const router = useRouter()
@@ -84,7 +84,7 @@ export default function CreateBattlePage() {
                 required
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. Summer Scratch Showdown"
+                placeholder="e.g. Summer Showdown"
                 maxLength={100}
                 className={fieldClass}
               />
@@ -100,7 +100,7 @@ export default function CreateBattlePage() {
                     key={t}
                     type="button"
                     onClick={() => setType(t)}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold tracking-wide transition-all border ${
+                    className={`rounded-full px-4 py-1.5 text-base font-semibold tracking-wide transition-all border ${
                       type === t
                         ? 'bg-amber-500 text-black border-amber-500'
                         : 'bg-transparent text-muted-foreground border-border hover:border-amber-500/50 hover:text-foreground'
@@ -140,25 +140,25 @@ export default function CreateBattlePage() {
                 onChange={e => setStartDate(e.target.value)}
                 className={fieldClass}
               />
-              <p className="text-xs text-muted-foreground">Battle goes live on this date. Ends 10 days later.</p>
+              <p className="text-base text-muted-foreground">Battle goes live on this date. Ends 10 days later.</p>
             </div>
 
             {displayError && (
-              <p className="text-sm font-medium text-red-400">{displayError}</p>
+              <p className="text-base font-medium text-red-400">{displayError}</p>
             )}
 
             <div className="flex gap-3 pt-1">
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 rounded-md bg-amber-500 px-6 py-3 text-sm font-black uppercase tracking-widest text-black transition-all hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-md bg-amber-500 px-6 py-3 text-base font-black uppercase tracking-widest text-black transition-all hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Dropping…' : 'Drop It'}
               </button>
               <button
                 type="button"
                 onClick={() => router.push('/battles')}
-                className="rounded-md border border-border px-6 py-3 text-sm font-semibold text-muted-foreground transition-all hover:border-foreground/40 hover:text-foreground"
+                className="rounded-md border border-border px-6 py-3 text-base font-semibold text-muted-foreground transition-all hover:border-foreground/40 hover:text-foreground"
               >
                 Cancel
               </button>

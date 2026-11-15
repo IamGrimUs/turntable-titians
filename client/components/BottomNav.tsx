@@ -28,7 +28,7 @@ export function BottomNav() {
             key={item.name}
             href={item.href}
             className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 text-xs transition-colors',
+              'flex flex-1 flex-col items-center justify-center gap-1 text-base transition-colors',
               isActive
                 ? 'text-amber-500'
                 : 'text-muted-foreground hover:text-foreground'
@@ -45,7 +45,7 @@ export function BottomNav() {
           <Link
             href="/profile"
             className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 text-xs transition-colors',
+              'flex flex-1 flex-col items-center justify-center gap-1 text-base transition-colors',
               pathname === '/profile'
                 ? 'text-amber-500'
                 : 'text-muted-foreground hover:text-foreground'
@@ -65,7 +65,7 @@ export function BottomNav() {
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
             className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 text-xs transition-colors',
+              'flex flex-1 flex-col items-center justify-center gap-1 text-base transition-colors',
               'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -77,7 +77,7 @@ export function BottomNav() {
         <Link
           href="/auth/signin"
           className={cn(
-            'flex flex-1 flex-col items-center justify-center gap-1 text-xs transition-colors',
+            'flex flex-1 flex-col items-center justify-center gap-1 text-base transition-colors',
             pathname === '/auth/signin'
               ? 'text-amber-500'
               : 'text-muted-foreground hover:text-foreground'

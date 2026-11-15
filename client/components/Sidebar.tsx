@@ -43,7 +43,7 @@ export function Sidebar() {
                   <Link
                     href={item.href}
                     className={cn(
-                      'group flex items-center justify-center rounded-md p-2.5 text-sm font-medium transition-colors',
+                      'group flex items-center justify-center rounded-md p-2.5 text-base font-medium transition-colors',
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'

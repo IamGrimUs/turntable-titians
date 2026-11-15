@@ -154,9 +154,9 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
           className="aspect-video bg-muted relative cursor-pointer"
           onClick={() => embedUrl && setIsModalOpen(true)}
         >
-          {isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className="absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
-          {rank === 2 && !isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className="absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
-          {rank === 3 && !isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className={`absolute bottom-2 right-2 z-10 text-xs font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
+          {isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className="absolute bottom-2 right-2 z-10 text-base font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
+          {rank === 2 && !isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className="absolute bottom-2 right-2 z-10 text-base font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
+          {rank === 3 && !isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className={`absolute bottom-2 right-2 z-10 text-base font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
           {embedUrl ? (
             <>
               <img
@@ -186,7 +186,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <a href={submission.videoUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-amber-500 underline underline-offset-2">
+              <a href={submission.videoUrl} target="_blank" rel="noopener noreferrer" className="text-base text-amber-500 underline underline-offset-2">
                 Watch video
               </a>
             </div>
@@ -204,7 +204,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
               {submission.user.image ? (
                 <img src={submission.user.image} alt={displayName} className="w-7 h-7 rounded-full object-cover border border-border" />
               ) : (
-                <span className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-center border border-amber-500/30">{initial}</span>
+                <span className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-base font-bold flex items-center justify-center border border-amber-500/30">{initial}</span>
               )}
               <span className="text-base font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{displayName}</span>
             </Link>

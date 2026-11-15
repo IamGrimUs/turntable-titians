@@ -36,12 +36,12 @@ function ParticipantAvatars({ submissions }: { submissions: Participant[] }) {
         const user = sub.user
         const initials = (user.username ?? user.name ?? 'DJ').slice(0, 2).toUpperCase()
         return (
-          <div key={sub.id} className={`w-[34px] h-[34px] rounded-full border-2 border-card overflow-hidden flex items-center justify-center bg-muted text-muted-foreground text-xs font-medium shrink-0 ${i > 0 ? '-ml-3' : ''}`} title={user.username ?? user.name ?? 'DJ'}>
+          <div key={sub.id} className={`w-[34px] h-[34px] rounded-full border-2 border-card overflow-hidden flex items-center justify-center bg-muted text-muted-foreground text-base font-medium shrink-0 ${i > 0 ? '-ml-3' : ''}`} title={user.username ?? user.name ?? 'DJ'}>
             {user.image ? <img src={user.image} alt={initials} className="w-full h-full object-cover" /> : initials}
           </div>
         )
       })}
-      {overflow > 0 && <div className="-ml-3 w-[34px] h-[34px] rounded-full border-2 border-card bg-muted flex items-center justify-center text-xs text-muted-foreground font-medium shrink-0">+{overflow}</div>}
+      {overflow > 0 && <div className="-ml-3 w-[34px] h-[34px] rounded-full border-2 border-card bg-muted flex items-center justify-center text-base text-muted-foreground font-medium shrink-0">+{overflow}</div>}
     </div>
   )
 }
@@ -66,10 +66,10 @@ function BattleCard({ battle }: { battle: BattleSummary }) {
               {battle.status}
             </Badge>
           </div>
-          {battle.description && <CardDescription className="line-clamp-2 text-xs mt-2">{battle.description}</CardDescription>}
+          {battle.description && <CardDescription className="line-clamp-2 text-base mt-2">{battle.description}</CardDescription>}
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+          <div className="flex flex-col gap-2 text-base text-muted-foreground">
             <div className="flex gap-4">
               <span>Start: {new Date(battle.startDate).toLocaleDateString()}</span>
               <span>End: {new Date(battle.endDate).toLocaleDateString()}</span>
@@ -78,7 +78,7 @@ function BattleCard({ battle }: { battle: BattleSummary }) {
         </CardContent>
         <CardFooter className="pt-3 flex flex-col items-start gap-2">
           <ParticipantAvatars submissions={battle.submissions ?? []} />
-          <span className="text-xs text-muted-foreground">
+          <span className="text-base text-muted-foreground">
             {submissionCount} {submissionCount === 1 ? 'submission' : 'submissions'}
           </span>
         </CardFooter>
@@ -133,12 +133,12 @@ export default function BattlesPage() {
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-5xl font-graffiti mb-2 text-foreground">Battles</h1>
-        <p className="text-muted-foreground text-sm">Compete, submit your sets, and vote for the winners</p>
+        <p className="text-muted-foreground text-base">Compete, submit your sets, and vote for the winners</p>
       </div>
 
       {hasAny && (
         <div className="flex items-center gap-2 mb-8 flex-wrap">
-          <button onClick={() => setActiveFilter(null)} className={`px-3 py-1 rounded-full border text-xs font-medium transition-colors ${activeFilter === null ? FILTER_STYLES.ALL.active : FILTER_STYLES.ALL.base}`}>
+          <button onClick={() => setActiveFilter(null)} className={`px-3 py-1 rounded-full border text-base font-medium transition-colors ${activeFilter === null ? FILTER_STYLES.ALL.active : FILTER_STYLES.ALL.base}`}>
             All · {battles.length}
           </button>
           {STATUS_ORDER.map(status => {
@@ -147,7 +147,7 @@ export default function BattlesPage() {
             const isActive = activeFilter === status
             const styles = FILTER_STYLES[status]
             return (
-              <button key={status} onClick={() => setActiveFilter(isActive ? null : status)} className={`px-3 py-1 rounded-full border text-xs font-medium transition-colors ${isActive ? styles.active : styles.base}`}>
+              <button key={status} onClick={() => setActiveFilter(isActive ? null : status)} className={`px-3 py-1 rounded-full border text-base font-medium transition-colors ${isActive ? styles.active : styles.base}`}>
                 {STATUS_LABELS[status]} · {count}
               </button>
             )
@@ -169,7 +169,7 @@ export default function BattlesPage() {
             if (group.length === 0) return null
             return (
               <section key={status}>
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">{STATUS_LABELS[status]}</h2>
+                <h2 className="text-base font-semibold uppercase tracking-widest text-muted-foreground mb-4">{STATUS_LABELS[status]}</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {group.map((battle) => (
                     <BattleCard key={battle.id} battle={battle} />
