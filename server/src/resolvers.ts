@@ -4,20 +4,15 @@ import { db } from './db'
 import { computeBattleStatus } from './battleStatus'
 import { requireAuth, type Context } from './context'
 import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
+import { prepareCrews, prepareUsername } from './profileRules'
 import {
   LIMITS,
-  cleanCrews,
   cleanHttpsUrl,
   cleanMultiLine,
   cleanSingleLine,
-  cleanUsername,
   getAllowedImageHosts,
   parseBattleDates,
 } from './validation'
-
-function sameList(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((value, i) => value === b[i])
-}
 
 export const resolvers = {
   Query: {
@@ -142,30 +137,7 @@ export const resolvers = {
         select: { username: true, image: true, externalCrews: true },
       })
 
-      let nextUsername: string | undefined
-      if (username !== undefined && username !== null) {
-        const trimmed = username.trim()
-        if (trimmed === '') {
-          throw new GraphQLError('Username cannot be empty', {
-            extensions: { code: 'BAD_USER_INPUT' },
-          })
-        }
-        if (trimmed !== current?.username) {
-          nextUsername = cleanUsername(trimmed)
-          // Case-insensitive, so "Admin" cannot impersonate "admin".
-          const taken = await db.user.findFirst({
-            where: { username: { equals: nextUsername, mode: 'insensitive' }, NOT: { id: userId } },
-            select: { id: true },
-          })
-          if (taken) {
-            throw new GraphQLError('Username already taken', {
-              extensions: { code: 'BAD_USER_INPUT' },
-            })
-          }
-        } else {
-          nextUsername = trimmed
-        }
-      }
+      const nextUsername = await prepareUsername(username, current?.username ?? null, userId)
 
       let nextImage: string | null | undefined
       if (image !== undefined) {
@@ -181,12 +153,7 @@ export const resolvers = {
         }
       }
 
-      let nextCrews: string[] | undefined
-      if (externalCrews !== undefined && externalCrews !== null) {
-        nextCrews = sameList(externalCrews, current?.externalCrews ?? [])
-          ? externalCrews
-          : cleanCrews(externalCrews)
-      }
+      const nextCrews = prepareCrews(externalCrews, current?.externalCrews ?? [])
 
       return db.user.update({
         where: { id: userId },
