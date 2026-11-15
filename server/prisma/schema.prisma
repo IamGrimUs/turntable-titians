@@ -49,6 +49,9 @@ model Submission {
 
   battle Battle @relation(fields: [battleId], references: [id])
   user   User   @relation(fields: [userId], references: [id])
+
+  // One entry per user per battle (also checked in createSubmission for a friendly message).
+  @@unique([battleId, userId])
 }
 
 model Vote {
