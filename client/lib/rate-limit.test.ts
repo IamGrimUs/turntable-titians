@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createHmac } from 'node:crypto'
 import { consume, peek, hashKey, type RateLimitDb } from './rate-limit'
 
 const queryRaw = vi.fn()
@@ -14,21 +15,26 @@ beforeEach(() => {
 })
 
 describe('hashKey', () => {
-  it('is a stable 64-char hex digest', () => {
-    const a = hashKey('email', 'person@example.com', 'secret')
+  it('is a stable 64-char hex digest', async () => {
+    const a = await hashKey('email', 'person@example.com', 'secret')
     expect(a).toMatch(/^[0-9a-f]{64}$/)
-    expect(hashKey('email', 'person@example.com', 'secret')).toBe(a)
+    expect(await hashKey('email', 'person@example.com', 'secret')).toBe(a)
   })
 
-  it('differs by namespace, value and secret, so an email and an IP can never collide', () => {
-    const base = hashKey('email', 'x', 'secret')
-    expect(hashKey('ip', 'x', 'secret')).not.toBe(base)
-    expect(hashKey('email', 'y', 'secret')).not.toBe(base)
-    expect(hashKey('email', 'x', 'other')).not.toBe(base)
+  it('differs by namespace, value and secret, so an email and an IP can never collide', async () => {
+    const base = await hashKey('email', 'x', 'secret')
+    expect(await hashKey('ip', 'x', 'secret')).not.toBe(base)
+    expect(await hashKey('email', 'y', 'secret')).not.toBe(base)
+    expect(await hashKey('email', 'x', 'other')).not.toBe(base)
   })
 
-  it('never contains the raw value (so the table holds no plaintext emails or IPs)', () => {
-    expect(hashKey('email', 'person@example.com', 's')).not.toContain('person')
+  it('never contains the raw value (so the table holds no plaintext emails or IPs)', async () => {
+    expect(await hashKey('email', 'person@example.com', 's')).not.toContain('person')
+  })
+
+  it('is identical to a standard HMAC-SHA256, so counters written by older versions still match', async () => {
+    const expected = createHmac('sha256', 'secret').update('email:person@example.com').digest('hex')
+    expect(await hashKey('email', 'person@example.com', 'secret')).toBe(expected)
   })
 })
 

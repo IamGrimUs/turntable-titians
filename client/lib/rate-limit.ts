@@ -1,4 +1,3 @@
-import { createHmac } from 'node:crypto'
 import type { PrismaClient } from '@prisma/client'
 
 /**
@@ -34,8 +33,12 @@ type Row = { count: number; retryAfterSeconds: number }
  * Keys are HMAC hashes, so the table never holds a plaintext email address or IP.
  * The namespace keeps an email and an IP that happen to look alike from colliding.
  */
-export function hashKey(namespace: string, value: string, secret: string): string {
-  return createHmac('sha256', secret).update(`${namespace}:${value}`).digest('hex')
+export async function hashKey(namespace: string, value: string, secret: string): Promise<string> {
+  // Web Crypto, not node:crypto: this file is also pulled into the Edge middleware bundle.
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(`${namespace}:${value}`))
+  return Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 const toWait = (seconds: number) => Math.max(0, Math.ceil(Number(seconds) || 0))
