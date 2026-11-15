@@ -2,11 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('./db', () => ({
   db: {
-    user: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+    user: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    bannedEmail: { upsert: vi.fn() },
     adminAuditLog: { create: vi.fn() },
     $transaction: vi.fn(),
-    submission: { findMany: vi.fn() },
-    vote: { groupBy: vi.fn() },
+    submission: { findMany: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
+    vote: { groupBy: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
     battle: { findMany: vi.fn() },
   },
 }))
@@ -29,6 +30,12 @@ const userFindUnique = db.user.findUnique as unknown as ReturnType<typeof vi.fn>
 const userFindFirst = db.user.findFirst as unknown as ReturnType<typeof vi.fn>
 const userUpdate = db.user.update as unknown as ReturnType<typeof vi.fn>
 const auditCreate = db.adminAuditLog.create as unknown as ReturnType<typeof vi.fn>
+const userDelete = db.user.delete as unknown as ReturnType<typeof vi.fn>
+const bannedEmailUpsert = db.bannedEmail.upsert as unknown as ReturnType<typeof vi.fn>
+const submissionCount = db.submission.count as unknown as ReturnType<typeof vi.fn>
+const voteCount = db.vote.count as unknown as ReturnType<typeof vi.fn>
+const submissionDeleteMany = db.submission.deleteMany as unknown as ReturnType<typeof vi.fn>
+const voteDeleteMany = db.vote.deleteMany as unknown as ReturnType<typeof vi.fn>
 const transaction = db.$transaction as unknown as ReturnType<typeof vi.fn>
 const querySpy = queryAdminUsers as unknown as ReturnType<typeof vi.fn>
 
@@ -82,6 +89,12 @@ beforeEach(() => {
   userFindUnique.mockReset()
   userFindFirst.mockReset().mockResolvedValue(null)
   userUpdate.mockReset().mockImplementation((args: unknown) => ({ op: 'user.update', args }))
+  userDelete.mockReset().mockImplementation((args: unknown) => ({ op: 'user.delete', args }))
+  bannedEmailUpsert.mockReset().mockImplementation((args: unknown) => ({ op: 'bannedEmail.upsert', args }))
+  submissionCount.mockReset().mockResolvedValue(0)
+  voteCount.mockReset().mockResolvedValue(0)
+  submissionDeleteMany.mockReset()
+  voteDeleteMany.mockReset()
   auditCreate.mockReset().mockImplementation((args: unknown) => ({ op: 'adminAuditLog.create', args }))
   transaction.mockReset().mockImplementation((ops: unknown[]) => Promise.all(ops))
 })
@@ -747,5 +760,227 @@ describe('adminReinstateUser', () => {
     const err = await rejection(adminReinstateUser({}, { userId: 't1' }, { ...boss, email: undefined }))
     expect(err.message).toBe('audit: actor email missing')
     expectNoWrites()
+  })
+})
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminDeleteUser = adminMutation.adminDeleteUser as (...args: any[]) => Promise<any>
+
+describe('adminDeleteUser', () => {
+  const deletable = (extra: Record<string, unknown> = {}) => ({
+    id: 't1',
+    role: 'USER',
+    username: 'oldname',
+    email: 't1@example.com',
+    ...extra,
+  })
+
+  function expectNoDeleteWrites() {
+    expect(transaction).not.toHaveBeenCalled()
+    expect(userDelete).not.toHaveBeenCalled()
+    expect(bannedEmailUpsert).not.toHaveBeenCalled()
+    expect(auditCreate).not.toHaveBeenCalled()
+    expect(userUpdate).not.toHaveBeenCalled()
+  }
+
+  function expectNothingTouched() {
+    expect(userFindUnique).not.toHaveBeenCalled()
+    expect(submissionCount).not.toHaveBeenCalled()
+    expect(voteCount).not.toHaveBeenCalled()
+    expectNoDeleteWrites()
+  }
+
+  beforeEach(() => {
+    userFindUnique.mockResolvedValue(deletable())
+    submissionCount.mockResolvedValue(2)
+    voteCount.mockImplementation(async (args: { where: Record<string, unknown> }) =>
+      'userId' in args.where ? 5 : 7,
+    )
+  })
+
+  it('registers the mutation', () => {
+    expect(Object.keys(adminMutation)).toEqual(expect.arrayContaining(['adminDeleteUser']))
+  })
+
+  describe('with a nonexistent userId, a caller who is not an admin learns nothing and costs no database read (R10)', () => {
+    beforeEach(() => {
+      userFindUnique.mockResolvedValue(null)
+    })
+
+    it('anonymous: UNAUTHENTICATED, not NOT_FOUND', async () => {
+      const err = await rejection(adminDeleteUser({}, { userId: 'nope' }, anonymous))
+      expect(err.extensions.code).toBe('UNAUTHENTICATED')
+      expectNothingTouched()
+    })
+
+    it('USER: FORBIDDEN, not NOT_FOUND', async () => {
+      const err = await rejection(adminDeleteUser({}, { userId: 'nope', blockEmail: true }, asUser))
+      expect(err.extensions.code).toBe('FORBIDDEN')
+      expectNothingTouched()
+    })
+
+    it('suspended ADMIN: FORBIDDEN, not NOT_FOUND', async () => {
+      const ctx = { ...boss, suspension: { reason: 'spam', until: null } }
+      const err = await rejection(adminDeleteUser({}, { userId: 'nope' }, ctx))
+      expect(err.extensions.code).toBe('FORBIDDEN')
+      expectNothingTouched()
+    })
+
+    it('ADMIN: NOT_FOUND, with no counts and no writes', async () => {
+      const err = await rejection(adminDeleteUser({}, { userId: 'nope' }, boss))
+      expect(err.extensions.code).toBe('NOT_FOUND')
+      expect(submissionCount).not.toHaveBeenCalled()
+      expect(voteCount).not.toHaveBeenCalled()
+      expectNoDeleteWrites()
+    })
+  })
+
+  it('rejects an anonymous caller with UNAUTHENTICATED and writes nothing', async () => {
+    const err = await rejection(adminDeleteUser({}, { userId: 't1' }, anonymous))
+    expect(err.extensions.code).toBe('UNAUTHENTICATED')
+    expectNoDeleteWrites()
+  })
+
+  it('rejects a USER caller with FORBIDDEN and writes nothing', async () => {
+    const err = await rejection(adminDeleteUser({}, { userId: 't1' }, asUser))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoDeleteWrites()
+  })
+
+  it.each(['ADMIN', 'OWNER'])('rejects an ADMIN deleting a %s with FORBIDDEN and writes nothing', async (role) => {
+    userFindUnique.mockResolvedValue(deletable({ role }))
+    const err = await rejection(adminDeleteUser({}, { userId: 't1', blockEmail: true }, boss))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoDeleteWrites()
+    expect(submissionCount).not.toHaveBeenCalled()
+    expect(voteCount).not.toHaveBeenCalled()
+  })
+
+  it('rejects an OWNER deleting the OWNER (including themselves) with FORBIDDEN and writes nothing', async () => {
+    userFindUnique.mockResolvedValue(deletable({ id: 'own', role: 'OWNER' }))
+    const err = await rejection(adminDeleteUser({}, { userId: 'own' }, owner))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoDeleteWrites()
+  })
+
+  it('lets an OWNER delete an ADMIN', async () => {
+    userFindUnique.mockResolvedValue(deletable({ id: 'a2', role: 'ADMIN' }))
+    const result = await adminDeleteUser({}, { userId: 'a2' }, owner)
+    expect(result).toBe(true)
+    expect(userDelete).toHaveBeenCalledWith({ where: { id: 'a2' } })
+    expect(auditCreate.mock.calls[0][0].data).toMatchObject({ actorId: 'own', targetId: 'a2', action: 'USER_DELETE' })
+  })
+
+  it('loads the target with the fields it needs', async () => {
+    await adminDeleteUser({}, { userId: 't1' }, boss)
+    expect(userFindUnique).toHaveBeenCalledWith({
+      where: { id: 't1' },
+      select: { id: true, role: true, username: true, email: true },
+    })
+  })
+
+  it('counts entries, votes cast and votes received for the target', async () => {
+    await adminDeleteUser({}, { userId: 't1' }, boss)
+    expect(submissionCount).toHaveBeenCalledWith({ where: { userId: 't1' } })
+    expect(voteCount).toHaveBeenCalledWith({ where: { userId: 't1' } })
+    expect(voteCount).toHaveBeenCalledWith({ where: { submission: { userId: 't1' } } })
+    expect(voteCount).toHaveBeenCalledTimes(2)
+  })
+
+  it('deletes a USER as ADMIN in ONE transaction: the USER_DELETE audit entry, then the delete, returning true', async () => {
+    const result = await adminDeleteUser({}, { userId: 't1' }, boss)
+    expect(result).toBe(true)
+    expect(transaction).toHaveBeenCalledTimes(1)
+    const ops = transaction.mock.calls[0][0]
+    expect(ops.map((op: { op: string }) => op.op)).toEqual(['adminAuditLog.create', 'user.delete'])
+    expect(auditCreate).toHaveBeenCalledTimes(1)
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: {
+        actorId: 'adm',
+        actorUsername: 'boss',
+        actorEmail: 'boss@example.com',
+        action: 'USER_DELETE',
+        targetType: 'USER',
+        targetId: 't1',
+        targetUsername: 'oldname',
+        targetEmail: 't1@example.com',
+        details: { entries: 2, votesCast: 5, votesReceived: 7, emailBlocked: false },
+      },
+    })
+    expect(userDelete).toHaveBeenCalledWith({ where: { id: 't1' } })
+    expect(bannedEmailUpsert).not.toHaveBeenCalled()
+  })
+
+  it('relies on the database cascade: no manual vote or submission deletes', async () => {
+    await adminDeleteUser({}, { userId: 't1', blockEmail: true }, boss)
+    expect(voteDeleteMany).not.toHaveBeenCalled()
+    expect(submissionDeleteMany).not.toHaveBeenCalled()
+    const ops = transaction.mock.calls[0][0]
+    expect(ops.every((op: { op: string }) => ['bannedEmail.upsert', 'adminAuditLog.create', 'user.delete'].includes(op.op))).toBe(true)
+  })
+
+  it('does not block the email when blockEmail is false or omitted', async () => {
+    await adminDeleteUser({}, { userId: 't1', blockEmail: false }, boss)
+    expect(bannedEmailUpsert).not.toHaveBeenCalled()
+    expect(auditCreate.mock.calls.map((c) => c[0].data.action)).toEqual(['USER_DELETE'])
+  })
+
+  it('with blockEmail, upserts the banned email and writes EMAIL_BLOCK then USER_DELETE, all before the delete', async () => {
+    await adminDeleteUser({}, { userId: 't1', blockEmail: true }, boss)
+    expect(transaction).toHaveBeenCalledTimes(1)
+    const ops = transaction.mock.calls[0][0]
+    expect(ops.map((op: { op: string }) => op.op)).toEqual([
+      'bannedEmail.upsert',
+      'adminAuditLog.create',
+      'adminAuditLog.create',
+      'user.delete',
+    ])
+    expect(bannedEmailUpsert).toHaveBeenCalledWith({
+      where: { email: 't1@example.com' },
+      create: { email: 't1@example.com', reason: 'Blocked when the account was deleted', createdById: 'adm' },
+      update: {},
+    })
+    expect(auditCreate.mock.calls.map((c) => c[0].data.action)).toEqual(['EMAIL_BLOCK', 'USER_DELETE'])
+    expect(auditCreate.mock.calls[0][0].data).toMatchObject({
+      actorId: 'adm',
+      targetId: 't1',
+      targetUsername: 'oldname',
+      targetEmail: 't1@example.com',
+    })
+    expect(auditCreate.mock.calls[1][0].data.details).toEqual({
+      entries: 2,
+      votesCast: 5,
+      votesReceived: 7,
+      emailBlocked: true,
+    })
+    expect(ops[3].args).toEqual({ where: { id: 't1' } })
+  })
+
+  it('blocks the email lower-cased, but keeps the original-case email in the audit snapshot', async () => {
+    userFindUnique.mockResolvedValue(deletable({ email: 'Mixed.Case@Example.com' }))
+    await adminDeleteUser({}, { userId: 't1', blockEmail: true }, boss)
+    const call = bannedEmailUpsert.mock.calls[0][0]
+    expect(call.where).toEqual({ email: 'mixed.case@example.com' })
+    expect(call.create.email).toBe('mixed.case@example.com')
+    expect(auditCreate.mock.calls[0][0].data.targetEmail).toBe('Mixed.Case@Example.com')
+  })
+
+  it('blocking an already blocked email is fine because it is an upsert that leaves the row alone', async () => {
+    const result = await adminDeleteUser({}, { userId: 't1', blockEmail: true }, boss)
+    expect(result).toBe(true)
+    expect(bannedEmailUpsert.mock.calls[0][0].update).toEqual({})
+    expect(userDelete).toHaveBeenCalledTimes(1)
+  })
+
+  it('snapshots the target username and email from the row loaded before the delete', async () => {
+    userFindUnique.mockResolvedValue(deletable({ username: 'gone', email: 'gone@example.com' }))
+    await adminDeleteUser({}, { userId: 't1' }, boss)
+    expect(auditCreate.mock.calls[0][0].data).toMatchObject({ targetUsername: 'gone', targetEmail: 'gone@example.com' })
+  })
+
+  it('fails closed (no write) when the actor email is missing from the context', async () => {
+    const err = await rejection(adminDeleteUser({}, { userId: 't1', blockEmail: true }, { ...boss, email: undefined }))
+    expect(err.message).toBe('audit: actor email missing')
+    expectNoDeleteWrites()
   })
 })

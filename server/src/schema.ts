@@ -178,6 +178,7 @@ export const typeDefs = gql`
     ): AdminUser!
     adminSuspendUser(userId: ID!, reason: String!, until: String): AdminUser!
     adminReinstateUser(userId: ID!): AdminUser!
+    adminDeleteUser(userId: ID!, blockEmail: Boolean = false): Boolean!
     vote(submissionId: ID!): Vote!
     deleteVote(submissionId: ID!): Boolean!
   }

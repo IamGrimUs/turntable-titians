@@ -34,6 +34,11 @@ export interface AdminUpdateUserArgs {
   removeAvatar?: boolean | null
 }
 
+export interface AdminDeleteUserArgs {
+  userId: string
+  blockEmail?: boolean | null
+}
+
 export interface AdminSuspendUserArgs {
   userId: string
   reason: string
@@ -168,6 +173,64 @@ export const adminMutation = {
     // Never suspended: nothing to do and nothing to log. The row is still returned.
 
     return (await loadAdminUserRows([user.id]))[0]
+  },
+
+  adminDeleteUser: async (_: unknown, args: AdminDeleteUserArgs, ctx: Context) => {
+    // Same order as the other admin mutations: access check before any database read, then the
+    // load, then the target-aware check.
+    requireAdmin(ctx, 'viewAdmin')
+    const user = await db.user.findUnique({
+      where: { id: args.userId },
+      select: { id: true, role: true, username: true, email: true },
+    })
+    if (!user) {
+      throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } })
+    }
+    const actor = requireAdmin(ctx, 'manageUser', { id: user.id, role: user.role })
+    const blockEmail = args.blockEmail === true
+
+    // Counted before the delete, for the audit entry: afterwards the rows are gone.
+    const [entries, votesCast, votesReceived] = await Promise.all([
+      db.submission.count({ where: { userId: user.id } }),
+      db.vote.count({ where: { userId: user.id } }),
+      db.vote.count({ where: { submission: { userId: user.id } } }),
+    ])
+
+    // Audit rows are built first: they throw if the actor's email is missing, before any write is queued.
+    // They snapshot the target's username and email, so they still read correctly once the user is gone.
+    const actorParty = { id: actor.id, username: ctx.username, email: ctx.email }
+    const targetParty = { id: user.id, username: user.username, email: user.email }
+    const blockAudit = blockEmail
+      ? auditData({ actor: actorParty, action: 'EMAIL_BLOCK', target: targetParty })
+      : null
+    const deleteAudit = auditData({
+      actor: actorParty,
+      action: 'USER_DELETE',
+      target: targetParty,
+      details: { entries, votesCast, votesReceived, emailBlocked: blockEmail },
+    })
+
+    // One transaction. The database cascades the user's entries, the votes they cast and the votes on
+    // their entries (and their accounts, sessions and crew memberships), so there are no manual deletes.
+    // The audit rows come before the delete; the delete is last.
+    const lowerEmail = user.email.toLowerCase()
+    await db.$transaction([
+      ...(blockAudit
+        ? [
+            // An upsert that leaves an existing row alone: blocking an already blocked email is fine.
+            db.bannedEmail.upsert({
+              where: { email: lowerEmail },
+              create: { email: lowerEmail, reason: 'Blocked when the account was deleted', createdById: actor.id },
+              update: {},
+            }),
+            db.adminAuditLog.create({ data: blockAudit }),
+          ]
+        : []),
+      db.adminAuditLog.create({ data: deleteAudit }),
+      db.user.delete({ where: { id: user.id } }),
+    ])
+
+    return true
   },
 }
 
