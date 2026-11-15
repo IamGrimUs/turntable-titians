@@ -27,9 +27,8 @@ interface Column {
 // Order and labels are fixed by the design. "Votes (in)" = votes the user cast,
 // "Votes (out)" = votes their entries received.
 const COLUMNS: Column[] = [
-  // Role is 120px wide: the Username column pins at left-[120px] below.
-  { key: 'role', label: 'Role', width: 120 },
   { key: 'username', label: 'Username', width: 220 },
+  { key: 'role', label: 'Role', width: 120 },
   { key: 'crews', label: 'Crews', width: 190 },
   { key: 'status', label: 'Status', width: 140 },
   { key: 'entries', label: 'Entries', width: 110 },
@@ -66,11 +65,11 @@ const ROLE_BADGE: Record<Role, { variant: 'default' | 'upcoming' | 'completed'; 
   USER: { variant: 'completed', label: 'USER' }, // slate
 }
 
-// Role, Username and Actions are pinned from the xl breakpoint up. On narrower screens the
-// three pinned columns would cover the whole width, so everything scrolls together there.
-// Sticky cells need an opaque background so scrolling content does not show through.
-const stickyLeft1 = 'xl:sticky xl:left-0 xl:z-10 bg-card'
-const stickyLeft2 = 'xl:sticky xl:z-10 bg-card xl:shadow-[8px_0_8px_-8px_rgba(0,0,0,0.6)]'
+// Username (left) and Actions (right) are pinned from the xl breakpoint up. On narrower
+// screens the pinned columns would cover too much of the width, so everything scrolls
+// together there. Sticky cells need an opaque background so scrolling content does not
+// show through.
+const stickyLeft = 'xl:sticky xl:left-0 xl:z-10 bg-card xl:shadow-[8px_0_8px_-8px_rgba(0,0,0,0.6)]'
 const stickyRight = 'xl:sticky xl:right-0 xl:z-10 bg-card xl:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)]'
 
 function SortHeader({
@@ -212,12 +211,9 @@ export function UsersTable({ viewerRole, rows, sort, onSort, onAction }: UsersTa
                 sort={sort}
                 onSort={onSort}
                 className={cn(
-                  i === 0 && cn(stickyLeft1, 'pl-4 xl:z-20'),
-                  i === 1 && cn(stickyLeft2, 'xl:z-20 bg-muted xl:left-[120px]'),
-                  i === 0 && 'bg-muted',
+                  i === 0 && cn(stickyLeft, 'pl-4 xl:z-20 bg-muted'),
                   column.key === null && cn(stickyRight, 'xl:z-20 bg-muted pr-4')
                 )}
-                
               />
             ))}
           </tr>
@@ -229,10 +225,7 @@ export function UsersTable({ viewerRole, rows, sort, onSort, onAction }: UsersTa
             const who = row.username ?? row.email
             return (
               <tr key={row.id}>
-                <td className={cn(cell, stickyLeft1, 'pl-4')}>
-                  <RoleBadge role={row.role} />
-                </td>
-                <td className={cn(cell, stickyLeft2, 'xl:left-[120px]')}>
+                <td className={cn(cell, stickyLeft, 'pl-4')}>
                   <span className="flex min-w-0 items-center gap-2.5">
                     <Avatar row={row} />
                     {row.username ? (
@@ -243,6 +236,9 @@ export function UsersTable({ viewerRole, rows, sort, onSort, onAction }: UsersTa
                       <span className="min-w-0 truncate italic text-muted-foreground">No username yet</span>
                     )}
                   </span>
+                </td>
+                <td className={cell}>
+                  <RoleBadge role={row.role} />
                 </td>
                 <td className={cell}>
                   <CrewsCell crews={row.crews} />
