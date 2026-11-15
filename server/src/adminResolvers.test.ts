@@ -984,3 +984,189 @@ describe('adminDeleteUser', () => {
     expectNoDeleteWrites()
   })
 })
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminSetUserRole = adminMutation.adminSetUserRole as (...args: any[]) => Promise<any>
+
+describe('adminSetUserRole', () => {
+  const roleTarget = (extra: Record<string, unknown> = {}) => ({
+    id: 't1',
+    role: 'USER',
+    username: 'oldname',
+    email: 't1@example.com',
+    ...extra,
+  })
+
+  function expectNoRoleWrites() {
+    expect(transaction).not.toHaveBeenCalled()
+    expect(userUpdate).not.toHaveBeenCalled()
+    expect(auditCreate).not.toHaveBeenCalled()
+  }
+
+  function expectNothingTouched() {
+    expect(userFindUnique).not.toHaveBeenCalled()
+    expect(userFindMany).not.toHaveBeenCalled()
+    expectNoRoleWrites()
+  }
+
+  beforeEach(() => {
+    userFindUnique.mockResolvedValue(roleTarget())
+    userFindMany.mockResolvedValue([dbUser('t1')])
+  })
+
+  it('registers the mutation', () => {
+    expect(Object.keys(adminMutation)).toEqual(expect.arrayContaining(['adminSetUserRole']))
+  })
+
+  describe('with a nonexistent userId, a caller who cannot view the admin area learns nothing and costs no database read (R10)', () => {
+    beforeEach(() => {
+      userFindUnique.mockResolvedValue(null)
+    })
+
+    it('anonymous: UNAUTHENTICATED, not NOT_FOUND', async () => {
+      const err = await rejection(adminSetUserRole({}, { userId: 'nope', role: 'ADMIN' }, anonymous))
+      expect(err.extensions.code).toBe('UNAUTHENTICATED')
+      expectNothingTouched()
+    })
+
+    it('USER: FORBIDDEN, not NOT_FOUND', async () => {
+      const err = await rejection(adminSetUserRole({}, { userId: 'nope', role: 'ADMIN' }, asUser))
+      expect(err.extensions.code).toBe('FORBIDDEN')
+      expectNothingTouched()
+    })
+
+    it('suspended ADMIN: FORBIDDEN, not NOT_FOUND', async () => {
+      const ctx = { ...boss, suspension: { reason: 'spam', until: null } }
+      const err = await rejection(adminSetUserRole({}, { userId: 'nope', role: 'ADMIN' }, ctx))
+      expect(err.extensions.code).toBe('FORBIDDEN')
+      expectNothingTouched()
+    })
+
+    it('suspended OWNER: FORBIDDEN, not NOT_FOUND', async () => {
+      const ctx = { ...owner, suspension: { reason: 'spam', until: null } }
+      const err = await rejection(adminSetUserRole({}, { userId: 'nope', role: 'ADMIN' }, ctx))
+      expect(err.extensions.code).toBe('FORBIDDEN')
+      expectNothingTouched()
+    })
+
+    it('ADMIN (passes viewAdmin): NOT_FOUND with no writes', async () => {
+      const err = await rejection(adminSetUserRole({}, { userId: 'nope', role: 'ADMIN' }, boss))
+      expect(err.extensions.code).toBe('NOT_FOUND')
+      expectNoRoleWrites()
+    })
+
+    it('OWNER: NOT_FOUND with no writes', async () => {
+      const err = await rejection(adminSetUserRole({}, { userId: 'nope', role: 'ADMIN' }, owner))
+      expect(err.extensions.code).toBe('NOT_FOUND')
+      expectNoRoleWrites()
+    })
+  })
+
+  it('rejects an anonymous caller and a USER caller with no writes', async () => {
+    const anon = await rejection(adminSetUserRole({}, { userId: 't1', role: 'ADMIN' }, anonymous))
+    expect(anon.extensions.code).toBe('UNAUTHENTICATED')
+    const user = await rejection(adminSetUserRole({}, { userId: 't1', role: 'ADMIN' }, asUser))
+    expect(user.extensions.code).toBe('FORBIDDEN')
+    expectNothingTouched()
+  })
+
+  it('rejects an ADMIN caller with FORBIDDEN even for USER -> ADMIN, and writes nothing', async () => {
+    const err = await rejection(adminSetUserRole({}, { userId: 't1', role: 'ADMIN' }, boss))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoRoleWrites()
+  })
+
+  it('rejects an ADMIN caller with FORBIDDEN for ADMIN -> USER, and writes nothing', async () => {
+    userFindUnique.mockResolvedValue(roleTarget({ id: 'a2', role: 'ADMIN' }))
+    const err = await rejection(adminSetUserRole({}, { userId: 'a2', role: 'USER' }, boss))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoRoleWrites()
+  })
+
+  it('rejects a suspended OWNER with FORBIDDEN before touching the database', async () => {
+    const ctx = { ...owner, suspension: { reason: 'spam', until: null } }
+    const err = await rejection(adminSetUserRole({}, { userId: 't1', role: 'ADMIN' }, ctx))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNothingTouched()
+  })
+
+  it.each([owner, boss])('rejects role OWNER with FORBIDDEN, even for the owner, and writes nothing', async (ctx) => {
+    const err = await rejection(adminSetUserRole({}, { userId: 't1', role: 'OWNER' }, ctx))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoRoleWrites()
+  })
+
+  it('rejects role OWNER from an anonymous or USER caller with the usual access error', async () => {
+    const anon = await rejection(adminSetUserRole({}, { userId: 't1', role: 'OWNER' }, anonymous))
+    expect(anon.extensions.code).toBe('UNAUTHENTICATED')
+    const user = await rejection(adminSetUserRole({}, { userId: 't1', role: 'OWNER' }, asUser))
+    expect(user.extensions.code).toBe('FORBIDDEN')
+    expectNothingTouched()
+  })
+
+  it.each(['USER', 'ADMIN'] as const)('rejects the OWNER targeting the OWNER (themselves) with role %s, no writes', async (role) => {
+    userFindUnique.mockResolvedValue(roleTarget({ id: 'own', role: 'OWNER' }))
+    const err = await rejection(adminSetUserRole({}, { userId: 'own', role }, owner))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoRoleWrites()
+  })
+
+  it('loads the target with the fields it needs', async () => {
+    await adminSetUserRole({}, { userId: 't1', role: 'ADMIN' }, owner)
+    expect(userFindUnique).toHaveBeenCalledWith({
+      where: { id: 't1' },
+      select: { id: true, role: true, username: true, email: true },
+    })
+  })
+
+  it('grants ADMIN to a USER in ONE transaction with a ROLE_GRANT audit entry', async () => {
+    const row = await adminSetUserRole({}, { userId: 't1', role: 'ADMIN' }, owner)
+    expect(transaction).toHaveBeenCalledTimes(1)
+    const ops = transaction.mock.calls[0][0]
+    expect(ops.map((op: { op: string }) => op.op)).toEqual(['user.update', 'adminAuditLog.create'])
+    expect(userUpdate).toHaveBeenCalledWith({ where: { id: 't1' }, data: { role: 'ADMIN' } })
+    expect(auditCreate).toHaveBeenCalledTimes(1)
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: {
+        actorId: 'own',
+        actorUsername: 'chief',
+        actorEmail: 'chief@example.com',
+        action: 'ROLE_GRANT',
+        targetType: 'USER',
+        targetId: 't1',
+        targetUsername: 'oldname',
+        targetEmail: 't1@example.com',
+        details: { from: 'USER', to: 'ADMIN' },
+      },
+    })
+    expect(userFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ['t1'] } } }))
+    expect(row.id).toBe('t1')
+  })
+
+  it('revokes ADMIN from an ADMIN in ONE transaction with a ROLE_REVOKE audit entry', async () => {
+    userFindUnique.mockResolvedValue(roleTarget({ id: 'a2', role: 'ADMIN' }))
+    await adminSetUserRole({}, { userId: 'a2', role: 'USER' }, owner)
+    expect(transaction).toHaveBeenCalledTimes(1)
+    const ops = transaction.mock.calls[0][0]
+    expect(ops.map((op: { op: string }) => op.op)).toEqual(['user.update', 'adminAuditLog.create'])
+    expect(userUpdate).toHaveBeenCalledWith({ where: { id: 'a2' }, data: { role: 'USER' } })
+    expect(auditCreate.mock.calls[0][0].data).toMatchObject({
+      action: 'ROLE_REVOKE',
+      targetId: 'a2',
+      details: { from: 'ADMIN', to: 'USER' },
+    })
+  })
+
+  it.each(['USER', 'ADMIN'] as const)('is a no-op when the target already has role %s: no write, no audit, row returned', async (role) => {
+    userFindUnique.mockResolvedValue(roleTarget({ role }))
+    const row = await adminSetUserRole({}, { userId: 't1', role }, owner)
+    expectNoRoleWrites()
+    expect(row.id).toBe('t1')
+  })
+
+  it('fails closed (no write) when the actor email is missing from the context', async () => {
+    const err = await rejection(adminSetUserRole({}, { userId: 't1', role: 'ADMIN' }, { ...owner, email: undefined }))
+    expect(err.message).toBe('audit: actor email missing')
+    expectNoRoleWrites()
+  })
+})

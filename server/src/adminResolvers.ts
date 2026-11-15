@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
 import { db } from './db'
 import { requireAdmin, type Context } from './context'
+import type { Role } from './permissions'
 import { auditData, diffFields } from './audit'
 import { cleanSuspension, isSuspended } from './suspension'
 import { prepareCrews, prepareUsername } from './profileRules'
@@ -37,6 +38,11 @@ export interface AdminUpdateUserArgs {
 export interface AdminDeleteUserArgs {
   userId: string
   blockEmail?: boolean | null
+}
+
+export interface AdminSetUserRoleArgs {
+  userId: string
+  role: Role
 }
 
 export interface AdminSuspendUserArgs {
@@ -231,6 +237,44 @@ export const adminMutation = {
     ])
 
     return true
+  },
+
+  adminSetUserRole: async (_: unknown, args: AdminSetUserRoleArgs, ctx: Context) => {
+    // Access check first: nothing reaches the database for someone who cannot view the admin area.
+    requireAdmin(ctx, 'viewAdmin')
+
+    // No API may ever assign OWNER, whoever asks (the owner included). Checked here, on top of
+    // `can`, so it holds even if the permission rules change.
+    if (args.role === 'OWNER') {
+      throw new GraphQLError("You don't have permission to do that.", { extensions: { code: 'FORBIDDEN' } })
+    }
+
+    const user = await db.user.findUnique({
+      where: { id: args.userId },
+      select: { id: true, role: true, username: true, email: true },
+    })
+    if (!user) {
+      throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } })
+    }
+    // Owner only, and only on a USER or an ADMIN: the OWNER (even the owner themselves) is rejected here.
+    const actor = requireAdmin(ctx, 'setRole', { id: user.id, role: user.role })
+
+    // Only USER <-> ADMIN moves are possible. Asking for the role the user already has changes
+    // nothing, so there is nothing to write or log.
+    if (user.role !== args.role) {
+      const audit = auditData({
+        actor: { id: actor.id, username: ctx.username, email: ctx.email },
+        action: args.role === 'ADMIN' ? 'ROLE_GRANT' : 'ROLE_REVOKE',
+        target: { id: user.id, username: user.username, email: user.email },
+        details: { from: user.role, to: args.role },
+      })
+      await db.$transaction([
+        db.user.update({ where: { id: user.id }, data: { role: args.role } }),
+        db.adminAuditLog.create({ data: audit }),
+      ])
+    }
+
+    return (await loadAdminUserRows([user.id]))[0]
   },
 }
 
