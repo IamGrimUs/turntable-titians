@@ -13,6 +13,9 @@ import { jwtVerify, SignJWT } from 'jose'
 
 export const SUSPENSION_NOTICE_SECONDS = 10 * 60
 
+/** Audience of a notice. API tokens carry none, so neither token can stand in for the other. */
+export const SUSPENSION_NOTICE_AUDIENCE = 'suspension-notice'
+
 export function isSuspendedNow(
   row: { suspendedAt: Date | null; suspendedUntil: Date | null },
   now: Date = new Date()
@@ -41,6 +44,7 @@ export async function signSuspensionNotice(
   const issuedAt = Math.floor(now / 1000)
   return new SignJWT({ userId })
     .setProtectedHeader({ alg: 'HS256' })
+    .setAudience(SUSPENSION_NOTICE_AUDIENCE)
     .setIssuedAt(issuedAt)
     .setExpirationTime(issuedAt + SUSPENSION_NOTICE_SECONDS)
     .sign(new TextEncoder().encode(secret))
@@ -52,6 +56,7 @@ export async function readSuspensionNotice(token: string, secret: string): Promi
   try {
     const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
       algorithms: ['HS256'],
+      audience: SUSPENSION_NOTICE_AUDIENCE,
     })
     return typeof payload.userId === 'string' && payload.userId ? payload.userId : null
   } catch {

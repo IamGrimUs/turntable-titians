@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SignJWT } from 'jose'
+import { jwtVerify, SignJWT } from 'jose'
 import { isActiveUser, isSuspendedNow, readSuspensionNotice, signSuspensionNotice } from './suspension'
 
 const NOW = new Date('2026-11-15T12:00:00Z')
@@ -67,6 +67,30 @@ describe('suspension notice', () => {
     const elevenMinutesAgo = Date.now() - 11 * 60 * 1000
     const token = await signSuspensionNotice('user-1', SECRET, elevenMinutesAgo)
     expect(await readSuspensionNotice(token, SECRET)).toBeNull()
+  })
+
+  it('reads as null for a token without the notice audience (e.g. one signed like an API token)', async () => {
+    const key = new TextEncoder().encode(SECRET)
+    const apiLike = await new SignJWT({ userId: 'user-1' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime('1h')
+      .sign(key)
+    expect(await readSuspensionNotice(apiLike, SECRET)).toBeNull()
+    const otherAudience = await new SignJWT({ userId: 'user-1' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setAudience('something-else')
+      .setExpirationTime('10m')
+      .sign(key)
+    expect(await readSuspensionNotice(otherAudience, SECRET)).toBeNull()
+  })
+
+  it('signs with the notice audience and the 10-minute expiry', async () => {
+    const token = await signSuspensionNotice('user-1', SECRET, Date.now())
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(SECRET), {
+      algorithms: ['HS256'],
+      audience: 'suspension-notice',
+    })
+    expect(payload.exp! - payload.iat!).toBe(10 * 60)
   })
 
   it('reads as null for garbage and for an empty string', async () => {
