@@ -113,6 +113,9 @@ export default function AdminUsersPage() {
     [refetch]
   )
 
+  // A different action or row mounts a fresh dialog: fresh form state and a fresh showModal().
+  const dialogKey = pendingAction ? `${pendingAction.action}:${pendingAction.row.id}` : undefined
+
   // The server clamps an out-of-range page; the pager below follows the page it returns.
   const shown = (data ?? previousData)?.adminUsers
   const noAccess = error ? hasAccessError(error) : false
@@ -261,18 +264,19 @@ export default function AdminUsersPage() {
       )}
 
       {pendingAction?.action === 'edit' && (
-        <EditUserDialog row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
+        <EditUserDialog key={dialogKey} row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
       )}
       {pendingAction?.action === 'suspend' && (
-        <SuspendUserDialog row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
+        <SuspendUserDialog key={dialogKey} row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
       )}
       {pendingAction?.action === 'delete' && (
-        <DeleteUserDialog row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
+        <DeleteUserDialog key={dialogKey} row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
       )}
       {(pendingAction?.action === 'reinstate' ||
         pendingAction?.action === 'makeAdmin' ||
         pendingAction?.action === 'removeAdmin') && (
         <ConfirmUserDialog
+          key={dialogKey}
           action={pendingAction.action}
           row={pendingAction.row}
           onClose={closeDialog}

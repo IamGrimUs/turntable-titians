@@ -28,15 +28,19 @@ export function Modal({ onClose, title, description, busy = false, children }: M
   const titleId = useId()
   const descriptionId = useId()
   const pressStartedOnBackdrop = useRef(false)
+  // Set once the Modal is being unmounted: the `close` event our own dialog.close() queues must not reach the caller.
+  const unmounting = useRef(false)
 
   useEffect(() => {
     const dialog = ref.current
     if (!dialog) return
+    unmounting.current = false
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     if (!dialog.open) dialog.showModal()
     dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus()
 
     return () => {
+      unmounting.current = true
       if (dialog.open) dialog.close()
       // The button that opened the dialog may be gone (a deleted user's row). Fall back to the page heading.
       if (opener?.isConnected) {
@@ -60,6 +64,18 @@ export function Modal({ onClose, title, description, busy = false, children }: M
         // Esc. The browser would close the dialog itself; the caller decides instead.
         e.preventDefault()
         if (!busy) onClose()
+      }}
+      onClose={(e) => {
+        // The native dialog closed without going through onCancel (for example Chrome skips the
+        // cancel event for a second Esc press with no user activation in between). Bring React
+        // back in line with it.
+        const dialog = e.currentTarget
+        if (unmounting.current || dialog.open) return // our own close(), or a stale event for a dialog that was reopened
+        if (busy) {
+          dialog.showModal() // a submit is in flight: the dialog stays up
+          return
+        }
+        onClose()
       }}
       onMouseDown={(e) => {
         pressStartedOnBackdrop.current = e.target === e.currentTarget
