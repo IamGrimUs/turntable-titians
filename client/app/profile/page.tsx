@@ -100,6 +100,7 @@ export default function ProfilePage() {
                 id="username"
                 type="text"
                 value={username}
+                maxLength={30}
                 onChange={(e) => setUsername(e.target.value)}
                 className={fieldClass}
               />
@@ -144,6 +145,7 @@ export default function ProfilePage() {
                 <input
                   type="text"
                   value={crewInput}
+                  maxLength={40}
                   onChange={(e) => setCrewInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCrew() } }}
                   placeholder="e.g. Rock Steady Crew"
