@@ -1,0 +1,44 @@
+# Routine dependency updates. Security fixes are handled separately by Dependabot security
+# updates (repo settings) and are not limited by anything here.
+version: 2
+updates:
+  - package-ecosystem: npm
+    # pnpm workspace: the lockfile is at the repo root, each package is listed here.
+    directories:
+      - /client
+      - /server
+    schedule:
+      interval: weekly
+      day: monday
+    # One PR per week for all minor/patch bumps, instead of a PR per package.
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    # Major versions of the core stack change behaviour and need a deliberate upgrade
+    # (like the Apollo Server 5 and Next 16 moves), so they are not proposed automatically.
+    ignore:
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: next-auth
+        update-types: ["version-update:semver-major"]
+      - dependency-name: prisma
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@apollo/server"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@apollo/client"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: express
+        update-types: ["version-update:semver-major"]
+      - dependency-name: tailwindcss
+        update-types: ["version-update:semver-major"]
