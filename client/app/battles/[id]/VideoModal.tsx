@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { VoteCount } from '@/components/VoteCount'
+import { propsButtonLabel } from '@/lib/props-button'
 import { createPortal } from 'react-dom'
 
 interface SubmissionUser {
@@ -106,25 +107,25 @@ export function VideoModal({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <VoteCount voteCount={voteCount} className="text-xs text-muted-foreground font-mono" />
-            {currentUserId && battleStatus === 'ACTIVE' && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onVote() }}
-                disabled={hasVotedElsewhere || loading}
-                className={`text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
-                  isVotedHere
-                    ? 'bg-amber-500 text-black hover:bg-amber-400'
-                    : hasVotedElsewhere
-                    ? 'bg-muted text-muted-foreground opacity-50'
-                    : 'border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black'
-                }`}
-              >
-                {loading ? '…' : isVotedHere ? 'Voted' : 'Vote'}
-              </button>
-            )}
-          </div>
+          <VoteCount voteCount={voteCount} className="text-xs text-muted-foreground font-mono" />
         </div>
+
+        {currentUserId && battleStatus === 'ACTIVE' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onVote() }}
+            disabled={hasVotedElsewhere || loading}
+            aria-pressed={isVotedHere}
+            className={`mt-3 w-full text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
+              isVotedHere
+                ? 'bg-amber-500 text-black hover:bg-amber-400'
+                : hasVotedElsewhere
+                ? 'bg-muted text-muted-foreground opacity-50'
+                : 'border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black'
+            }`}
+          >
+            {propsButtonLabel({ loading, isVotedHere })}
+          </button>
+        )}
       </div>
     </div>,
     document.body

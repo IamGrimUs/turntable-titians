@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useState, useRef, useEffect, type CSSProperties } from 'react'
 import { getEmbedUrl } from './getEmbedUrl'
 import { VoteCount } from '@/components/VoteCount'
+import { propsButtonLabel } from '@/lib/props-button'
 import { VideoModal } from './VideoModal'
 
 interface SubmissionUser {
@@ -76,6 +77,9 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const [voteError, setVoteError] = useState('')
   const [cardHovered, setCardHovered] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  // The expanded video renders in a portal, which React still counts as "inside" this card, so
+  // the card never sees the mouse leave. While the modal is open the thumbnail must be still.
+  const previewActive = cardHovered && !isModalOpen
   const [hasBeenHovered, setHasBeenHovered] = useState(false)
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -143,7 +147,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
         }
       }}
     >
-      {showCrown && <GraffitiCrown hidden={cardHovered} />}
+      {showCrown && <GraffitiCrown hidden={previewActive} />}
       <div className={`rounded-lg border-2 bg-card overflow-hidden relative ${isWinner || (rank === 1 && isLeading) ? 'border-amber-400' : isPodium ? podiumBorder[rank] : 'border-border'}`} style={cardGlowStyle}>
         {/* Video */}
         <div
@@ -158,19 +162,19 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
               <img
                 src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
                 alt={submission.title ?? 'Submission thumbnail'}
-                className={`w-full h-full object-cover absolute inset-0 z-0 transition-opacity duration-300 ${cardHovered && hasBeenHovered ? 'opacity-0' : 'opacity-100'}`}
+                className={`w-full h-full object-cover absolute inset-0 z-0 transition-opacity duration-300 ${previewActive && hasBeenHovered ? 'opacity-0' : 'opacity-100'}`}
               />
-              {hasBeenHovered && hoverEmbedUrl && (
+              {hasBeenHovered && hoverEmbedUrl && !isModalOpen && (
                 <iframe
                   src={hoverEmbedUrl}
                   allow="autoplay"
                   title={submission.title ?? 'Video preview'}
                   style={{ border: 'none' }}
-                  className={`w-full h-full absolute inset-0 z-[1] transition-opacity duration-300 pointer-events-none ${cardHovered ? 'opacity-100' : 'opacity-0'}`}
+                  className={`w-full h-full absolute inset-0 z-[1] transition-opacity duration-300 pointer-events-none ${previewActive ? 'opacity-100' : 'opacity-0'}`}
                   tabIndex={-1}
                 />
               )}
-              {!cardHovered && (
+              {!previewActive && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
@@ -205,20 +209,21 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
               <span className="text-base font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{displayName}</span>
             </Link>
 
-            <div className="flex items-center gap-2">
-              <VoteCount voteCount={submission.voteCount} className="text-base text-muted-foreground font-mono" />
-              {currentUserId && battleStatus === 'ACTIVE' && (
-                <button
-                  onClick={handleVote}
-                  disabled={hasVotedElsewhere || loading}
-                  className={`text-base font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
-                    isVotedHere ? 'bg-amber-500 text-black hover:bg-amber-400' : hasVotedElsewhere ? 'bg-muted text-muted-foreground opacity-50' : 'border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black'
-                  }`}>
-                  {loading ? '…' : isVotedHere ? 'Voted' : 'Vote'}
-                </button>
-              )}
-            </div>
+            <VoteCount voteCount={submission.voteCount} className="text-base text-muted-foreground font-mono" />
           </div>
+
+          {/* On its own line; the stack's gap keeps the spacing above it equal to the other rows. */}
+          {currentUserId && battleStatus === 'ACTIVE' && (
+            <button
+              onClick={handleVote}
+              disabled={hasVotedElsewhere || loading}
+              aria-pressed={isVotedHere}
+              className={`w-full text-base font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
+                isVotedHere ? 'bg-amber-500 text-black hover:bg-amber-400' : hasVotedElsewhere ? 'bg-muted text-muted-foreground opacity-50' : 'border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black'
+              }`}>
+              {propsButtonLabel({ loading, isVotedHere })}
+            </button>
+          )}
           {voteError && <p className="text-base text-red-400">{voteError}</p>}
         </div>
       </div>
