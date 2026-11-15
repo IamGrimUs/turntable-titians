@@ -33,6 +33,18 @@ describe('auditData', () => {
     expect(auditData({ actor, action: 'USER_SUSPEND', target, details }).details).toEqual(details)
   })
 
+  it('throws when the actor email is missing (fail closed)', () => {
+    expect(() => auditData({ actor: { ...actor, email: undefined }, action: 'USER_EDIT', target })).toThrow(
+      'audit: actor email missing',
+    )
+  })
+
+  it('throws when the actor email is an empty string', () => {
+    expect(() => auditData({ actor: { ...actor, email: '' }, action: 'USER_EDIT', target })).toThrow(
+      'audit: actor email missing',
+    )
+  })
+
   it('keeps a missing username as-is (user who has not onboarded)', () => {
     const data = auditData({ actor, action: 'USER_DELETE', target: { id: 't', username: null, email: 't@example.com' } })
     expect(data.targetUsername).toBeNull()
@@ -57,6 +69,23 @@ describe('diffFields', () => {
     expect(diffFields({ crews: ['a'] }, { crews: ['a', 'b'] })).toEqual({
       crews: { from: ['a'], to: ['a', 'b'] },
     })
+  })
+
+  it('ignores a key that is only in before (not supplied is not cleared)', () => {
+    expect(diffFields({ bio: 'x', city: 'y' }, { city: 'y' })).toEqual({})
+    expect(diffFields({ bio: 'x' }, { bio: undefined })).toEqual({})
+  })
+
+  it('reports a value cleared to null', () => {
+    expect(diffFields({ bio: 'x' }, { bio: null })).toEqual({ bio: { from: 'x', to: null } })
+  })
+
+  it('treats null to null as unchanged', () => {
+    expect(diffFields({ bio: null }, { bio: null })).toEqual({})
+  })
+
+  it('reports a key that is only in after with a defined value', () => {
+    expect(diffFields({}, { bio: 'new' })).toEqual({ bio: { from: undefined, to: 'new' } })
   })
 
   it('returns {} when nothing changed', () => {

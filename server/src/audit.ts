@@ -25,10 +25,14 @@ export function auditData(input: {
   details?: Record<string, unknown>
 }): Prisma.AdminAuditLogCreateInput {
   const { actor, action, target, details } = input
+  // User.email is never null, so a missing one is a loader bug. Fail closed: this runs inside
+  // the same transaction as the change, so throwing rolls the action back instead of writing
+  // a blank snapshot into an append-only log.
+  if (!actor.email) throw new Error('audit: actor email missing')
   return {
     actorId: actor.id,
     actorUsername: actor.username,
-    actorEmail: actor.email ?? '',
+    actorEmail: actor.email,
     action,
     targetType: 'USER',
     targetId: target.id,
@@ -46,12 +50,16 @@ function sameValue(a: unknown, b: unknown): boolean {
 }
 
 // Only the keys whose value changed; arrays (e.g. the crews list) are compared by content.
+// A key whose `after` value is undefined is skipped: not supplied is not the same as cleared
+// (clearing is null). A key with a defined `after` value but missing in `before` is reported
+// with from: undefined.
 export function diffFields(
   before: Record<string, unknown>,
   after: Record<string, unknown>,
 ): Record<string, { from: unknown; to: unknown }> {
   const changes: Record<string, { from: unknown; to: unknown }> = {}
   for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (after[key] === undefined) continue
     if (!sameValue(before[key], after[key])) {
       changes[key] = { from: before[key], to: after[key] }
     }
