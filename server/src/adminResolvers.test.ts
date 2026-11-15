@@ -4,7 +4,7 @@ vi.mock('./db', () => ({
   db: {
     user: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
     bannedEmail: { upsert: vi.fn() },
-    adminAuditLog: { create: vi.fn() },
+    adminAuditLog: { create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     $transaction: vi.fn(),
     submission: { findMany: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
     vote: { groupBy: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
@@ -37,6 +37,8 @@ const voteCount = db.vote.count as unknown as ReturnType<typeof vi.fn>
 const submissionDeleteMany = db.submission.deleteMany as unknown as ReturnType<typeof vi.fn>
 const voteDeleteMany = db.vote.deleteMany as unknown as ReturnType<typeof vi.fn>
 const transaction = db.$transaction as unknown as ReturnType<typeof vi.fn>
+const auditFindMany = db.adminAuditLog.findMany as unknown as ReturnType<typeof vi.fn>
+const auditCount = db.adminAuditLog.count as unknown as ReturnType<typeof vi.fn>
 const querySpy = queryAdminUsers as unknown as ReturnType<typeof vi.fn>
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,6 +97,8 @@ beforeEach(() => {
   voteCount.mockReset().mockResolvedValue(0)
   submissionDeleteMany.mockReset()
   voteDeleteMany.mockReset()
+  auditFindMany.mockReset().mockResolvedValue([])
+  auditCount.mockReset().mockResolvedValue(0)
   auditCreate.mockReset().mockImplementation((args: unknown) => ({ op: 'adminAuditLog.create', args }))
   transaction.mockReset().mockImplementation((ops: unknown[]) => Promise.all(ops))
 })
@@ -1168,5 +1172,149 @@ describe('adminSetUserRole', () => {
     const err = await rejection(adminSetUserRole({}, { userId: 't1', role: 'ADMIN' }, { ...owner, email: undefined }))
     expect(err.message).toBe('audit: actor email missing')
     expectNoRoleWrites()
+  })
+})
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminAuditLog = adminQuery.adminAuditLog as (...args: any[]) => Promise<any>
+
+const auditRow = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  createdAt: new Date('2026-05-01T12:00:00.000Z'),
+  actorId: 'own',
+  actorUsername: 'chief',
+  actorEmail: 'chief@example.com',
+  action: 'USER_SUSPEND',
+  targetType: 'USER',
+  targetId: 't1',
+  targetUsername: 'target',
+  targetEmail: 't1@example.com',
+  details: { reason: 'spam', until: null },
+  ...extra,
+})
+
+describe('adminAuditLog', () => {
+  function expectAuditDbUntouched() {
+    expect(auditFindMany).not.toHaveBeenCalled()
+    expect(auditCount).not.toHaveBeenCalled()
+    expect(transaction).not.toHaveBeenCalled()
+  }
+
+  it('registers adminAuditLog', () => {
+    expect(Object.keys(adminQuery)).toEqual(expect.arrayContaining(['adminUsers', 'adminAuditLog']))
+  })
+
+  it('rejects an anonymous caller with UNAUTHENTICATED before touching the database', async () => {
+    const err = await rejection(adminAuditLog({}, {}, anonymous))
+    expect(err.extensions.code).toBe('UNAUTHENTICATED')
+    expectAuditDbUntouched()
+  })
+
+  it('rejects a USER with FORBIDDEN before touching the database', async () => {
+    const err = await rejection(adminAuditLog({}, {}, asUser))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectAuditDbUntouched()
+  })
+
+  it('rejects an ADMIN with FORBIDDEN before touching the database', async () => {
+    const err = await rejection(adminAuditLog({}, { page: 1, pageSize: 50 }, asAdmin))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectAuditDbUntouched()
+  })
+
+  it('rejects a suspended OWNER with FORBIDDEN before touching the database', async () => {
+    const ctx = { userId: 'own', role: 'OWNER' as const, suspension: { reason: 'x', until: null } }
+    const err = await rejection(adminAuditLog({}, {}, ctx))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectAuditDbUntouched()
+  })
+
+  it('returns rows newest first, mapped from the snapshot columns, for the OWNER', async () => {
+    auditCount.mockResolvedValue(2)
+    auditFindMany.mockResolvedValue([
+      auditRow('a2'),
+      auditRow('a1', { actorUsername: null, targetUsername: null, targetEmail: null, details: null }),
+    ])
+
+    const page = await adminAuditLog({}, { page: 1, pageSize: 50 }, owner)
+
+    expect(auditFindMany).toHaveBeenCalledWith({
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 0,
+      take: 50,
+    })
+    expect(page).toMatchObject({ total: 2, page: 1, pageCount: 1 })
+    expect(page.rows).toHaveLength(2)
+    expect(page.rows[0]).toEqual({
+      id: 'a2',
+      createdAt: '2026-05-01T12:00:00.000Z',
+      actorId: 'own',
+      actorUsername: 'chief',
+      actorEmail: 'chief@example.com',
+      action: 'USER_SUSPEND',
+      targetType: 'USER',
+      targetId: 't1',
+      targetUsername: 'target',
+      targetEmail: 't1@example.com',
+      details: '{"reason":"spam","until":null}',
+    })
+    expect(page.rows[1]).toMatchObject({
+      actorUsername: null,
+      targetUsername: null,
+      targetEmail: null,
+      actorEmail: 'chief@example.com',
+      details: '{}',
+    })
+  })
+
+  it('reads only the audit table: no user joins and no other table', async () => {
+    await adminAuditLog({}, {}, owner)
+    expect(auditFindMany.mock.calls[0][0]).not.toHaveProperty('include')
+    expect(auditFindMany.mock.calls[0][0]).not.toHaveProperty('select')
+    expect(userFindMany).not.toHaveBeenCalled()
+    expect(userFindUnique).not.toHaveBeenCalled()
+  })
+
+  it('uses skip/take from the page and page size', async () => {
+    auditCount.mockResolvedValue(250)
+    const page = await adminAuditLog({}, { page: 3, pageSize: 20 }, owner)
+    expect(auditFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 40, take: 20 }))
+    expect(page).toMatchObject({ total: 250, page: 3, pageCount: 13 })
+  })
+
+  it('defaults to page 1 and 50 rows per page when the args are missing', async () => {
+    auditCount.mockResolvedValue(120)
+    const page = await adminAuditLog({}, {}, owner)
+    expect(auditFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 0, take: 50 }))
+    expect(page).toMatchObject({ page: 1, pageCount: 3 })
+  })
+
+  it.each([
+    [0, 1],
+    [-5, 1],
+    [Number.NaN, 1],
+    [9999, 3],
+  ])('resolves page %s to the valid page %s', async (requested, expected) => {
+    auditCount.mockResolvedValue(120)
+    const page = await adminAuditLog({}, { page: requested, pageSize: 50 }, owner)
+    expect(page.page).toBe(expected)
+    expect(auditFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: (expected - 1) * 50, take: 50 }))
+  })
+
+  it.each([
+    [0, 1],
+    [-3, 1],
+    [Number.NaN, 50],
+    [100000, 100],
+  ])('clamps page size %s to %s', async (requested, expected) => {
+    await adminAuditLog({}, { page: 1, pageSize: requested }, owner)
+    expect(auditFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: expected }))
+  })
+
+  it('has pageCount 1 and page 1 when the log is empty', async () => {
+    auditCount.mockResolvedValue(0)
+    const page = await adminAuditLog({}, { page: 9999 }, owner)
+    expect(page).toEqual({ rows: [], total: 0, page: 1, pageCount: 1 })
+    expect(auditFindMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 0 }))
   })
 })

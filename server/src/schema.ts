@@ -131,6 +131,28 @@ export const typeDefs = gql`
     counts: AdminUserCounts!
   }
 
+  """One row of the append-only admin audit log. Snapshot columns only; details is JSON text."""
+  type AuditLogEntry {
+    id: ID!
+    createdAt: String!
+    actorId: ID!
+    actorUsername: String
+    actorEmail: String!
+    action: String!
+    targetType: String!
+    targetId: ID!
+    targetUsername: String
+    targetEmail: String
+    details: String!
+  }
+
+  type AuditLogPage {
+    rows: [AuditLogEntry!]!
+    total: Int!
+    page: Int!
+    pageCount: Int!
+  }
+
   type Query {
     battles: [Battle!]!
     battle(id: ID!): Battle
@@ -148,6 +170,7 @@ export const typeDefs = gql`
       page: Int = 1
       pageSize: Int = 25
     ): AdminUserPage!
+    adminAuditLog(page: Int = 1, pageSize: Int = 50): AuditLogPage!
   }
 
   type Mutation {

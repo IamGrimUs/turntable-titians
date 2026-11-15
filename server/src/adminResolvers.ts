@@ -7,7 +7,7 @@ import { cleanSuspension, isSuspended } from './suspension'
 import { prepareCrews, prepareUsername } from './profileRules'
 import { LIMITS, cleanSingleLine } from './validation'
 import { loadAdminUserRows } from './adminData'
-import { queryAdminUsers, type UserFilter, type UserSortKey } from './adminUserQuery'
+import { clampPage, clampPageSize, queryAdminUsers, type UserFilter, type UserSortKey } from './adminUserQuery'
 
 export interface AdminUsersArgs {
   search?: string | null
@@ -18,12 +18,56 @@ export interface AdminUsersArgs {
   pageSize?: number
 }
 
+export interface AdminAuditLogArgs {
+  page?: number
+  pageSize?: number
+}
+
+const AUDIT_DEFAULT_PAGE_SIZE = 50
+const AUDIT_MAX_PAGE_SIZE = 100
+
 export const adminQuery = {
   adminUsers: async (_: unknown, args: AdminUsersArgs, ctx: Context) => {
     // The permission check comes first: nothing reaches the database for a non-admin.
     requireAdmin(ctx, 'viewAdmin')
     const rows = await loadAdminUserRows()
     return queryAdminUsers(rows, args)
+  },
+
+  adminAuditLog: async (_: unknown, args: AdminAuditLogArgs, ctx: Context) => {
+    // Owner only. The permission check is the first statement: nothing reaches the database otherwise.
+    requireAdmin(ctx, 'viewAuditLog')
+
+    const pageSize = clampPageSize(args.pageSize, AUDIT_DEFAULT_PAGE_SIZE, AUDIT_MAX_PAGE_SIZE)
+    const total = await db.adminAuditLog.count()
+    const pageCount = Math.max(1, Math.ceil(total / pageSize))
+    const page = clampPage(args.page, pageCount)
+
+    // Snapshot columns only (no joins to User). The id breaks ties so paging is stable.
+    const rows = await db.adminAuditLog.findMany({
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    })
+
+    return {
+      rows: rows.map((row) => ({
+        id: row.id,
+        createdAt: row.createdAt.toISOString(),
+        actorId: row.actorId,
+        actorUsername: row.actorUsername,
+        actorEmail: row.actorEmail,
+        action: row.action,
+        targetType: row.targetType,
+        targetId: row.targetId,
+        targetUsername: row.targetUsername,
+        targetEmail: row.targetEmail,
+        details: JSON.stringify(row.details ?? {}),
+      })),
+      total,
+      page,
+      pageCount,
+    }
   },
 }
 
