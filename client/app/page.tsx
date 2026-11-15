@@ -1,7 +1,13 @@
 import Link from 'next/link';
+import { auth } from '@/auth';
 import { Button } from '@/components/ui/button';
+import { SignInForm } from '@/components/SignInForm';
 
-export default function Home() {
+export default async function Home() {
+  // Signed-out visitors get a sign-in section right here; signed-in users don't need it.
+  const session = await auth();
+  const signedIn = !!session?.user;
+
   return (
     <div className="flex flex-col items-center justify-center min-h-full p-8">
       <div className="text-center max-w-2xl">
@@ -26,7 +32,22 @@ export default function Home() {
           </Link>
         </p>
       </div>
+
+      {!signedIn && (
+        <section aria-labelledby="home-signin" className="mt-10 w-full max-w-sm">
+          <div className="mb-4 text-center">
+            <h2 id="home-signin" className="text-2xl font-graffiti text-foreground">
+              Sign In
+            </h2>
+            <p className="mt-1 text-base text-muted-foreground">
+              Sign in to enter battles and vote for your favourites.
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-6">
+            <SignInForm />
+          </div>
+        </section>
+      )}
     </div>
   );
 }
-
