@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { VoteCount } from '@/components/VoteCount'
 import { createPortal } from 'react-dom'
 
 interface SubmissionUser {
@@ -14,7 +15,7 @@ interface Props {
   embedUrl: string
   title: string | null
   user: SubmissionUser
-  voteCount: number
+  voteCount: number | null
   isVotedHere: boolean
   hasVotedElsewhere: boolean
   loading: boolean
@@ -106,9 +107,7 @@ export function VideoModal({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground font-mono">
-              {voteCount}
-            </span>
+            <VoteCount voteCount={voteCount} className="text-xs text-muted-foreground font-mono" />
             {currentUserId && battleStatus === 'ACTIVE' && (
               <button
                 onClick={(e) => { e.stopPropagation(); onVote() }}

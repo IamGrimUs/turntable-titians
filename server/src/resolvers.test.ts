@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('./db', () => ({
   db: {
-    vote: { findFirst: vi.fn() },
+    vote: { findFirst: vi.fn(), count: vi.fn() },
     battle: { findUnique: vi.fn(), create: vi.fn() },
-    submission: { findFirst: vi.fn(), create: vi.fn() },
+    submission: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     user: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   },
 }))
@@ -14,10 +14,12 @@ import { resolvers } from './resolvers'
 
 const m = {
   voteFindFirst: db.vote.findFirst as unknown as ReturnType<typeof vi.fn>,
+  voteCount: db.vote.count as unknown as ReturnType<typeof vi.fn>,
   battleFindUnique: db.battle.findUnique as unknown as ReturnType<typeof vi.fn>,
   battleCreate: db.battle.create as unknown as ReturnType<typeof vi.fn>,
   submissionFindFirst: db.submission.findFirst as unknown as ReturnType<typeof vi.fn>,
   submissionCreate: db.submission.create as unknown as ReturnType<typeof vi.fn>,
+  submissionFindMany: db.submission.findMany as unknown as ReturnType<typeof vi.fn>,
   userFindUnique: db.user.findUnique as unknown as ReturnType<typeof vi.fn>,
   userFindFirst: db.user.findFirst as unknown as ReturnType<typeof vi.fn>,
   userUpdate: db.user.update as unknown as ReturnType<typeof vi.fn>,
@@ -287,5 +289,49 @@ describe('updateProfile', () => {
   it('only ever updates the caller\'s own record', async () => {
     await update({ username: 'new_handle' })
     expect(m.userUpdate.mock.calls[0][0].where).toEqual({ id: 'user-1' })
+  })
+})
+
+describe('Submission.voteCount (counts are hidden until the battle is over)', () => {
+  const parent = { id: 'sub-1', battleId: 'battle-1' } as never
+  const voteCount = resolvers.Submission.voteCount as unknown as AnyFn
+
+  it('returns null, and never counts votes, while the battle is active', async () => {
+    m.battleFindUnique.mockResolvedValue(battleDates.active)
+    expect(await voteCount(parent)).toBeNull()
+    expect(m.voteCount).not.toHaveBeenCalled()
+  })
+
+  it('returns null before the battle starts', async () => {
+    m.battleFindUnique.mockResolvedValue(battleDates.upcoming)
+    expect(await voteCount(parent)).toBeNull()
+  })
+
+  it('returns the real count once the battle is completed', async () => {
+    m.battleFindUnique.mockResolvedValue(battleDates.ended)
+    m.voteCount.mockResolvedValue(7)
+    expect(await voteCount(parent)).toBe(7)
+    expect(m.voteCount).toHaveBeenCalledWith({ where: { submissionId: 'sub-1' } })
+  })
+
+  it('stays hidden if the battle cannot be found (fails closed)', async () => {
+    m.battleFindUnique.mockResolvedValue(null)
+    expect(await voteCount(parent)).toBeNull()
+  })
+
+  it('hides the count from everyone alike, including the entrant themselves', async () => {
+    m.battleFindUnique.mockResolvedValue(battleDates.active)
+    expect(await voteCount({ ...(parent as object), userId: 'user-1' } as never)).toBeNull()
+  })
+})
+
+describe('Battle.submissions order', () => {
+  it('is oldest-first, so the order can never reveal who is ahead', async () => {
+    m.submissionFindMany.mockResolvedValue([])
+    await (resolvers.Battle.submissions as unknown as AnyFn)({ id: 'battle-1' })
+    expect(m.submissionFindMany).toHaveBeenCalledWith({
+      where: { battleId: 'battle-1' },
+      orderBy: { createdAt: 'asc' },
+    })
   })
 })

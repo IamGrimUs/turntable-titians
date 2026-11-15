@@ -252,8 +252,9 @@ export const resolvers = {
   },
 
   Battle: {
+    // Oldest first. The order must never depend on votes, or it would reveal who is ahead.
     submissions: (parent: Battle) =>
-      db.submission.findMany({ where: { battleId: parent.id } }),
+      db.submission.findMany({ where: { battleId: parent.id }, orderBy: { createdAt: 'asc' } }),
     status: (parent: Battle) => computeBattleStatus(parent.startDate, parent.endDate),
     startDate: (parent: Battle) => parent.startDate.toISOString(),
     endDate: (parent: Battle) => parent.endDate.toISOString(),
@@ -262,8 +263,16 @@ export const resolvers = {
   },
 
   Submission: {
-    voteCount: (parent: Submission) =>
-      db.vote.count({ where: { submissionId: parent.id } }),
+    // Vote counts stay secret until the battle is over, for everyone (entrants included).
+    // Anything other than a clearly COMPLETED battle, including a missing one, returns null.
+    voteCount: async (parent: Submission) => {
+      const battle = await db.battle.findUnique({
+        where: { id: parent.battleId },
+        select: { startDate: true, endDate: true },
+      })
+      if (!battle || computeBattleStatus(battle.startDate, battle.endDate) !== 'COMPLETED') return null
+      return db.vote.count({ where: { submissionId: parent.id } })
+    },
     // Only ever answers for the caller themselves, so ballots stay secret.
     viewerHasVoted: async (parent: Submission, _args: unknown, ctx: Context) => {
       if (!ctx.userId) return false
