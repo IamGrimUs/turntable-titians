@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Eye, Flower2, Lock, Trophy } from 'lucide-react'
+import { Eye, Lock, Trophy, Vote } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,7 +9,7 @@ import { PROPS_LABELS } from '@/lib/props-button'
 export const metadata: Metadata = {
   title: 'How Battles Work - Battle Skratch',
   description:
-    'How Battle Skratch battles run: entering a set, giving flowers (votes), and how winners are decided.',
+    'How Battle Skratch battles run: entering a set, voting, and how winners are decided.',
 }
 
 const BATTLE_TYPES = ['Skratch Battle', 'Mix Battle', 'Beat Battle', 'Match a Skratch Battle', 'Open Format']
@@ -52,7 +52,7 @@ export default function HowItWorksPage() {
         <h1 className="text-5xl font-graffiti text-foreground">How Battles Work</h1>
         <div className="mt-3 mb-4 h-px bg-gradient-to-r from-amber-500 to-transparent" />
         <p className="text-base leading-relaxed text-muted-foreground">
-          DJs post a video of their set, the community gives flowers to the ones they love, and the winner is
+          DJs post a video of their set, the community votes for the ones they love, and the winner is
           revealed when the battle ends. Here is everything you need to know to take part.
         </p>
       </header>
@@ -77,7 +77,7 @@ export default function HowItWorksPage() {
           <Card>
             <CardContent className="space-y-2 p-4">
               <Badge variant="completed">COMPLETED</Badge>
-              <p>Everything is closed. The flower counts are revealed and the winner is crowned.</p>
+              <p>Everything is closed. The vote counts are revealed and the winner is crowned.</p>
             </CardContent>
           </Card>
         </div>
@@ -126,24 +126,27 @@ export default function HowItWorksPage() {
         </ul>
       </Section>
 
-      <Section title="Voting: giving flowers">
+      <Section title="Voting">
         <p className="flex items-start gap-2">
-          <Flower2 className="mt-1 h-5 w-5 shrink-0 text-amber-500" aria-hidden="true" />
+          <Vote className="mt-1 h-5 w-5 shrink-0 text-amber-500" aria-hidden="true" />
           <span>
-            Voting is called <span className={strong}>giving flowers</span>. Press{' '}
-            <span className={strong}>{PROPS_LABELS.give}</span> on the entry you think is best. That is your
-            vote.
+            Press <span className={strong}>{PROPS_LABELS.give}</span> on the entry you think is best. That is
+            your vote for the battle.
           </span>
         </p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            <span className={strong}>One flower per battle.</span> You get a single vote in each battle, so use
-            it on your favourite.
+            <span className={strong}>One vote per battle.</span> You get a single vote in each battle, so use it
+            on your favourite.
           </li>
           <li>
             <span className={strong}>You can change your mind.</span> While the battle is active, press{' '}
-            <span className={strong}>{PROPS_LABELS.given}</span> again to take your flower back, then give it to
+            <span className={strong}>{PROPS_LABELS.given}</span> again to take your vote back, then vote for
             another entry. Once the battle ends, votes are final.
+          </li>
+          <li>
+            <span className={strong}>Not for your own entry.</span> You can vote for anyone else&apos;s set, but
+            not your own.
           </li>
           <li>
             <span className={strong}>You must be signed in</span>, and voting only works while the battle is
@@ -156,7 +159,7 @@ export default function HowItWorksPage() {
           <div className="space-y-2">
             <p className={strong}>Votes are secret</p>
             <p>
-              Nobody sees who you voted for. While a battle is running, nobody sees the flower counts either:
+              Nobody sees who you voted for. While a battle is running, nobody sees the vote counts either:
               entries show &ldquo;Hidden&rdquo; and are listed in the order they were submitted, not by
               popularity. That way no one is swayed by who looks like they are ahead.
             </p>
@@ -168,8 +171,8 @@ export default function HowItWorksPage() {
           <div className="space-y-2">
             <p className={strong}>How the winner is decided</p>
             <p>
-              When the end date passes, the counts are revealed and the entries are ranked by flowers received.
-              The entry with the most flowers wins. If entries tie for the top spot, they share the win.
+              When the end date passes, the counts are revealed and the entries are ranked by votes received.
+              The entry with the most votes wins. If entries tie for the top spot, they share the win.
             </p>
           </div>
         </div>

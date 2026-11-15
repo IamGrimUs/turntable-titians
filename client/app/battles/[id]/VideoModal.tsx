@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { VoteCount } from '@/components/VoteCount'
 import { propsButtonLabel } from '@/lib/props-button'
+import { OWN_ENTRY_NOTE } from '@/lib/own-entry'
 import { createPortal } from 'react-dom'
 
 interface SubmissionUser {
@@ -19,6 +20,7 @@ interface Props {
   voteCount: number | null
   isVotedHere: boolean
   hasVotedElsewhere: boolean
+  ownEntryBlocked: boolean
   loading: boolean
   battleStatus: 'UPCOMING' | 'ACTIVE' | 'COMPLETED'
   currentUserId: string | null
@@ -33,6 +35,7 @@ export function VideoModal({
   voteCount,
   isVotedHere,
   hasVotedElsewhere,
+  ownEntryBlocked,
   loading,
   battleStatus,
   currentUserId,
@@ -110,7 +113,10 @@ export function VideoModal({
           <VoteCount voteCount={voteCount} className="text-base text-muted-foreground font-mono" />
         </div>
 
-        {currentUserId && battleStatus === 'ACTIVE' && (
+        {currentUserId && battleStatus === 'ACTIVE' && ownEntryBlocked && (
+          <p className="mt-3 text-base text-muted-foreground">{OWN_ENTRY_NOTE}</p>
+        )}
+        {currentUserId && battleStatus === 'ACTIVE' && !ownEntryBlocked && (
           <button
             onClick={(e) => { e.stopPropagation(); onVote() }}
             disabled={hasVotedElsewhere || loading}

@@ -212,11 +212,17 @@ export const resolvers = {
         where: { id: submissionId },
         select: {
           battleId: true,
+          userId: true,
           battle: { select: { startDate: true, endDate: true } },
         },
       })
       if (!submission) throw new GraphQLError('Submission not found', {
         extensions: { code: 'NOT_FOUND' },
+      })
+      // Nobody votes for their own entry. (deleteVote stays open, so a vote cast before this
+      // rule existed can still be taken back.)
+      if (submission.userId === userId) throw new GraphQLError('You cannot vote for your own entry.', {
+        extensions: { code: 'BAD_USER_INPUT' },
       })
       const { battleId } = submission
       const battleStatus = computeBattleStatus(submission.battle.startDate, submission.battle.endDate)

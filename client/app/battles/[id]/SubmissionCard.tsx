@@ -7,6 +7,7 @@ import { useState, useRef, useEffect, type CSSProperties } from 'react'
 import { getEmbedUrl } from './getEmbedUrl'
 import { VoteCount } from '@/components/VoteCount'
 import { propsButtonLabel } from '@/lib/props-button'
+import { OWN_ENTRY_NOTE, ownEntryBlocksVote } from '@/lib/own-entry'
 import { VideoModal } from './VideoModal'
 
 interface SubmissionUser {
@@ -100,6 +101,11 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const isPodium = battleStatus === 'COMPLETED' && rank <= 3
   const isVotedHere = userVotedSubmissionId === submission.id
   const hasVotedElsewhere = userVotedSubmissionId !== null && !isVotedHere
+  const ownEntryBlocked = ownEntryBlocksVote({
+    currentUserId,
+    entryOwnerId: submission.user.id,
+    isVotedHere,
+  })
   const displayName = submission.user.username ?? submission.user.name ?? 'DJ'
   const initial = displayName.charAt(0).toUpperCase()
   const loading = voting || deleting
@@ -213,7 +219,10 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
           </div>
 
           {/* On its own line; the stack's gap keeps the spacing above it equal to the other rows. */}
-          {currentUserId && battleStatus === 'ACTIVE' && (
+          {currentUserId && battleStatus === 'ACTIVE' && ownEntryBlocked && (
+            <p className="text-base text-muted-foreground">{OWN_ENTRY_NOTE}</p>
+          )}
+          {currentUserId && battleStatus === 'ACTIVE' && !ownEntryBlocked && (
             <button
               onClick={handleVote}
               disabled={hasVotedElsewhere || loading}
@@ -236,6 +245,7 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
           voteCount={submission.voteCount}
           isVotedHere={isVotedHere}
           hasVotedElsewhere={hasVotedElsewhere}
+          ownEntryBlocked={ownEntryBlocked}
           loading={loading}
           battleStatus={battleStatus}
           currentUserId={currentUserId}

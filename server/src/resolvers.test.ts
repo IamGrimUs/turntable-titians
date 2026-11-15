@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('./db', () => ({
   db: {
-    vote: { findFirst: vi.fn(), count: vi.fn() },
+    vote: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), count: vi.fn() },
     battle: { findUnique: vi.fn(), create: vi.fn() },
-    submission: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
+    submission: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     user: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   },
 }))
@@ -15,6 +15,9 @@ import { resolvers } from './resolvers'
 const m = {
   voteFindFirst: db.vote.findFirst as unknown as ReturnType<typeof vi.fn>,
   voteCount: db.vote.count as unknown as ReturnType<typeof vi.fn>,
+  voteFindUnique: db.vote.findUnique as unknown as ReturnType<typeof vi.fn>,
+  voteCreate: db.vote.create as unknown as ReturnType<typeof vi.fn>,
+  submissionFindUnique: db.submission.findUnique as unknown as ReturnType<typeof vi.fn>,
   battleFindUnique: db.battle.findUnique as unknown as ReturnType<typeof vi.fn>,
   battleCreate: db.battle.create as unknown as ReturnType<typeof vi.fn>,
   submissionFindFirst: db.submission.findFirst as unknown as ReturnType<typeof vi.fn>,
@@ -351,5 +354,41 @@ describe('Battle.submissions order', () => {
       where: { battleId: 'battle-1' },
       orderBy: { createdAt: 'asc' },
     })
+  })
+})
+
+describe('vote', () => {
+  const entry = (userId: string, dates = battleDates.active) => ({ battleId: 'battle-1', userId, battle: dates })
+
+  it('requires login', async () => {
+    const e = await rejection(mutation('vote')({}, { submissionId: 'sub-1' }, anonymous))
+    expect(e.extensions.code).toBe('UNAUTHENTICATED')
+    expect(m.voteCreate).not.toHaveBeenCalled()
+  })
+
+  it('does not let you vote for your own entry', async () => {
+    m.submissionFindUnique.mockResolvedValue(entry('user-1'))
+    const e = await rejection(mutation('vote')({}, { submissionId: 'sub-1' }, asUser))
+    expect(e.extensions.code).toBe('BAD_USER_INPUT')
+    expect(e.message).toMatch(/own entry/i)
+    expect(m.voteFindUnique).not.toHaveBeenCalled()
+    expect(m.voteCreate).not.toHaveBeenCalled()
+  })
+
+  it('lets you vote for someone else\'s entry in an active battle', async () => {
+    m.submissionFindUnique.mockResolvedValue(entry('user-2'))
+    m.voteFindUnique.mockResolvedValue(null)
+    m.voteCreate.mockResolvedValue({ id: 'vote-1' })
+    await mutation('vote')({}, { submissionId: 'sub-1' }, asUser)
+    expect(m.voteCreate).toHaveBeenCalledWith({
+      data: { submissionId: 'sub-1', battleId: 'battle-1', userId: 'user-1' },
+    })
+  })
+
+  it('still blocks votes once the battle has ended', async () => {
+    m.submissionFindUnique.mockResolvedValue(entry('user-2', battleDates.ended))
+    const e = await rejection(mutation('vote')({}, { submissionId: 'sub-1' }, asUser))
+    expect(e.message).toMatch(/ended/i)
+    expect(m.voteCreate).not.toHaveBeenCalled()
   })
 })
