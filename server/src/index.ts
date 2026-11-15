@@ -14,6 +14,8 @@ import { createLimiter } from './rateLimit';
 import { createQueryLimitRule } from './queryLimits';
 import { createIpLimitMiddleware, createMutationLimitPlugin } from './rateLimiting';
 import { createClientIpResolver } from './clientIp';
+import { loadViewer } from './viewer';
+import type { Context } from './context';
 
 dotenv.config();
 
@@ -37,27 +39,27 @@ app.set('trust proxy', Number.isInteger(TRUST_PROXY) && TRUST_PROXY >= 0 ? TRUST
 // Unset (the default), req.ip is used and no header is trusted.
 const getClientIp = createClientIpResolver(process.env.CLIENT_IP_HEADER);
 
-interface GraphQLContext {
-  userId: string | null;
-  ip: string | null;
-}
-
-async function getAuthContext(req: express.Request): Promise<GraphQLContext> {
+async function getAuthContext(req: express.Request): Promise<Context> {
+  const ip = getClientIp(req);
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice(7);
     try {
       const { payload } = await jwtVerify(token, INTERNAL_API_SECRET);
-      if (typeof payload.userId === 'string') return { userId: payload.userId, ip: getClientIp(req) };
+      if (typeof payload.userId === 'string') {
+        const viewer = await loadViewer(payload.userId);
+        // A valid token for a user who has since been deleted counts as anonymous.
+        if (viewer) return { ...viewer, userId: payload.userId, ip };
+      }
     } catch {
       // expired or invalid token
     }
   }
-  return { userId: null, ip: getClientIp(req) };
+  return { userId: null, ip };
 }
 
 async function startServer() {
-  const server = new ApolloServer<GraphQLContext>({
+  const server = new ApolloServer<Context>({
     typeDefs,
     resolvers,
     // Never send stack traces, whatever NODE_ENV is; mask unexpected errors (see errors.ts).

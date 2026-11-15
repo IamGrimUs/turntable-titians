@@ -11,6 +11,7 @@ vi.mock('./db', () => ({
 
 import { db } from './db'
 import { resolvers } from './resolvers'
+import { requireAdmin, requireAuth } from './context'
 
 const m = {
   voteFindFirst: db.vote.findFirst as unknown as ReturnType<typeof vi.fn>,
@@ -390,5 +391,74 @@ describe('vote', () => {
     const e = await rejection(mutation('vote')({}, { submissionId: 'sub-1' }, asUser))
     expect(e.message).toMatch(/ended/i)
     expect(m.voteCreate).not.toHaveBeenCalled()
+  })
+})
+
+describe('suspended callers', () => {
+  const suspended = { userId: 'u', suspension: { reason: 'spam', until: null } }
+
+  it.each([
+    ['createBattle', { title: 'T', type: 'x', description: 'D', startDate: '2030-01-01T00:00:00.000Z', endDate: '2030-02-01T00:00:00.000Z' }],
+    ['vote', { submissionId: 's1' }],
+    ['updateProfile', { username: 'abc' }],
+  ])('%s is rejected with FORBIDDEN and does not touch the database', async (name, args) => {
+    const err = await rejection(mutation(name)({}, args, suspended))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expect(err.message).toBe('Your account is suspended. Reason: spam')
+    Object.values(m).forEach((fn) => expect(fn).not.toHaveBeenCalled())
+  })
+
+  it('omits the reason from the message when there is none', () => {
+    try {
+      requireAuth({ userId: 'u', suspension: { reason: null, until: null } })
+    } catch (e) {
+      expect((e as { message: string }).message).toBe('Your account is suspended.')
+      return
+    }
+    throw new Error('expected requireAuth to throw')
+  })
+
+  it('treats a context without suspension as not suspended', () => {
+    expect(requireAuth({ userId: 'u' })).toBe('u')
+    expect(requireAuth({ userId: 'u', suspension: null })).toBe('u')
+  })
+
+  it('requires a user id (UNAUTHENTICATED)', () => {
+    try {
+      requireAuth({ userId: null })
+    } catch (e) {
+      expect((e as { extensions: { code: string } }).extensions.code).toBe('UNAUTHENTICATED')
+      return
+    }
+    throw new Error('expected requireAuth to throw')
+  })
+})
+
+describe('requireAdmin', () => {
+  it('rejects a suspended ADMIN with FORBIDDEN (suspension removes admin powers)', () => {
+    const ctx = { userId: 'a1', role: 'ADMIN' as const, suspension: { reason: 'spam', until: null } }
+    try {
+      requireAdmin(ctx, 'viewAdmin')
+    } catch (e) {
+      expect((e as { extensions: { code: string } }).extensions.code).toBe('FORBIDDEN')
+      expect((e as { message: string }).message).toMatch(/suspended/)
+      return
+    }
+    throw new Error('expected requireAdmin to throw')
+  })
+
+  it('resolves to { id, role } for an active ADMIN acting on a USER', () => {
+    const ctx = { userId: 'a1', role: 'ADMIN' as const, suspension: null }
+    expect(requireAdmin(ctx, 'manageUser', { id: 'u2', role: 'USER' })).toEqual({ id: 'a1', role: 'ADMIN' })
+  })
+
+  it('rejects a plain USER with FORBIDDEN', () => {
+    try {
+      requireAdmin({ userId: 'u1', role: 'USER' }, 'viewAdmin')
+    } catch (e) {
+      expect((e as { extensions: { code: string } }).extensions.code).toBe('FORBIDDEN')
+      return
+    }
+    throw new Error('expected requireAdmin to throw')
   })
 })

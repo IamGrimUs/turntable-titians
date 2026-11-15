@@ -2,6 +2,7 @@ import { Battle, Submission, Vote } from '@prisma/client'
 import { GraphQLError } from 'graphql'
 import { db } from './db'
 import { computeBattleStatus } from './battleStatus'
+import { requireAuth, type Context } from './context'
 import {
   LIMITS,
   cleanCrews,
@@ -12,17 +13,6 @@ import {
   getAllowedImageHosts,
   parseBattleDates,
 } from './validation'
-
-interface Context {
-  userId: string | null
-}
-
-function requireAuth(userId: string | null): string {
-  if (!userId) throw new GraphQLError('Not authenticated', {
-    extensions: { code: 'UNAUTHENTICATED' },
-  })
-  return userId
-}
 
 function sameList(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((value, i) => value === b[i])
@@ -65,7 +55,7 @@ export const resolvers = {
       }: { title: string; type: string; description?: string | null; startDate: string; endDate: string },
       ctx: Context
     ) => {
-      requireAuth(ctx.userId)
+      requireAuth(ctx)
       const cleanTitle = cleanSingleLine(title, 'Title', { max: LIMITS.title, required: true })!
       const cleanType = cleanSingleLine(type, 'Battle type', { max: LIMITS.battleType, required: true })!
       const cleanDescription = cleanMultiLine(description, 'Description', { max: LIMITS.description })
@@ -85,7 +75,7 @@ export const resolvers = {
       }: { battleId: string; videoUrl: string; title?: string | null; description?: string | null },
       ctx: Context
     ) => {
-      const userId = requireAuth(ctx.userId)
+      const userId = requireAuth(ctx)
       const cleanUrl = cleanHttpsUrl(videoUrl, 'Video link', { max: LIMITS.url })
       const cleanTitle = cleanSingleLine(title, 'Title', { max: LIMITS.title })
       const cleanDescription = cleanMultiLine(description, 'Description', { max: LIMITS.description })
@@ -141,7 +131,7 @@ export const resolvers = {
       }: { username?: string | null; image?: string | null; externalCrews?: string[] | null },
       ctx: Context
     ) => {
-      const userId = requireAuth(ctx.userId)
+      const userId = requireAuth(ctx)
 
       // Rules apply only to values that are actually changing, so an account created
       // before these rules existed can still save its other settings.
@@ -207,7 +197,7 @@ export const resolvers = {
     },
 
     vote: async (_: unknown, { submissionId }: { submissionId: string }, ctx: Context) => {
-      const userId = requireAuth(ctx.userId)
+      const userId = requireAuth(ctx)
       const submission = await db.submission.findUnique({
         where: { id: submissionId },
         select: {
@@ -246,7 +236,7 @@ export const resolvers = {
     },
 
     deleteVote: async (_: unknown, { submissionId }: { submissionId: string }, ctx: Context) => {
-      const userId = requireAuth(ctx.userId)
+      const userId = requireAuth(ctx)
       const submission = await db.submission.findUnique({
         where: { id: submissionId },
         select: {
