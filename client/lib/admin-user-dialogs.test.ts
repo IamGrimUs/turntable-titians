@@ -7,10 +7,12 @@ import {
   buildUpdateInput,
   deleteConfirmMatches,
   deleteConfirmTarget,
+  editErrorField,
   flattenReason,
   formatLocalDateTime,
   internalCrewNames,
   shouldRefreshAfterFailure,
+  suspendErrorField,
   suspendUntilToIso,
   toDateTimeLocalValue,
   userLabel,
@@ -89,6 +91,35 @@ describe('shouldRefreshAfterFailure', () => {
   it('tolerates junk', () => {
     expect(shouldRefreshAfterFailure(null, false)).toBe(false)
     expect(shouldRefreshAfterFailure(undefined, true)).toBe(true)
+  })
+})
+
+describe('suspendErrorField', () => {
+  it('finds the field a message is about', () => {
+    expect(suspendErrorField('Enter a reason for the suspension.')).toBe('reason')
+    expect(suspendErrorField('The reason must be 500 characters or fewer.')).toBe('reason')
+    expect(suspendErrorField('Reason is required.')).toBe('reason')
+    expect(suspendErrorField('The end date must be in the future.')).toBe('until')
+    expect(suspendErrorField('Enter a valid end date.')).toBe('until')
+  })
+  it('is null for no message or a message about the whole form', () => {
+    expect(suspendErrorField(null)).toBeNull()
+    expect(suspendErrorField(GENERIC_ERROR_MESSAGE)).toBeNull()
+  })
+})
+
+describe('editErrorField', () => {
+  it('finds the field a message is about', () => {
+    expect(editErrorField('Username already taken')).toBe('username')
+    expect(editErrorField('That username is not available.')).toBe('username')
+    expect(editErrorField('Usernames must be 3-30 characters and can only use letters.')).toBe('username')
+    expect(editErrorField('Name must be 60 characters or fewer.')).toBe('name')
+    expect(editErrorField('You can list up to 10 crews.')).toBe('crew')
+  })
+  it('is null for no message or a message about the whole form', () => {
+    expect(editErrorField(null)).toBeNull()
+    expect(editErrorField(GENERIC_ERROR_MESSAGE)).toBeNull()
+    expect(editErrorField('That user no longer exists.')).toBeNull()
   })
 })
 

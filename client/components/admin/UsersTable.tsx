@@ -11,6 +11,7 @@ import {
   formatLastSignIn,
   rowActions,
   rowNote,
+  rowNoteExplanation,
   type AdminUserRow,
   type RowAction,
   type SortState,
@@ -46,7 +47,6 @@ const COLUMNS: Column[] = [
 // Reinstate + Delete + Remove admin: ~384px; without the fourth button: ~240px) plus the
 // cell padding (12px left, 16px right) and ~16px of slack for font-rendering differences.
 const ADMIN_ACTIONS_WIDTH = 320
-
 
 const ACTION_LABELS: Record<RowAction, string> = {
   edit: 'Edit',
@@ -191,7 +191,7 @@ export function UsersTable({ viewerRole, rows, sort, onSort, onAction }: UsersTa
   const truncate = 'block truncate'
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+    <div className="overflow-x-auto rounded-lg border border-border bg-card [color-scheme:dark]">
       <table
         className="table-fixed border-separate border-spacing-0 text-base"
         style={{ width: tableWidth, minWidth: '100%' }}
@@ -276,15 +276,12 @@ export function UsersTable({ viewerRole, rows, sort, onSort, onAction }: UsersTa
                         </Button>
                       ))
                     ) : note ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled
-                        className="border-dashed opacity-45"
-                      >
-                        {note}
-                      </Button>
+                      // Information, not a control: no disabled button, no tab stop. The visible
+                      // words are short, so the sentence is the hover text and what a screen reader reads.
+                      <Badge variant="outline" className="border-dashed text-muted-foreground" title={rowNoteExplanation(note)}>
+                        <span aria-hidden="true">{note}</span>
+                        <span className="sr-only">{rowNoteExplanation(note)}</span>
+                      </Badge>
                     ) : null}
                   </div>
                 </td>

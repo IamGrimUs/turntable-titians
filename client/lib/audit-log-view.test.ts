@@ -110,6 +110,19 @@ describe('summarizeDetails: USER_EDIT', () => {
     expect(summarizeDetails('USER_EDIT', json({ changes: { name: 'x' } }))).toBe('')
     expect(summarizeDetails('USER_EDIT', json({ changes: { name: { from: { a: 1 }, to: 'z' } } }))).toBe('name: ? → z')
   })
+  it('shows hostile or unknown field names as plain text, never an inherited object', () => {
+    // Written as JSON text: JSON.parse makes "__proto__" a real own key, as the server's details would.
+    const raw = `{"changes":{"__proto__":{"from":"a","to":"b"},"constructor":{"from":"c","to":"d"},"toString":{"from":"e","to":"f"},"somethingNew":{"from":"g","to":"h"}}}`
+    const out = summarizeDetails('USER_EDIT', raw)
+    expect(out).toBe('__proto__: a → b; constructor: c → d; toString: e → f; somethingNew: g → h')
+    expect(out).not.toContain('[object Object]')
+    expect(out).not.toContain('function')
+  })
+  it('shortens a very long unknown field name', () => {
+    const out = summarizeDetails('USER_EDIT', json({ changes: { ['k'.repeat(100)]: { from: 'a', to: 'b' } } }))
+    expect(out.startsWith('k'.repeat(19))).toBe(true)
+    expect(out).toContain('…: a → b')
+  })
   it('caps the whole summary', () => {
     const changes = Object.fromEntries(
       Array.from({ length: 40 }, (_, i) => [`field${i}`, { from: 'a'.repeat(30), to: 'b'.repeat(30) }])

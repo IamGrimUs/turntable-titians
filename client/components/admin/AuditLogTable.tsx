@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ADMIN_AUDIT_LOG_QUERY } from '@/lib/graphql/admin'
+import { hasAccessError } from '@/lib/graphql-errors'
 import {
   actionLabel,
   actionTone,
@@ -28,12 +29,6 @@ const TONE_CLASS: Record<ActionTone, string> = {
   warn: 'border-amber-500/30 bg-amber-500/15 text-amber-400',
   good: 'border-green-500/30 bg-green-500/15 text-green-400',
   neutral: 'border-slate-500/30 bg-slate-500/15 text-slate-400',
-}
-
-function hasAccessError(error: { graphQLErrors?: readonly { extensions?: Record<string, unknown> }[] }): boolean {
-  return (error.graphQLErrors ?? []).some(
-    (e) => e.extensions?.code === 'FORBIDDEN' || e.extensions?.code === 'UNAUTHENTICATED'
-  )
 }
 
 const TH =
@@ -122,7 +117,7 @@ export function AuditLogTable() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-border bg-card">
+              <div className="overflow-x-auto rounded-lg border border-border bg-card [color-scheme:dark]">
                 <table className="w-full min-w-[1000px] table-fixed border-separate border-spacing-0 text-base">
                   <caption className="sr-only">Admin audit log</caption>
                   <colgroup>

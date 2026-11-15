@@ -12,6 +12,7 @@ import { ConfirmUserDialog } from '@/components/admin/ConfirmUserDialog'
 import type { Role } from '@/lib/admin-access'
 import { shouldRefreshAfterFailure } from '@/lib/admin-user-dialogs'
 import { ADMIN_USERS_QUERY } from '@/lib/graphql/admin'
+import { hasAccessError } from '@/lib/graphql-errors'
 import {
   DEFAULT_SORT,
   nextSort,
@@ -52,12 +53,6 @@ const CHIP_ON = 'border-foreground/60 bg-foreground/10 text-foreground'
 
 const SEARCH_CLASS =
   'h-10 w-full max-w-[260px] rounded-md border border-border bg-background px-3 text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
-
-function hasAccessError(error: { graphQLErrors?: readonly { extensions?: Record<string, unknown> }[] }): boolean {
-  return (error.graphQLErrors ?? []).some(
-    (e) => e.extensions?.code === 'FORBIDDEN' || e.extensions?.code === 'UNAUTHENTICATED'
-  )
-}
 
 // `viewerRole` comes from the server page, read from the database (not the session hint). It only
 // decides which action buttons to draw; the API re-checks the real role on every request.

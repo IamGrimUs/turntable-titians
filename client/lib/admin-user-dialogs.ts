@@ -38,6 +38,28 @@ export function adminErrorMessage(error: unknown): string {
 }
 
 /**
+ * Which suspend field a message (ours or the server's) is about, so the field can be marked
+ * invalid. The API sends no field name, only text such as "Reason is required." or "The end
+ * date must be in the future.", so this reads the wording; no match means the message is about
+ * the form as a whole.
+ */
+export function suspendErrorField(message: string | null): 'reason' | 'until' | null {
+  if (!message) return null
+  if (/reason/i.test(message)) return 'reason'
+  if (/end date/i.test(message)) return 'until'
+  return null
+}
+
+/** Which edit field a message is about ("Username already taken", "Name must be ...", "Crews ..."), by wording. */
+export function editErrorField(message: string | null): 'username' | 'name' | 'crew' | null {
+  if (!message) return null
+  if (/username/i.test(message)) return 'username'
+  if (/^name\b/i.test(message)) return 'name'
+  if (/crew/i.test(message)) return 'crew'
+  return null
+}
+
+/**
  * True when the table behind a dialog may be out of date after this failure and should be
  * reloaded: the user was already deleted or changed by someone else (NOT_FOUND, FORBIDDEN),
  * or, for a delete, the request failed on the network and may have gone through anyway.

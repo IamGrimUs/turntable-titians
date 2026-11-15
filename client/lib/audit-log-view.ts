@@ -56,6 +56,11 @@ export const MAX_SUMMARY_LENGTH = 240
 const NONE = 'none'
 const ARROW = '→'
 
+/** The reader-friendly name of an edited field; a key this client does not know is shown (shortened) as sent. */
+function fieldLabel(key: string): string {
+  return Object.prototype.hasOwnProperty.call(FIELD_LABELS, key) ? FIELD_LABELS[key] : truncate(key, 20)
+}
+
 /** A readable label for an action; an action this client does not know is shown as sent. */
 export function actionLabel(action: string): string {
   return Object.prototype.hasOwnProperty.call(ACTION_LABELS, action) ? ACTION_LABELS[action] : action
@@ -131,7 +136,7 @@ function summarizeEdit(details: Record<string, unknown>): string {
   const parts: string[] = []
   for (const [key, change] of Object.entries(changes)) {
     if (!isRecord(change)) continue
-    const label = FIELD_LABELS[key] ?? truncate(key, 20)
+    const label = fieldLabel(key)
     if (key === 'image') {
       // Only ever cleared from the admin tools; never print an image address.
       parts.push(change.to === null ? 'avatar: removed' : 'avatar: changed')

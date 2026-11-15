@@ -3,14 +3,16 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation } from '@apollo/client'
 import { Button } from '@/components/ui/button'
-import { Modal, ModalError, ModalFooter, fieldClass, labelClass } from '@/components/admin/Modal'
+import { Modal, ModalError, ModalFooter } from '@/components/admin/Modal'
 import { useDialogSubmit } from '@/components/admin/useDialogSubmit'
+import { fieldClass, labelClass } from '@/lib/form-styles'
 import { ADMIN_SUSPEND_USER } from '@/lib/graphql/admin'
 import type { AdminUserRow } from '@/lib/admin-users-view'
 import {
   DIALOG_LIMITS,
   flattenReason,
   formatLocalDateTime,
+  suspendErrorField,
   suspendUntilToIso,
   toDateTimeLocalValue,
   userLabel,
@@ -31,10 +33,13 @@ export function SuspendUserDialog({ row, onClose, onSuccess, onFailure }: Suspen
   const [formError, setFormError] = useState<string | null>(null)
 
   const [suspendUser] = useMutation(ADMIN_SUSPEND_USER)
-  const { submitting, error, submit } = useDialogSubmit(onSuccess, onFailure)
+  const { submitting, error, setError, submit } = useDialogSubmit(onSuccess, onFailure)
 
   const label = userLabel(row)
   const parsedUntil = suspendUntilToIso(untilValue)
+  // One message at a time: our own form check, else the server's. The field it is about is marked invalid.
+  const message = formError ?? error
+  const errorField = suspendErrorField(message)
   const untilText = parsedUntil.ok && parsedUntil.until ? formatLocalDateTime(parsedUntil.until) : null
 
   const onSubmit = (e: FormEvent) => {
@@ -74,10 +79,12 @@ export function SuspendUserDialog({ row, onClose, onSuccess, onFailure }: Suspen
             value={reason}
             maxLength={DIALOG_LIMITS.suspensionReason}
             disabled={submitting}
-            aria-describedby="suspend-reason-help suspend-reason-warning"
+            aria-invalid={errorField === 'reason'}
+            aria-describedby={`${errorField === 'reason' ? 'suspend-error ' : ''}suspend-reason-help suspend-reason-warning`}
             onChange={(e) => {
               setReason(flattenReason(e.target.value))
               setFormError(null)
+              setError(null)
             }}
             onKeyDown={(e) => {
               // One line only: the server refuses line breaks.
@@ -87,8 +94,13 @@ export function SuspendUserDialog({ row, onClose, onSuccess, onFailure }: Suspen
           />
           <div className="flex items-start justify-between gap-3 text-base text-muted-foreground">
             <p id="suspend-reason-help">This reason will be shown to the user.</p>
-            <p className="shrink-0 tabular-nums" aria-label="Characters used">
-              {reason.length}/{DIALOG_LIMITS.suspensionReason}
+            <p className="shrink-0 tabular-nums">
+              <span aria-hidden="true">
+                {reason.length}/{DIALOG_LIMITS.suspensionReason}
+              </span>
+              <span className="sr-only">
+                {reason.length} of {DIALOG_LIMITS.suspensionReason} characters used
+              </span>
             </p>
           </div>
           <p
@@ -110,10 +122,12 @@ export function SuspendUserDialog({ row, onClose, onSuccess, onFailure }: Suspen
             value={untilValue}
             min={toDateTimeLocalValue(new Date())}
             disabled={submitting}
-            aria-describedby="suspend-until-help"
+            aria-invalid={errorField === 'until'}
+            aria-describedby={`${errorField === 'until' ? 'suspend-error ' : ''}suspend-until-help`}
             onChange={(e) => {
               setUntilValue(e.target.value)
               setFormError(null)
+              setError(null)
             }}
             className={fieldClass}
           />
@@ -124,7 +138,7 @@ export function SuspendUserDialog({ row, onClose, onSuccess, onFailure }: Suspen
           </p>
         </div>
 
-        <ModalError message={formError ?? error} />
+        <ModalError id="suspend-error" message={message} />
 
         <ModalFooter>
           <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>

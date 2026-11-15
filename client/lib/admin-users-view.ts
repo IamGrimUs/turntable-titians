@@ -71,6 +71,11 @@ export function rowNote(viewer: Role, target: { role: Role }): 'Owner only' | 'P
   return null
 }
 
+/** What a row note means, for hover text and screen readers (the note itself is only two words). */
+export function rowNoteExplanation(note: 'Owner only' | 'Protected'): string {
+  return note === 'Owner only' ? 'Only the owner can change admins' : "The owner account can't be changed here"
+}
+
 export type SortState = { key: UserSortKey; dir: 'ASC' | 'DESC' }
 
 export const DEFAULT_SORT: SortState = { key: 'createdAt', dir: 'DESC' }
