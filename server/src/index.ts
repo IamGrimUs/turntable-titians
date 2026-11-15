@@ -4,7 +4,6 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
-import { jwtVerify } from 'jose';
 import { typeDefs } from './schema';
 import { resolvers } from './resolvers';
 import { db } from './db';
@@ -14,7 +13,7 @@ import { createLimiter } from './rateLimit';
 import { createQueryLimitRule } from './queryLimits';
 import { createIpLimitMiddleware, createMutationLimitPlugin } from './rateLimiting';
 import { createClientIpResolver } from './clientIp';
-import { loadViewer } from './viewer';
+import { createAuthContext } from './authContext';
 import type { Context } from './context';
 
 dotenv.config();
@@ -39,24 +38,7 @@ app.set('trust proxy', Number.isInteger(TRUST_PROXY) && TRUST_PROXY >= 0 ? TRUST
 // Unset (the default), req.ip is used and no header is trusted.
 const getClientIp = createClientIpResolver(process.env.CLIENT_IP_HEADER);
 
-async function getAuthContext(req: express.Request): Promise<Context> {
-  const ip = getClientIp(req);
-  const authHeader = req.headers.authorization;
-  if (authHeader?.startsWith('Bearer ')) {
-    const token = authHeader.slice(7);
-    try {
-      const { payload } = await jwtVerify(token, INTERNAL_API_SECRET);
-      if (typeof payload.userId === 'string') {
-        const viewer = await loadViewer(payload.userId);
-        // A valid token for a user who has since been deleted counts as anonymous.
-        if (viewer) return { ...viewer, userId: payload.userId, ip };
-      }
-    } catch {
-      // expired or invalid token
-    }
-  }
-  return { userId: null, ip };
-}
+const getAuthContext = createAuthContext({ secret: INTERNAL_API_SECRET, getClientIp });
 
 async function startServer() {
   const server = new ApolloServer<Context>({
