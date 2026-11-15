@@ -1,10 +1,6 @@
 import Link from 'next/link'
 
-export default function VerifyRequestPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ email?: string }>
-}) {
+export default function VerifyRequestPage() {
   return (
     <div className="min-h-full flex items-center justify-center p-8">
       <div className="w-full max-w-sm text-center">
