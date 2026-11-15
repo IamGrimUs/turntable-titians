@@ -76,4 +76,12 @@ describe('createIpLimitMiddleware', () => {
     run(mw, '1.1.1.1');
     expect(run(mw, '2.2.2.2').next).toHaveBeenCalled();
   });
+
+  it('counts by the address getIp returns, not req.ip (e.g. one caller behind rotating proxies)', () => {
+    const mw = createIpLimitMiddleware(limiter(1), () => '75.172.40.68');
+    expect(run(mw, '152.233.76.10').next).toHaveBeenCalled();
+    const { res, next } = run(mw, '79.127.217.66');
+    expect(res.statusCode).toBe(429);
+    expect(next).not.toHaveBeenCalled();
+  });
 });
