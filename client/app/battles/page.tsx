@@ -133,7 +133,12 @@ export default function BattlesPage() {
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-5xl font-graffiti mb-2 text-foreground">Battles</h1>
-        <p className="text-muted-foreground text-base">Compete, submit your sets, and vote for the winners</p>
+        <p className="text-muted-foreground text-base">
+          Compete, submit your sets, and vote for the winners.{' '}
+          <Link href="/how-it-works" className="text-amber-500 font-semibold hover:underline">
+            How it works
+          </Link>
+        </p>
       </div>
 
       {hasAny && (
