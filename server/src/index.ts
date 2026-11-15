@@ -9,6 +9,7 @@ import { typeDefs } from './schema';
 import { resolvers } from './resolvers';
 import { db } from './db';
 import { getInternalApiSecret } from './config';
+import { formatError } from './errors';
 import { createLimiter } from './rateLimit';
 import { createQueryLimitRule } from './queryLimits';
 import { createIpLimitMiddleware, createMutationLimitPlugin } from './rateLimiting';
@@ -52,6 +53,9 @@ async function startServer() {
   const server = new ApolloServer<GraphQLContext>({
     typeDefs,
     resolvers,
+    // Never send stack traces, whatever NODE_ENV is; mask unexpected errors (see errors.ts).
+    includeStacktraceInErrorResponses: false,
+    formatError,
     // Refuse queries that are too deep or ask for too many fields.
     validationRules: RATE_LIMIT_DISABLED ? [] : [createQueryLimitRule({ maxDepth: 6, maxFields: 150 })],
     // At most 30 mutations a minute per user (per IP when not signed in).
