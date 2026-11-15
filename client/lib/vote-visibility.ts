@@ -25,6 +25,6 @@ export function rankSubmissions<T extends Rankable>(submissions: T[], status: Ba
 }
 
 export function formatVoteCount(voteCount: number | null) {
-  if (voteCount === null) return { hidden: true as const, text: 'vote count hidden', hint: VOTES_HIDDEN_HINT }
+  if (voteCount === null) return { hidden: true as const, text: 'hidden', hint: VOTES_HIDDEN_HINT }
   return { hidden: false as const, text: String(voteCount) }
 }

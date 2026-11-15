@@ -3,7 +3,7 @@ import { formatVoteCount } from '@/lib/vote-visibility'
 
 /**
  * Shows a vote count, or, when the server is withholding it, an unmistakable
- * "vote count hidden" marker so people know the number is hidden on purpose, not missing.
+ * "hidden" marker so people know the number is hidden on purpose, not missing.
  */
 export function VoteCount({ voteCount, suffix = '', className = '' }: { voteCount: number | null; suffix?: string; className?: string }) {
   const v = formatVoteCount(voteCount)

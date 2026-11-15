@@ -52,7 +52,7 @@ describe('rankSubmissions', () => {
 
 describe('formatVoteCount', () => {
   it('shows a deliberate "hidden" state, not a blank, when the count is withheld', () => {
-    expect(formatVoteCount(null)).toEqual({ hidden: true, text: 'vote count hidden', hint: VOTES_HIDDEN_HINT })
+    expect(formatVoteCount(null)).toEqual({ hidden: true, text: 'hidden', hint: VOTES_HIDDEN_HINT })
   })
 
   it('shows the number when it is known, including zero', () => {
