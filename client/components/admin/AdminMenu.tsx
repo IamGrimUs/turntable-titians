@@ -46,7 +46,7 @@ export function AdminMenu({ role }: { role: Role }) {
         aria-label="Admin"
         className="hidden w-[200px] shrink-0 border-r border-border/60 px-3 py-4 md:block"
       >
-        <p className="mx-2 mb-3 mt-1.5 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        <p className="mx-2 mb-3 mt-1.5 text-base font-semibold uppercase tracking-widest text-muted-foreground">
           Admin
         </p>
         <ul className="space-y-0.5">{links}</ul>
