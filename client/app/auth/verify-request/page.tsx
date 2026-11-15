@@ -15,12 +15,12 @@ export default function VerifyRequestPage() {
         </div>
 
         <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             A sign-in link has been sent to your email address. Click the link to sign in.
           </p>
           <Link
             href="/auth/signin"
-            className="block text-xs text-amber-500 hover:text-amber-400 transition-colors"
+            className="block text-base text-amber-500 hover:text-amber-400 transition-colors"
           >
             Use a different email
           </Link>

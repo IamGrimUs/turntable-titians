@@ -69,7 +69,7 @@ export default function UserProfilePage() {
               {user.externalCrews.map((crew: string) => (
                 <span
                   key={crew}
-                  className="rounded-full bg-amber-500/10 px-3 py-0.5 text-xs font-semibold text-amber-500"
+                  className="rounded-full bg-amber-500/10 px-3 py-0.5 text-base font-semibold text-amber-500"
                 >
                   {crew}
                 </span>
@@ -80,17 +80,17 @@ export default function UserProfilePage() {
       </div>
 
       <div>
-        <h2 className="text-xs font-bold tracking-widest uppercase text-muted-foreground mb-4">
+        <h2 className="text-base font-bold tracking-widest uppercase text-muted-foreground mb-4">
           Submissions
         </h2>
         {user.submissions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No submissions yet.</p>
+          <p className="text-base text-muted-foreground">No submissions yet.</p>
         ) : (
           <div className="space-y-2">
             {user.submissions.map((sub: { id: string; title?: string; voteCount: number | null; createdAt: string }) => (
               <div
                 key={sub.id}
-                className="flex justify-between items-center rounded-md border border-border px-4 py-3 text-sm"
+                className="flex justify-between items-center rounded-md border border-border px-4 py-3 text-base"
               >
                 <span className="text-foreground">{sub.title ?? 'Untitled'}</span>
                 <VoteCount voteCount={sub.voteCount} suffix=" votes" className="text-muted-foreground" />

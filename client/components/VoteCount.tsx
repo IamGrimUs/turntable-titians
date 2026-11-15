@@ -15,7 +15,7 @@ export function VoteCount({ voteCount, suffix = '', className = '' }: { voteCoun
         className={`inline-flex items-center gap-1 text-muted-foreground ${className}`}
       >
         <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span className="text-xs font-semibold uppercase tracking-wider">{v.text}</span>
+        <span className="text-base font-semibold uppercase tracking-wider">{v.text}</span>
       </span>
     )
   }

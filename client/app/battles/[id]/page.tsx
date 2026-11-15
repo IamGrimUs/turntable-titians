@@ -139,7 +139,7 @@ export default function BattleDetailPage() {
           <p className="mt-3 text-base text-muted-foreground leading-relaxed">{battle.description}</p>
         )}
         {battle.status === 'ACTIVE' && (
-          <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
+          <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-base text-muted-foreground">
             <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
             <p>
               <span className="font-semibold text-foreground">{VOTES_HIDDEN_HINT}.</span>{' '}

@@ -7,8 +7,8 @@ import { ME_QUERY, UPDATE_PROFILE_MUTATION } from '@/lib/graphql/queries'
 import { uploadAvatar, cleanupOldAvatars, UploadError } from '@/lib/uploadAvatar'
 
 const fieldClass =
-  'w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
-const labelClass = 'block text-xs font-bold tracking-widest uppercase text-muted-foreground'
+  'w-full rounded-md border border-border bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
+const labelClass = 'block text-base font-bold tracking-widest uppercase text-muted-foreground'
 
 export default function ProfilePage() {
   const { update } = useSession()
@@ -131,7 +131,7 @@ export default function ProfilePage() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-all disabled:opacity-50"
+                    className="rounded-md border border-border px-4 py-2 text-base font-semibold text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-all disabled:opacity-50"
                   >
                     {uploading ? 'Uploading…' : imageUrl ? 'Replace Image' : 'Upload Image'}
                   </button>
@@ -148,13 +148,13 @@ export default function ProfilePage() {
                   maxLength={40}
                   onChange={(e) => setCrewInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCrew() } }}
-                  placeholder="e.g. Rock Steady Crew"
+                  placeholder="e.g. The Allies"
                   className={`${fieldClass} flex-1`}
                 />
                 <button
                   type="button"
                   onClick={addCrew}
-                  className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-all"
+                  className="rounded-md border border-border px-4 py-2 text-base font-semibold text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-all"
                 >
                   Add
                 </button>
@@ -164,7 +164,7 @@ export default function ProfilePage() {
                   {crews.map((crew) => (
                     <span
                       key={crew}
-                      className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-500"
+                      className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-base font-semibold text-amber-500"
                     >
                       {crew}
                       <button
@@ -181,13 +181,13 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {error && <p className="text-sm font-medium text-red-400">{error}</p>}
-            {success && <p className="text-sm font-medium text-green-400">Profile updated.</p>}
+            {error && <p className="text-base font-medium text-red-400">{error}</p>}
+            {success && <p className="text-base font-medium text-green-400">Profile updated.</p>}
 
             <button
               type="submit"
               disabled={saving || uploading}
-              className="w-full rounded-md bg-amber-500 px-6 py-3 text-sm font-black uppercase tracking-widest text-black hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="w-full rounded-md bg-amber-500 px-6 py-3 text-base font-black uppercase tracking-widest text-black hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {saving ? 'Saving…' : 'Save Changes'}
             </button>

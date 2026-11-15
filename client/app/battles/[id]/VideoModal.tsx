@@ -87,7 +87,7 @@ export function VideoModal({
         <div className="flex items-center justify-between mt-3 px-1">
           <div>
             {title && (
-              <p className="text-sm font-bold text-foreground">{title}</p>
+              <p className="text-base font-bold text-foreground">{title}</p>
             )}
             <div className="flex items-center gap-2 mt-1">
               {user.image ? (
@@ -97,17 +97,17 @@ export function VideoModal({
                   className="w-6 h-6 rounded-full object-cover border border-border"
                 />
               ) : (
-                <span className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-center border border-amber-500/30">
+                <span className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 text-base font-bold flex items-center justify-center border border-amber-500/30">
                   {initial}
                 </span>
               )}
-              <span className="text-xs font-semibold text-muted-foreground">
+              <span className="text-base font-semibold text-muted-foreground">
                 {displayName}
               </span>
             </div>
           </div>
 
-          <VoteCount voteCount={voteCount} className="text-xs text-muted-foreground font-mono" />
+          <VoteCount voteCount={voteCount} className="text-base text-muted-foreground font-mono" />
         </div>
 
         {currentUserId && battleStatus === 'ACTIVE' && (
@@ -115,7 +115,7 @@ export function VideoModal({
             onClick={(e) => { e.stopPropagation(); onVote() }}
             disabled={hasVotedElsewhere || loading}
             aria-pressed={isVotedHere}
-            className={`mt-3 w-full text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
+            className={`mt-3 w-full text-base font-black uppercase tracking-widest px-3 py-1.5 rounded-md transition-all disabled:cursor-not-allowed ${
               isVotedHere
                 ? 'bg-amber-500 text-black hover:bg-amber-400'
                 : hasVotedElsewhere
