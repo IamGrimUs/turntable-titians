@@ -10,7 +10,6 @@ import { resolvers } from './resolvers';
 import { db } from './db';
 import { getInternalApiSecret } from './config';
 import { formatError } from './errors';
-import { createClientIpLogger } from './debugClientIp';
 import { createLimiter } from './rateLimit';
 import { createQueryLimitRule } from './queryLimits';
 import { createIpLimitMiddleware, createMutationLimitPlugin } from './rateLimiting';
@@ -75,9 +74,6 @@ async function startServer() {
   await server.start();
 
   app.use(cookieParser());
-
-  // TEMPORARY diagnostic, off unless DEBUG_CLIENT_IP=true (see debugClientIp.ts).
-  app.use('/graphql', createClientIpLogger({ enabled: process.env.DEBUG_CLIENT_IP === 'true' }));
 
   if (!RATE_LIMIT_DISABLED) {
     // 600 requests a minute per address is far above normal use. /health is left out on purpose.
