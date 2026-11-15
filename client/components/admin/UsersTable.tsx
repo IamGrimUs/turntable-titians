@@ -38,12 +38,14 @@ const COLUMNS: Column[] = [
   { key: 'createdAt', label: 'Joined', width: 140 },
   { key: 'lastSignInAt', label: 'Last sign-in', width: 160 },
   { key: 'email', label: 'Email', width: 250 },
-  { key: null, label: 'Actions', width: 380 },
+  { key: null, label: 'Actions', width: 436 },
 ]
 
 // Only an OWNER sees the fourth button (Make admin / Remove admin), so the Actions
-// column is narrower for everyone else.
-const ADMIN_ACTIONS_WIDTH = 290
+// column is narrower for everyone else. Widths are the measured worst case (Edit +
+// Reinstate + Delete + Remove admin: ~384px; without the fourth button: ~240px) plus the
+// cell padding (12px left, 16px right) and ~16px of slack for font-rendering differences.
+const ADMIN_ACTIONS_WIDTH = 320
 
 
 const ACTION_LABELS: Record<RowAction, string> = {
@@ -261,7 +263,7 @@ export function UsersTable({ viewerRole, rows, sort, onSort, onAction }: UsersTa
                   </span>
                 </td>
                 <td className={cn(cell, stickyRight, 'pr-4')}>
-                  <div className="flex justify-end gap-1.5">
+                  <div className="flex justify-end gap-1.5 whitespace-nowrap">
                     {actions.length > 0 ? (
                       actions.map((action) => (
                         <Button
