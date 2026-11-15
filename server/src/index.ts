@@ -14,6 +14,7 @@ import { createClientIpLogger } from './debugClientIp';
 import { createLimiter } from './rateLimit';
 import { createQueryLimitRule } from './queryLimits';
 import { createIpLimitMiddleware, createMutationLimitPlugin } from './rateLimiting';
+import { createClientIpResolver } from './clientIp';
 
 dotenv.config();
 
@@ -32,6 +33,10 @@ const TRUST_PROXY = Number(process.env.TRUST_PROXY ?? 1);
 // Don't advertise the framework in every response.
 app.disable('x-powered-by');
 app.set('trust proxy', Number.isInteger(TRUST_PROXY) && TRUST_PROXY >= 0 ? TRUST_PROXY : 1);
+// Which address the rate limits count. On Railway set CLIENT_IP_HEADER=x-real-ip: Express's req.ip
+// is Railway's rotating edge proxy there, so callers were split over several counters.
+// Unset (the default), req.ip is used and no header is trusted.
+const getClientIp = createClientIpResolver(process.env.CLIENT_IP_HEADER);
 
 interface GraphQLContext {
   userId: string | null;
@@ -44,12 +49,12 @@ async function getAuthContext(req: express.Request): Promise<GraphQLContext> {
     const token = authHeader.slice(7);
     try {
       const { payload } = await jwtVerify(token, INTERNAL_API_SECRET);
-      if (typeof payload.userId === 'string') return { userId: payload.userId, ip: req.ip ?? null };
+      if (typeof payload.userId === 'string') return { userId: payload.userId, ip: getClientIp(req) };
     } catch {
       // expired or invalid token
     }
   }
-  return { userId: null, ip: req.ip ?? null };
+  return { userId: null, ip: getClientIp(req) };
 }
 
 async function startServer() {
@@ -76,7 +81,7 @@ async function startServer() {
 
   if (!RATE_LIMIT_DISABLED) {
     // 600 requests a minute per address is far above normal use. /health is left out on purpose.
-    app.use('/graphql', createIpLimitMiddleware(createLimiter({ limit: 600, windowMs: 60_000 })));
+    app.use('/graphql', createIpLimitMiddleware(createLimiter({ limit: 600, windowMs: 60_000 }), getClientIp));
   }
 
   app.use(

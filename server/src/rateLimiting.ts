@@ -37,10 +37,16 @@ export function createMutationLimitPlugin(limiter: Limiter): ApolloServerPlugin<
   };
 }
 
-/** Caps total requests per network address, whatever they ask for. */
-export function createIpLimitMiddleware(limiter: Limiter) {
+/**
+ * Caps total requests per network address, whatever they ask for. `getIp` says which address
+ * counts as the caller (see clientIp.ts); by default it is Express's `req.ip`.
+ */
+export function createIpLimitMiddleware(
+  limiter: Limiter,
+  getIp: (req: Request) => string | null = (req) => req.ip ?? null
+) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const result = limiter.hit(req.ip ?? 'unknown');
+    const result = limiter.hit(getIp(req) ?? 'unknown');
     if (result.allowed) return next();
     res.set('Retry-After', String(result.retryAfterSeconds));
     res.status(429).json({ error: 'Too many requests. Please slow down.' });
