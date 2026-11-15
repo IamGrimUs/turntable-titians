@@ -19,7 +19,43 @@ model User {
   internalCrews CrewMember[]
   accounts      Account[]
   sessions      Session[]
+  votes         Vote[]
   createdAt     DateTime     @default(now())
+
+  role             UserRole  @default(USER)
+  suspendedAt      DateTime?
+  suspendedUntil   DateTime?
+  suspensionReason String?
+  lastSignInAt     DateTime  @default(now())
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  OWNER
+}
+
+model BannedEmail {
+  email       String   @id
+  reason      String?
+  createdAt   DateTime @default(now())
+  createdById String?
+}
+
+model AdminAuditLog {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  actorId        String
+  actorUsername  String?
+  actorEmail     String
+  action         String
+  targetType     String
+  targetId       String
+  targetUsername String?
+  targetEmail    String?
+  details        Json
+
+  @@index([createdAt])
 }
 
 model Battle {
@@ -47,8 +83,8 @@ model Submission {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  battle Battle @relation(fields: [battleId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
+  battle Battle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // One entry per user per battle (also checked in createSubmission for a friendly message).
   @@unique([battleId, userId])
@@ -61,8 +97,9 @@ model Vote {
   userId       String
   createdAt    DateTime   @default(now())
 
-  submission   Submission @relation(fields: [submissionId], references: [id])
-  battle       Battle     @relation(fields: [battleId], references: [id])
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  battle       Battle     @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, battleId])
   @@index([battleId])
