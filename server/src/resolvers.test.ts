@@ -143,6 +143,24 @@ describe('createSubmission', () => {
     expect(m.submissionCreate).not.toHaveBeenCalled()
   })
 
+  it('turns a lost race (two simultaneous submits) into the same friendly error, not a server error', async () => {
+    // Both requests passed the findFirst check; the database unique index stops the second one.
+    m.battleFindUnique.mockResolvedValue(battleDates.active)
+    m.submissionFindFirst.mockResolvedValue(null)
+    m.submissionCreate.mockRejectedValue({ code: 'P2002' })
+    const e = await rejection(mutation('createSubmission')({}, args, asUser))
+    expect(e.message).toMatch(/already submitted/i)
+    expect(e.extensions.code).toBe('BAD_USER_INPUT')
+  })
+
+  it('does not hide other database errors behind that message', async () => {
+    m.battleFindUnique.mockResolvedValue(battleDates.active)
+    m.submissionFindFirst.mockResolvedValue(null)
+    const boom = Object.assign(new Error('connection lost'), { code: 'P1001' })
+    m.submissionCreate.mockRejectedValue(boom)
+    await expect(mutation('createSubmission')({}, args, asUser)).rejects.toBe(boom)
+  })
+
   it('creates the entry with cleaned values and the caller\'s own id', async () => {
     m.battleFindUnique.mockResolvedValue(battleDates.active)
     m.submissionFindFirst.mockResolvedValue(null)

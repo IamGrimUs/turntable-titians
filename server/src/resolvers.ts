@@ -116,9 +116,20 @@ export const resolvers = {
         })
       }
 
-      return db.submission.create({
-        data: { battleId, userId, videoUrl: cleanUrl, title: cleanTitle, description: cleanDescription },
-      })
+      // The check above can lose a race (two simultaneous requests both pass it); the
+      // database's unique (battleId, userId) index is the real guarantee.
+      try {
+        return await db.submission.create({
+          data: { battleId, userId, videoUrl: cleanUrl, title: cleanTitle, description: cleanDescription },
+        })
+      } catch (e: unknown) {
+        if ((e as { code?: string })?.code === 'P2002') {
+          throw new GraphQLError('You have already submitted an entry to this battle.', {
+            extensions: { code: 'BAD_USER_INPUT' },
+          })
+        }
+        throw e
+      }
     },
 
     updateProfile: async (
