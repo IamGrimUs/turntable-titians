@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql'
 import { db } from './db'
 import { requireAdmin, type Context } from './context'
 import { auditData, diffFields } from './audit'
+import { cleanSuspension, isSuspended } from './suspension'
 import { prepareCrews, prepareUsername } from './profileRules'
 import { LIMITS, cleanSingleLine } from './validation'
 import { loadAdminUserRows } from './adminData'
@@ -32,6 +33,31 @@ export interface AdminUpdateUserArgs {
   externalCrews?: string[] | null
   removeAvatar?: boolean | null
 }
+
+export interface AdminSuspendUserArgs {
+  userId: string
+  reason: string
+  until?: string | null
+}
+
+const suspensionTargetSelect = {
+  id: true,
+  role: true,
+  username: true,
+  email: true,
+  suspendedAt: true,
+  suspendedUntil: true,
+  suspensionReason: true,
+} as const
+
+async function loadSuspensionTarget(userId: string) {
+  const user = await db.user.findUnique({ where: { id: userId }, select: suspensionTargetSelect })
+  if (!user) {
+    throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } })
+  }
+  return user
+}
+
 
 /** Admin mutations; each later task adds its own to this object. */
 export const adminMutation = {
@@ -86,6 +112,60 @@ export const adminMutation = {
         db.adminAuditLog.create({ data: audit }),
       ])
     }
+
+    return (await loadAdminUserRows([user.id]))[0]
+  },
+
+  adminSuspendUser: async (_: unknown, args: AdminSuspendUserArgs, ctx: Context) => {
+    // Same order as adminUpdateUser: access check, load, target-aware check, then validate.
+    requireAdmin(ctx, 'viewAdmin')
+    const user = await loadSuspensionTarget(args.userId)
+    const actor = requireAdmin(ctx, 'manageUser', { id: user.id, role: user.role })
+
+    const { reason, until } = cleanSuspension({ reason: args.reason, until: args.until })
+
+    const audit = auditData({
+      actor: { id: actor.id, username: ctx.username, email: ctx.email },
+      action: 'USER_SUSPEND',
+      target: { id: user.id, username: user.username, email: user.email },
+      details: { reason, until: until?.toISOString() ?? null },
+    })
+    // Suspending someone already suspended simply replaces the reason and date, and logs again.
+    await db.$transaction([
+      db.user.update({
+        where: { id: user.id },
+        data: { suspendedAt: new Date(), suspendedUntil: until, suspensionReason: reason },
+      }),
+      db.adminAuditLog.create({ data: audit }),
+    ])
+
+    return (await loadAdminUserRows([user.id]))[0]
+  },
+
+  adminReinstateUser: async (_: unknown, args: { userId: string }, ctx: Context) => {
+    requireAdmin(ctx, 'viewAdmin')
+    const user = await loadSuspensionTarget(args.userId)
+    const actor = requireAdmin(ctx, 'manageUser', { id: user.id, role: user.role })
+
+    const clear = { suspendedAt: null, suspendedUntil: null, suspensionReason: null }
+
+    if (isSuspended(user)) {
+      const audit = auditData({
+        actor: { id: actor.id, username: ctx.username, email: ctx.email },
+        action: 'USER_REINSTATE',
+        target: { id: user.id, username: user.username, email: user.email },
+        details: { previousReason: user.suspensionReason, previousUntil: user.suspendedUntil?.toISOString() ?? null },
+      })
+      await db.$transaction([
+        db.user.update({ where: { id: user.id }, data: clear }),
+        db.adminAuditLog.create({ data: audit }),
+      ])
+    } else if (user.suspendedAt !== null || user.suspendedUntil !== null || user.suspensionReason !== null) {
+      // Not suspended right now, but an expired suspension left stale fields behind. Tidy them up
+      // silently: nothing was lifted, so there is nothing to put in the audit log.
+      await db.user.update({ where: { id: user.id }, data: clear })
+    }
+    // Never suspended: nothing to do and nothing to log. The row is still returned.
 
     return (await loadAdminUserRows([user.id]))[0]
   },

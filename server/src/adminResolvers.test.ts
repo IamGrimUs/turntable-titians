@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('./db', () => ({
   db: {
@@ -430,6 +430,321 @@ describe('adminUpdateUser', () => {
 
   it('fails closed (no user write) when the actor email is missing from the context', async () => {
     const err = await rejection(adminUpdateUser({}, { userId: 't1', name: 'Z' }, { ...boss, email: undefined }))
+    expect(err.message).toBe('audit: actor email missing')
+    expectNoWrites()
+  })
+})
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminSuspendUser = adminMutation.adminSuspendUser as (...args: any[]) => Promise<any>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminReinstateUser = adminMutation.adminReinstateUser as (...args: any[]) => Promise<any>
+
+const suspendable = (extra: Record<string, unknown> = {}) => ({
+  id: 't1',
+  role: 'USER',
+  username: 'oldname',
+  email: 't1@example.com',
+  suspendedAt: null,
+  suspendedUntil: null,
+  suspensionReason: null,
+  ...extra,
+})
+
+const NOW = new Date('2026-11-15T12:00:00.000Z')
+const FUTURE = '2027-01-01T00:00:00.000Z'
+
+describe.each([
+  ['adminSuspendUser', (ctx: unknown, id = 't1') => adminSuspendUser({}, { userId: id, reason: 'spam' }, ctx)],
+  ['adminReinstateUser', (ctx: unknown, id = 't1') => adminReinstateUser({}, { userId: id }, ctx)],
+])('%s access checks (R10)', (_name, run) => {
+  beforeEach(() => {
+    userFindUnique.mockResolvedValue(suspendable({ suspendedAt: NOW }))
+    userFindMany.mockResolvedValue([dbUser('t1')])
+  })
+
+  describe('with a nonexistent userId, a caller who is not an admin learns nothing and costs no database read', () => {
+    function expectNoDbTouched() {
+      expect(userFindUnique).not.toHaveBeenCalled()
+      expect(userUpdate).not.toHaveBeenCalled()
+      expect(auditCreate).not.toHaveBeenCalled()
+      expect(transaction).not.toHaveBeenCalled()
+    }
+
+    beforeEach(() => {
+      userFindUnique.mockResolvedValue(null)
+    })
+
+    it('anonymous: UNAUTHENTICATED, not NOT_FOUND', async () => {
+      const err = await rejection(run(anonymous, 'nope'))
+      expect(err.extensions.code).toBe('UNAUTHENTICATED')
+      expectNoDbTouched()
+    })
+
+    it('USER: FORBIDDEN, not NOT_FOUND', async () => {
+      const err = await rejection(run(asUser, 'nope'))
+      expect(err.extensions.code).toBe('FORBIDDEN')
+      expectNoDbTouched()
+    })
+
+    it('suspended ADMIN: FORBIDDEN, not NOT_FOUND', async () => {
+      const err = await rejection(run({ ...boss, suspension: { reason: 'spam', until: null } }, 'nope'))
+      expect(err.extensions.code).toBe('FORBIDDEN')
+      expectNoDbTouched()
+    })
+
+    it('ADMIN: NOT_FOUND', async () => {
+      const err = await rejection(run(boss, 'nope'))
+      expect(err.extensions.code).toBe('NOT_FOUND')
+      expectNoWrites()
+    })
+  })
+
+  it('rejects an anonymous caller with UNAUTHENTICATED and writes nothing', async () => {
+    const err = await rejection(run(anonymous))
+    expect(err.extensions.code).toBe('UNAUTHENTICATED')
+    expectNoWrites()
+  })
+
+  it('rejects a USER caller with FORBIDDEN and writes nothing', async () => {
+    const err = await rejection(run(asUser))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoWrites()
+  })
+
+  it.each(['ADMIN', 'OWNER'])('rejects an ADMIN acting on a %s with FORBIDDEN and writes nothing', async (role) => {
+    userFindUnique.mockResolvedValue(suspendable({ role, suspendedAt: NOW }))
+    const err = await rejection(run(boss))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoWrites()
+  })
+
+  it('rejects an OWNER acting on the OWNER with FORBIDDEN and writes nothing', async () => {
+    userFindUnique.mockResolvedValue(suspendable({ id: 'own', role: 'OWNER', suspendedAt: NOW }))
+    const err = await rejection(run(owner, 'own'))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+    expectNoWrites()
+  })
+
+  it('lets an OWNER act on an ADMIN', async () => {
+    userFindUnique.mockResolvedValue(suspendable({ role: 'ADMIN', suspendedAt: NOW }))
+    await run(owner)
+    expect(userUpdate).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('adminSuspendUser', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    userFindUnique.mockResolvedValue(suspendable())
+    userFindMany.mockResolvedValue([dbUser('t1')])
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('registers both mutations', () => {
+    expect(Object.keys(adminMutation)).toEqual(expect.arrayContaining(['adminSuspendUser', 'adminReinstateUser']))
+  })
+
+  it('loads the target with the fields it needs', async () => {
+    await adminSuspendUser({}, { userId: 't1', reason: 'spam' }, boss)
+    expect(userFindUnique).toHaveBeenCalledWith({
+      where: { id: 't1' },
+      select: {
+        id: true,
+        role: true,
+        username: true,
+        email: true,
+        suspendedAt: true,
+        suspendedUntil: true,
+        suspensionReason: true,
+      },
+    })
+  })
+
+  it('suspends with no end date and writes the update and USER_SUSPEND audit entry in ONE transaction', async () => {
+    await adminSuspendUser({}, { userId: 't1', reason: '  spamming  ' }, boss)
+    expect(transaction).toHaveBeenCalledTimes(1)
+    const ops = transaction.mock.calls[0][0]
+    expect(ops).toHaveLength(2)
+    expect(ops[0].op).toBe('user.update')
+    expect(ops[1].op).toBe('adminAuditLog.create')
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: 't1' },
+      data: { suspendedAt: NOW, suspendedUntil: null, suspensionReason: 'spamming' },
+    })
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: {
+        actorId: 'adm',
+        actorUsername: 'boss',
+        actorEmail: 'boss@example.com',
+        action: 'USER_SUSPEND',
+        targetType: 'USER',
+        targetId: 't1',
+        targetUsername: 'oldname',
+        targetEmail: 't1@example.com',
+        details: { reason: 'spamming', until: null },
+      },
+    })
+  })
+
+  it('stores the end date as a Date and logs it as an ISO string', async () => {
+    await adminSuspendUser({}, { userId: 't1', reason: 'spam', until: FUTURE }, boss)
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: 't1' },
+      data: { suspendedAt: NOW, suspendedUntil: new Date(FUTURE), suspensionReason: 'spam' },
+    })
+    expect(auditCreate.mock.calls[0][0].data.details).toEqual({ reason: 'spam', until: FUTURE })
+  })
+
+  it('returns the refreshed admin row from loadAdminUserRows', async () => {
+    const row = await adminSuspendUser({}, { userId: 't1', reason: 'spam' }, boss)
+    expect(userFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ['t1'] } } }))
+    expect(row.id).toBe('t1')
+  })
+
+  it('lets an OWNER suspend an ADMIN and records the ADMIN target', async () => {
+    userFindUnique.mockResolvedValue(suspendable({ id: 'a2', role: 'ADMIN' }))
+    await adminSuspendUser({}, { userId: 'a2', reason: 'abuse' }, owner)
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: 'a2' },
+      data: { suspendedAt: NOW, suspendedUntil: null, suspensionReason: 'abuse' },
+    })
+    expect(auditCreate.mock.calls[0][0].data).toMatchObject({ actorId: 'own', targetId: 'a2', action: 'USER_SUSPEND' })
+  })
+
+  it.each([
+    ['a blank reason', { reason: '   ' }],
+    ['a missing-content reason', { reason: '' }],
+    ['a 501-character reason', { reason: 'r'.repeat(501) }],
+    ['a reason with control characters', { reason: 'bad\u0000reason' }],
+    ['a past end date', { reason: 'spam', until: '2020-01-01T00:00:00.000Z' }],
+    ['an end date of exactly now', { reason: 'spam', until: NOW.toISOString() }],
+    ['an unparseable end date', { reason: 'spam', until: 'not a date' }],
+  ])('rejects %s with BAD_USER_INPUT and writes nothing', async (_label, args) => {
+    const err = await rejection(adminSuspendUser({}, { userId: 't1', ...args }, boss))
+    expect(err.extensions.code).toBe('BAD_USER_INPUT')
+    expectNoWrites()
+  })
+
+  it('accepts a reason of exactly 500 characters', async () => {
+    await adminSuspendUser({}, { userId: 't1', reason: 'r'.repeat(500) }, boss)
+    expect(userUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks permission before validating input: a USER with a bad reason gets FORBIDDEN', async () => {
+    const err = await rejection(adminSuspendUser({}, { userId: 't1', reason: '' }, asUser))
+    expect(err.extensions.code).toBe('FORBIDDEN')
+  })
+
+  it('replaces the reason and date of someone already suspended and logs again', async () => {
+    userFindUnique.mockResolvedValue(
+      suspendable({ suspendedAt: new Date('2026-11-01T00:00:00.000Z'), suspendedUntil: null, suspensionReason: 'old' }),
+    )
+    await adminSuspendUser({}, { userId: 't1', reason: 'new reason', until: FUTURE }, boss)
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: 't1' },
+      data: { suspendedAt: NOW, suspendedUntil: new Date(FUTURE), suspensionReason: 'new reason' },
+    })
+    expect(auditCreate).toHaveBeenCalledTimes(1)
+    expect(auditCreate.mock.calls[0][0].data.action).toBe('USER_SUSPEND')
+  })
+
+  it('fails closed (no user write) when the actor email is missing from the context', async () => {
+    const err = await rejection(adminSuspendUser({}, { userId: 't1', reason: 'spam' }, { ...boss, email: undefined }))
+    expect(err.message).toBe('audit: actor email missing')
+    expectNoWrites()
+  })
+})
+
+describe('adminReinstateUser', () => {
+  const clear = { suspendedAt: null, suspendedUntil: null, suspensionReason: null }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    userFindUnique.mockResolvedValue(
+      suspendable({ suspendedAt: new Date('2026-11-01T00:00:00.000Z'), suspensionReason: 'spam' }),
+    )
+    userFindMany.mockResolvedValue([dbUser('t1')])
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('clears all three fields and writes USER_REINSTATE in ONE transaction', async () => {
+    await adminReinstateUser({}, { userId: 't1' }, boss)
+    expect(transaction).toHaveBeenCalledTimes(1)
+    const ops = transaction.mock.calls[0][0]
+    expect(ops).toHaveLength(2)
+    expect(ops[0].op).toBe('user.update')
+    expect(ops[1].op).toBe('adminAuditLog.create')
+    expect(userUpdate).toHaveBeenCalledWith({ where: { id: 't1' }, data: clear })
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: {
+        actorId: 'adm',
+        actorUsername: 'boss',
+        actorEmail: 'boss@example.com',
+        action: 'USER_REINSTATE',
+        targetType: 'USER',
+        targetId: 't1',
+        targetUsername: 'oldname',
+        targetEmail: 't1@example.com',
+        details: { previousReason: 'spam', previousUntil: null },
+      },
+    })
+  })
+
+  it('records the previous end date as an ISO string', async () => {
+    userFindUnique.mockResolvedValue(
+      suspendable({
+        suspendedAt: new Date('2026-11-01T00:00:00.000Z'),
+        suspendedUntil: new Date(FUTURE),
+        suspensionReason: 'spam',
+      }),
+    )
+    await adminReinstateUser({}, { userId: 't1' }, boss)
+    expect(auditCreate.mock.calls[0][0].data.details).toEqual({ previousReason: 'spam', previousUntil: FUTURE })
+  })
+
+  it('returns the refreshed admin row from loadAdminUserRows', async () => {
+    const row = await adminReinstateUser({}, { userId: 't1' }, boss)
+    expect(userFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ['t1'] } } }))
+    expect(row.id).toBe('t1')
+  })
+
+  it('is a complete no-op for a user who was never suspended: no write, no audit entry, still returns the row', async () => {
+    userFindUnique.mockResolvedValue(suspendable())
+    const row = await adminReinstateUser({}, { userId: 't1' }, boss)
+    expectNoWrites()
+    expect(row.id).toBe('t1')
+  })
+
+  // Decision: an expired suspension is "not suspended right now", so reinstating is not an
+  // action worth auditing. The stale fields are still cleared (so the row reads clean), but
+  // silently: one plain user.update, no transaction and no audit entry.
+  it('clears the stale fields of an EXPIRED suspension silently, with no audit entry', async () => {
+    userFindUnique.mockResolvedValue(
+      suspendable({
+        suspendedAt: new Date('2026-10-01T00:00:00.000Z'),
+        suspendedUntil: new Date('2026-11-01T00:00:00.000Z'),
+        suspensionReason: 'old',
+      }),
+    )
+    const row = await adminReinstateUser({}, { userId: 't1' }, boss)
+    expect(userUpdate).toHaveBeenCalledTimes(1)
+    expect(userUpdate).toHaveBeenCalledWith({ where: { id: 't1' }, data: clear })
+    expect(auditCreate).not.toHaveBeenCalled()
+    expect(transaction).not.toHaveBeenCalled()
+    expect(row.id).toBe('t1')
+  })
+
+  it('fails closed (no user write) when the actor email is missing from the context', async () => {
+    const err = await rejection(adminReinstateUser({}, { userId: 't1' }, { ...boss, email: undefined }))
     expect(err.message).toBe('audit: actor email missing')
     expectNoWrites()
   })

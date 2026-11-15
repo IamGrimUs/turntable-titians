@@ -176,6 +176,8 @@ export const typeDefs = gql`
       externalCrews: [String!]
       removeAvatar: Boolean
     ): AdminUser!
+    adminSuspendUser(userId: ID!, reason: String!, until: String): AdminUser!
+    adminReinstateUser(userId: ID!): AdminUser!
     vote(submissionId: ID!): Vote!
     deleteVote(submissionId: ID!): Boolean!
   }
