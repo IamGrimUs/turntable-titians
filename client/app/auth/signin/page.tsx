@@ -1,8 +1,25 @@
 'use client'
 
 import { signIn } from 'next-auth/react'
-import { useActionState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useActionState } from 'react'
 import { sendMagicLink } from './actions'
+
+// Auth.js redirects back here with ?error=<code> when a sign-in fails.
+const ERROR_MESSAGES: Record<string, string> = {
+  EmailSignin:
+    "We couldn't send the sign-in email. If you've asked for several, wait a while and try again.",
+  OAuthAccountNotLinked:
+    'That email is already registered with a different sign-in method. Use the method you signed up with.',
+  Verification: 'That sign-in link has expired or was already used. Request a new one.',
+}
+
+function UrlError() {
+  const code = useSearchParams().get('error')
+  if (!code) return null
+  const message = ERROR_MESSAGES[code] ?? 'Something went wrong signing you in. Please try again.'
+  return <p className="text-center text-sm text-red-500 py-2">{message}</p>
+}
 
 const fieldClass =
   'w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors'
@@ -57,6 +74,10 @@ export default function SignInPage() {
               <span className="bg-card px-2 text-muted-foreground">or</span>
             </div>
           </div>
+
+          <Suspense fallback={null}>
+            <UrlError />
+          </Suspense>
 
           {state?.error && (
             <p className="text-center text-sm text-red-500 py-2">{state.error}</p>
