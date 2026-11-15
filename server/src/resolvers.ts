@@ -2,31 +2,17 @@ import { Battle, Submission, Vote } from '@prisma/client'
 import { GraphQLError } from 'graphql'
 import { db } from './db'
 import { computeBattleStatus } from './battleStatus'
+import { requireAuth, type Context } from './context'
+import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
+import { prepareCrews, prepareUsername } from './profileRules'
 import {
   LIMITS,
-  cleanCrews,
   cleanHttpsUrl,
   cleanMultiLine,
   cleanSingleLine,
-  cleanUsername,
   getAllowedImageHosts,
   parseBattleDates,
 } from './validation'
-
-interface Context {
-  userId: string | null
-}
-
-function requireAuth(userId: string | null): string {
-  if (!userId) throw new GraphQLError('Not authenticated', {
-    extensions: { code: 'UNAUTHENTICATED' },
-  })
-  return userId
-}
-
-function sameList(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((value, i) => value === b[i])
-}
 
 export const resolvers = {
   Query: {
@@ -51,6 +37,7 @@ export const resolvers = {
       status: 'ok',
       message: 'Battle Skratch GraphQL API is running',
     }),
+    ...adminQuery,
   },
 
   Mutation: {
@@ -65,7 +52,7 @@ export const resolvers = {
       }: { title: string; type: string; description?: string | null; startDate: string; endDate: string },
       ctx: Context
     ) => {
-      requireAuth(ctx.userId)
+      requireAuth(ctx)
       const cleanTitle = cleanSingleLine(title, 'Title', { max: LIMITS.title, required: true })!
       const cleanType = cleanSingleLine(type, 'Battle type', { max: LIMITS.battleType, required: true })!
       const cleanDescription = cleanMultiLine(description, 'Description', { max: LIMITS.description })
@@ -85,7 +72,7 @@ export const resolvers = {
       }: { battleId: string; videoUrl: string; title?: string | null; description?: string | null },
       ctx: Context
     ) => {
-      const userId = requireAuth(ctx.userId)
+      const userId = requireAuth(ctx)
       const cleanUrl = cleanHttpsUrl(videoUrl, 'Video link', { max: LIMITS.url })
       const cleanTitle = cleanSingleLine(title, 'Title', { max: LIMITS.title })
       const cleanDescription = cleanMultiLine(description, 'Description', { max: LIMITS.description })
@@ -141,7 +128,7 @@ export const resolvers = {
       }: { username?: string | null; image?: string | null; externalCrews?: string[] | null },
       ctx: Context
     ) => {
-      const userId = requireAuth(ctx.userId)
+      const userId = requireAuth(ctx)
 
       // Rules apply only to values that are actually changing, so an account created
       // before these rules existed can still save its other settings.
@@ -150,30 +137,7 @@ export const resolvers = {
         select: { username: true, image: true, externalCrews: true },
       })
 
-      let nextUsername: string | undefined
-      if (username !== undefined && username !== null) {
-        const trimmed = username.trim()
-        if (trimmed === '') {
-          throw new GraphQLError('Username cannot be empty', {
-            extensions: { code: 'BAD_USER_INPUT' },
-          })
-        }
-        if (trimmed !== current?.username) {
-          nextUsername = cleanUsername(trimmed)
-          // Case-insensitive, so "Admin" cannot impersonate "admin".
-          const taken = await db.user.findFirst({
-            where: { username: { equals: nextUsername, mode: 'insensitive' }, NOT: { id: userId } },
-            select: { id: true },
-          })
-          if (taken) {
-            throw new GraphQLError('Username already taken', {
-              extensions: { code: 'BAD_USER_INPUT' },
-            })
-          }
-        } else {
-          nextUsername = trimmed
-        }
-      }
+      const nextUsername = await prepareUsername(username, current?.username ?? null, userId)
 
       let nextImage: string | null | undefined
       if (image !== undefined) {
@@ -189,12 +153,7 @@ export const resolvers = {
         }
       }
 
-      let nextCrews: string[] | undefined
-      if (externalCrews !== undefined && externalCrews !== null) {
-        nextCrews = sameList(externalCrews, current?.externalCrews ?? [])
-          ? externalCrews
-          : cleanCrews(externalCrews)
-      }
+      const nextCrews = prepareCrews(externalCrews, current?.externalCrews ?? [])
 
       return db.user.update({
         where: { id: userId },
@@ -207,7 +166,7 @@ export const resolvers = {
     },
 
     vote: async (_: unknown, { submissionId }: { submissionId: string }, ctx: Context) => {
-      const userId = requireAuth(ctx.userId)
+      const userId = requireAuth(ctx)
       const submission = await db.submission.findUnique({
         where: { id: submissionId },
         select: {
@@ -246,7 +205,7 @@ export const resolvers = {
     },
 
     deleteVote: async (_: unknown, { submissionId }: { submissionId: string }, ctx: Context) => {
-      const userId = requireAuth(ctx.userId)
+      const userId = requireAuth(ctx)
       const submission = await db.submission.findUnique({
         where: { id: submissionId },
         select: {
@@ -266,6 +225,7 @@ export const resolvers = {
       await db.vote.delete({ where: { id: vote.id } })
       return true
     },
+    ...adminMutation,
   },
 
   Battle: {
@@ -311,6 +271,8 @@ export const resolvers = {
     externalCrews: (parent: { externalCrews: string[] }) => parent.externalCrews,
     createdAt: (parent: { createdAt: Date }) => parent.createdAt.toISOString(),
   },
+
+  AdminUser,
 
   Vote: {
     createdAt: (parent: Vote) => parent.createdAt.toISOString(),

@@ -59,6 +59,100 @@ export const typeDefs = gql`
     COMPLETED
   }
 
+  enum UserRole {
+    USER
+    ADMIN
+    OWNER
+  }
+
+  enum UserStatus {
+    ACTIVE
+    SUSPENDED
+  }
+
+  enum AdminUserFilter {
+    ALL
+    ACTIVE
+    SUSPENDED
+    ADMINS
+  }
+
+  enum AdminUserSortKey {
+    role
+    username
+    crews
+    status
+    entries
+    battlesWon
+    votesCast
+    votesReceived
+    createdAt
+    lastSignInAt
+    email
+  }
+
+  enum SortDirection {
+    ASC
+    DESC
+  }
+
+  """Admin-only view of a user. Never reachable from public queries; email lives only here."""
+  type AdminUser {
+    id: ID!
+    username: String
+    name: String
+    image: String
+    email: String!
+    role: UserRole!
+    status: UserStatus!
+    suspendedUntil: String
+    suspensionReason: String
+    crews: [String!]!
+    entries: Int!
+    battlesWon: Int!
+    votesCast: Int!
+    votesReceived: Int!
+    createdAt: String!
+    lastSignInAt: String!
+  }
+
+  type AdminUserCounts {
+    all: Int!
+    active: Int!
+    suspended: Int!
+    admins: Int!
+  }
+
+  type AdminUserPage {
+    rows: [AdminUser!]!
+    total: Int!
+    page: Int!
+    pageCount: Int!
+    counts: AdminUserCounts!
+  }
+
+  """One row of the append-only admin audit log. Snapshot columns only; details is JSON text."""
+  type AuditLogEntry {
+    id: ID!
+    createdAt: String!
+    actorId: ID!
+    actorUsername: String
+    actorEmail: String!
+    action: String!
+    targetType: String!
+    targetId: ID!
+    targetUsername: String
+    targetEmail: String
+    details: String!
+  }
+
+  type AuditLogPage {
+    rows: [AuditLogEntry!]!
+    total: Int!
+    page: Int!
+    pageCount: Int!
+  }
+
   type Query {
     battles: [Battle!]!
     battle(id: ID!): Battle
@@ -68,6 +162,15 @@ export const typeDefs = gql`
     user(id: ID!): User
     me: User
     health: HealthStatus!
+    adminUsers(
+      search: String
+      filter: AdminUserFilter = ALL
+      sortKey: AdminUserSortKey = createdAt
+      sortDir: SortDirection = DESC
+      page: Int = 1
+      pageSize: Int = 25
+    ): AdminUserPage!
+    adminAuditLog(page: Int = 1, pageSize: Int = 50): AuditLogPage!
   }
 
   type Mutation {
@@ -89,6 +192,17 @@ export const typeDefs = gql`
       image: String
       externalCrews: [String!]
     ): User!
+    adminUpdateUser(
+      userId: ID!
+      username: String
+      name: String
+      externalCrews: [String!]
+      removeAvatar: Boolean
+    ): AdminUser!
+    adminSuspendUser(userId: ID!, reason: String!, until: String): AdminUser!
+    adminReinstateUser(userId: ID!): AdminUser!
+    adminDeleteUser(userId: ID!, blockEmail: Boolean = false): Boolean!
+    adminSetUserRole(userId: ID!, role: UserRole!): AdminUser!
     vote(submissionId: ID!): Vote!
     deleteVote(submissionId: ID!): Boolean!
   }

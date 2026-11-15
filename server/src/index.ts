@@ -4,7 +4,6 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
-import { jwtVerify } from 'jose';
 import { typeDefs } from './schema';
 import { resolvers } from './resolvers';
 import { db } from './db';
@@ -14,6 +13,8 @@ import { createLimiter } from './rateLimit';
 import { createQueryLimitRule } from './queryLimits';
 import { createIpLimitMiddleware, createMutationLimitPlugin } from './rateLimiting';
 import { createClientIpResolver } from './clientIp';
+import { createAuthContext } from './authContext';
+import type { Context } from './context';
 
 dotenv.config();
 
@@ -37,27 +38,10 @@ app.set('trust proxy', Number.isInteger(TRUST_PROXY) && TRUST_PROXY >= 0 ? TRUST
 // Unset (the default), req.ip is used and no header is trusted.
 const getClientIp = createClientIpResolver(process.env.CLIENT_IP_HEADER);
 
-interface GraphQLContext {
-  userId: string | null;
-  ip: string | null;
-}
-
-async function getAuthContext(req: express.Request): Promise<GraphQLContext> {
-  const authHeader = req.headers.authorization;
-  if (authHeader?.startsWith('Bearer ')) {
-    const token = authHeader.slice(7);
-    try {
-      const { payload } = await jwtVerify(token, INTERNAL_API_SECRET);
-      if (typeof payload.userId === 'string') return { userId: payload.userId, ip: getClientIp(req) };
-    } catch {
-      // expired or invalid token
-    }
-  }
-  return { userId: null, ip: getClientIp(req) };
-}
+const getAuthContext = createAuthContext({ secret: INTERNAL_API_SECRET, getClientIp });
 
 async function startServer() {
-  const server = new ApolloServer<GraphQLContext>({
+  const server = new ApolloServer<Context>({
     typeDefs,
     resolvers,
     // Never send stack traces, whatever NODE_ENV is; mask unexpected errors (see errors.ts).
