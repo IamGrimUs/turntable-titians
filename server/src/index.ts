@@ -10,6 +10,7 @@ import { resolvers } from './resolvers';
 import { db } from './db';
 import { getInternalApiSecret } from './config';
 import { formatError } from './errors';
+import { createClientIpLogger } from './debugClientIp';
 import { createLimiter } from './rateLimit';
 import { createQueryLimitRule } from './queryLimits';
 import { createIpLimitMiddleware, createMutationLimitPlugin } from './rateLimiting';
@@ -28,6 +29,8 @@ const RATE_LIMIT_DISABLED = process.env.RATE_LIMIT_DISABLED === 'true';
 // How many proxies sit in front of the app (Railway's edge = 1). Needed so req.ip is the
 // real caller and not the proxy; a wrong value lets callers spoof addresses or share one limit.
 const TRUST_PROXY = Number(process.env.TRUST_PROXY ?? 1);
+// Don't advertise the framework in every response.
+app.disable('x-powered-by');
 app.set('trust proxy', Number.isInteger(TRUST_PROXY) && TRUST_PROXY >= 0 ? TRUST_PROXY : 1);
 
 interface GraphQLContext {
@@ -67,6 +70,9 @@ async function startServer() {
   await server.start();
 
   app.use(cookieParser());
+
+  // TEMPORARY diagnostic, off unless DEBUG_CLIENT_IP=true (see debugClientIp.ts).
+  app.use('/graphql', createClientIpLogger({ enabled: process.env.DEBUG_CLIENT_IP === 'true' }));
 
   if (!RATE_LIMIT_DISABLED) {
     // 600 requests a minute per address is far above normal use. /health is left out on purpose.
