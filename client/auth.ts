@@ -78,13 +78,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           db.user.findUnique({ where: { id }, select: { username: true, image: true } })
         )
       }
-      // The role is only a UI/routing hint, refreshed at most every 5 minutes; the server
-      // re-reads role and suspension from the database on every API request.
+      // The role is only a UI/routing hint, refreshed at most every 5 minutes (the same lookup
+      // ends the session of a suspended or deleted user); the server re-reads role and
+      // suspension from the database on every API request.
       // Middleware runs in the Edge runtime, where Prisma cannot run: there the token's
       // existing role is kept as is (it was set at sign-in and refreshes wherever Node runs).
       if (process.env.NEXT_RUNTIME !== 'edge') {
-        await refreshRoleIntoToken(token, (id) =>
-          db.user.findUnique({ where: { id }, select: { role: true } })
+        // Returns null for a suspended or deleted user: Auth.js then clears the session.
+        return refreshRoleIntoToken(token, (id) =>
+          db.user.findUnique({
+            where: { id },
+            select: { role: true, suspendedAt: true, suspendedUntil: true },
+          })
         )
       }
       return token
