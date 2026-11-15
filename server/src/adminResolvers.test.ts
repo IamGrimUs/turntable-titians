@@ -220,6 +220,37 @@ describe('adminUpdateUser', () => {
     expectNoWrites()
   })
 
+  describe('with a nonexistent userId, a caller who is not an admin learns nothing and costs no database read', () => {
+    function expectNoDbTouched() {
+      expect(userFindUnique).not.toHaveBeenCalled()
+      expect(userFindFirst).not.toHaveBeenCalled()
+      expectNoWrites()
+    }
+
+    beforeEach(() => {
+      userFindUnique.mockResolvedValue(null)
+    })
+
+    it('anonymous: UNAUTHENTICATED, not NOT_FOUND', async () => {
+      const err = await rejection(adminUpdateUser({}, { userId: 'nope', name: 'X' }, anonymous))
+      expect(err.extensions.code).toBe('UNAUTHENTICATED')
+      expectNoDbTouched()
+    })
+
+    it('USER: FORBIDDEN, not NOT_FOUND', async () => {
+      const err = await rejection(adminUpdateUser({}, { userId: 'nope', name: 'X' }, asUser))
+      expect(err.extensions.code).toBe('FORBIDDEN')
+      expectNoDbTouched()
+    })
+
+    it('suspended ADMIN: FORBIDDEN, not NOT_FOUND', async () => {
+      const suspended = { ...boss, suspension: { reason: 'spam', until: null } }
+      const err = await rejection(adminUpdateUser({}, { userId: 'nope', name: 'X' }, suspended))
+      expect(err.extensions.code).toBe('FORBIDDEN')
+      expectNoDbTouched()
+    })
+  })
+
   it('rejects a nonexistent user with NOT_FOUND and writes nothing', async () => {
     userFindUnique.mockResolvedValue(null)
     const err = await rejection(adminUpdateUser({}, { userId: 'nope', name: 'X' }, boss))

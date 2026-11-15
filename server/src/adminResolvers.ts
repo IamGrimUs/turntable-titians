@@ -38,6 +38,10 @@ export const adminMutation = {
   adminUpdateUser: async (_: unknown, args: AdminUpdateUserArgs, ctx: Context) => {
     const { userId, username, name, externalCrews, removeAvatar } = args
 
+    // Access check first: nothing reaches the database for a non-admin, and a caller who is not
+    // allowed in cannot learn whether a user id exists. The target-aware check follows the load.
+    requireAdmin(ctx, 'viewAdmin')
+
     const user = await db.user.findUnique({
       where: { id: userId },
       select: { id: true, role: true, username: true, name: true, image: true, externalCrews: true, email: true },
