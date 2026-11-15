@@ -59,6 +59,18 @@ export const ADMIN_USERS_QUERY = gql`
   ${ADMIN_USER_FIELDS}
 `;
 
+// The users table only carries the merged crew list (app crews + the user's own list). The edit
+// dialog needs the user's own (external) list, which is what adminUpdateUser changes. The public
+// `user` query already exposes it.
+export const USER_EXTERNAL_CREWS_QUERY = gql`
+  query UserExternalCrews($id: ID!) {
+    user(id: $id) {
+      id
+      externalCrews
+    }
+  }
+`;
+
 export const ADMIN_UPDATE_USER = gql`
   mutation AdminUpdateUser(
     $userId: ID!

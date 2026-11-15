@@ -1,11 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useQuery } from '@apollo/client'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { UsersTable } from '@/components/admin/UsersTable'
+import { EditUserDialog } from '@/components/admin/EditUserDialog'
+import { SuspendUserDialog } from '@/components/admin/SuspendUserDialog'
+import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog'
+import { ConfirmUserDialog } from '@/components/admin/ConfirmUserDialog'
 import type { Role } from '@/lib/admin-access'
 import { ADMIN_USERS_QUERY } from '@/lib/graphql/admin'
 import {
@@ -20,6 +24,7 @@ import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 25
 const SEARCH_DEBOUNCE_MS = 300
+const NOTICE_MS = 5000
 
 type Filter = 'ALL' | 'ACTIVE' | 'SUSPENDED' | 'ADMINS'
 
@@ -68,6 +73,14 @@ export default function AdminUsersPage() {
   // The row action the admin picked; the confirm and edit dialogs act on this.
   const [pendingAction, setPendingAction] = useState<{ action: RowAction; row: AdminUserRow } | null>(null)
 
+  // A short "it worked" line at the top of the page, gone after a few seconds.
+  const [notice, setNotice] = useState<string | null>(null)
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [notice])
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput.trim())
@@ -88,6 +101,17 @@ export default function AdminUsersPage() {
     fetchPolicy: 'cache-and-network',
     notifyOnNetworkStatusChange: true,
   })
+
+  const closeDialog = useCallback(() => setPendingAction(null), [])
+  const onActionDone = useCallback(
+    (message: string) => {
+      setPendingAction(null)
+      setNotice(message)
+      // Same query variables: the table shows the change (and a deleted user is gone).
+      void refetch()
+    },
+    [refetch]
+  )
 
   // The server clamps an out-of-range page; the pager below follows the page it returns.
   const shown = (data ?? previousData)?.adminUsers
@@ -125,10 +149,18 @@ export default function AdminUsersPage() {
   const lastShown = shown ? firstShown + shown.rows.length - (shown.rows.length > 0 ? 1 : 0) : 0
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 py-7 pl-4 md:pl-8" data-pending-action={pendingAction?.action}>
+    <div className="flex min-w-0 flex-col gap-4 py-7 pl-4 md:pl-8">
       <div className="pr-4 md:pr-8">
         <h1 className="font-graffiti text-4xl md:text-5xl">Users</h1>
         <p className="mt-1 text-base text-muted-foreground">Edit, suspend or remove accounts.</p>
+      </div>
+
+      <div role="status" className="pr-4 md:pr-8">
+        {notice && (
+          <p className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-2 text-base font-medium text-green-400">
+            {notice}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 pr-4 md:pr-8">
@@ -226,6 +258,26 @@ export default function AdminUsersPage() {
             </div>
           </div>
         </>
+      )}
+
+      {pendingAction?.action === 'edit' && (
+        <EditUserDialog row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
+      )}
+      {pendingAction?.action === 'suspend' && (
+        <SuspendUserDialog row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
+      )}
+      {pendingAction?.action === 'delete' && (
+        <DeleteUserDialog row={pendingAction.row} onClose={closeDialog} onSuccess={onActionDone} />
+      )}
+      {(pendingAction?.action === 'reinstate' ||
+        pendingAction?.action === 'makeAdmin' ||
+        pendingAction?.action === 'removeAdmin') && (
+        <ConfirmUserDialog
+          action={pendingAction.action}
+          row={pendingAction.row}
+          onClose={closeDialog}
+          onSuccess={onActionDone}
+        />
       )}
     </div>
   )
