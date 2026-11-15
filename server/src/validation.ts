@@ -18,9 +18,11 @@ export const LIMITS = {
   maxCrews: 10,
   url: 500,
   maxBattleDays: 366,
+  suspensionReason: 500,
+  displayName: 60,
 } as const
 
-function badInput(message: string): GraphQLError {
+export function badInput(message: string): GraphQLError {
   return new GraphQLError(message, { extensions: { code: 'BAD_USER_INPUT' } })
 }
 
