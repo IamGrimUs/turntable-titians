@@ -42,3 +42,12 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: tailwindcss
         update-types: ["version-update:semver-major"]
+      # Pinned by the rest of the stack: Apollo Server 5 requires graphql 16, TypeScript 7 is a
+      # new compiler that needs its own deliberate upgrade, and @types/node must match the
+      # Node version we run (20), not the newest one.
+      - dependency-name: graphql
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
