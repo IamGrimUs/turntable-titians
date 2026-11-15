@@ -21,6 +21,8 @@ const ENV = {
   R2_BUCKET_NAME: 'bucket',
   NEXT_PUBLIC_R2_PUBLIC_URL: 'https://cdn.example.com',
 }
+// The same mock serves the active-user check and the image lookup.
+const ACTIVE = { suspendedAt: null, suspendedUntil: null }
 const old = new Date(Date.now() - 24 * 3600 * 1000)
 const fresh = new Date(Date.now() - 60 * 1000)
 
@@ -53,8 +55,22 @@ describe('POST /api/avatar/cleanup', () => {
     expect(send).not.toHaveBeenCalled()
   })
 
+  it('returns 401 and touches nothing for a suspended user', async () => {
+    findUnique.mockResolvedValue({ image: null, suspendedAt: new Date('2026-01-01'), suspendedUntil: null })
+    const res = await call()
+    expect(res.status).toBe(401)
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 and touches nothing when the user no longer exists', async () => {
+    findUnique.mockResolvedValue(null)
+    const res = await call()
+    expect(res.status).toBe(401)
+    expect(send).not.toHaveBeenCalled()
+  })
+
   it('deletes old avatars but keeps the one the profile currently uses', async () => {
-    findUnique.mockResolvedValue({ image: 'https://cdn.example.com/avatars/user-abc/current.png' })
+    findUnique.mockResolvedValue({ image: 'https://cdn.example.com/avatars/user-abc/current.png', ...ACTIVE })
     send.mockImplementation(async (cmd: { constructor: { name: string } }) =>
       cmd.constructor.name === 'ListObjectsV2Command'
         ? listing(
@@ -71,7 +87,7 @@ describe('POST /api/avatar/cleanup', () => {
   })
 
   it('only ever lists the caller\'s own folder, and takes no input from the request', async () => {
-    findUnique.mockResolvedValue({ image: null })
+    findUnique.mockResolvedValue({ image: null, ...ACTIVE })
     send.mockResolvedValue(listing())
     await call()
     const [name, input] = sent()[0]
@@ -81,7 +97,7 @@ describe('POST /api/avatar/cleanup', () => {
   })
 
   it('does not delete uploads that are only minutes old', async () => {
-    findUnique.mockResolvedValue({ image: 'https://cdn.example.com/avatars/user-abc/current.png' })
+    findUnique.mockResolvedValue({ image: 'https://cdn.example.com/avatars/user-abc/current.png', ...ACTIVE })
     send.mockImplementation(async (cmd: { constructor: { name: string } }) =>
       cmd.constructor.name === 'ListObjectsV2Command'
         ? listing({ Key: 'avatars/user-abc/just-uploaded.png', LastModified: fresh })
@@ -92,7 +108,7 @@ describe('POST /api/avatar/cleanup', () => {
   })
 
   it('does not treat the live avatar as stale if the public URL host changed', async () => {
-    findUnique.mockResolvedValue({ image: 'https://some-old-host.r2.dev/avatars/user-abc/current.png' })
+    findUnique.mockResolvedValue({ image: 'https://some-old-host.r2.dev/avatars/user-abc/current.png', ...ACTIVE })
     send.mockImplementation(async (cmd: { constructor: { name: string } }) =>
       cmd.constructor.name === 'ListObjectsV2Command'
         ? listing({ Key: 'avatars/user-abc/current.png', LastModified: old })
@@ -103,7 +119,7 @@ describe('POST /api/avatar/cleanup', () => {
   })
 
   it('reports how many deletions actually succeeded and still returns 200 if some fail', async () => {
-    findUnique.mockResolvedValue({ image: null })
+    findUnique.mockResolvedValue({ image: null, ...ACTIVE })
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     send.mockImplementation(async (cmd: { constructor: { name: string }; input: { Key?: string } }) => {
       if (cmd.constructor.name === 'ListObjectsV2Command') {
@@ -123,6 +139,7 @@ describe('POST /api/avatar/cleanup', () => {
 
   it('returns a generic 500 and names (not reveals) missing settings', async () => {
     vi.stubEnv('R2_BUCKET_NAME', '')
+    findUnique.mockResolvedValue({ image: null, ...ACTIVE })
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     const res = await call()
     expect(res.status).toBe(500)
@@ -132,7 +149,7 @@ describe('POST /api/avatar/cleanup', () => {
   })
 
   it('returns 500 without deleting anything if listing fails', async () => {
-    findUnique.mockResolvedValue({ image: null })
+    findUnique.mockResolvedValue({ image: null, ...ACTIVE })
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     send.mockRejectedValue(new Error('R2 down'))
     const res = await call()

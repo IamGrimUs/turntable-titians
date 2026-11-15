@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { activeSessionUserId } from '@/lib/active-session-user'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { buildAvatarKey, validateUploadRequest } from '@/lib/upload-rules'
 import { getBucket, getR2Client, missingR2Env } from '@/lib/r2'
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await activeSessionUserId()
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const r2 = getR2Client()
 
   // The key never contains the user's filename: only their id and a random id.
-  const key = buildAvatarKey(session.user.id, check.extension, randomUUID())
+  const key = buildAvatarKey(userId, check.extension, randomUUID())
 
   const command = new PutObjectCommand({
     Bucket: getBucket(),

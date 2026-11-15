@@ -22,6 +22,17 @@ export function isSuspendedNow(
   return row.suspendedUntil.getTime() > now.getTime()
 }
 
+/**
+ * True only for a user who exists and is not suspended right now. A missing row (deleted
+ * user) is not active: their old session must not be able to do anything.
+ */
+export function isActiveUser(
+  row: { suspendedAt: Date | null; suspendedUntil: Date | null } | null,
+  now: Date = new Date()
+): boolean {
+  return row !== null && !isSuspendedNow(row, now)
+}
+
 export async function signSuspensionNotice(
   userId: string,
   secret: string,

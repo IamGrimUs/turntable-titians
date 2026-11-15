@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const authMock = vi.fn()
 vi.mock('@/auth', () => ({ auth: () => authMock() }))
 
+const findUnique = vi.fn()
+vi.mock('@/lib/db', () => ({ db: { user: { findUnique: (...a: unknown[]) => findUnique(...a) } } }))
+
 import { POST } from './route'
 import { MAX_UPLOAD_BYTES } from '@/lib/upload-rules'
 
@@ -23,6 +26,8 @@ function request(body: unknown, raw?: string) {
 }
 
 beforeEach(() => {
+  findUnique.mockReset()
+  findUnique.mockResolvedValue({ suspendedAt: null, suspendedUntil: null })
   authMock.mockResolvedValue({ user: { id: 'user-abc' } })
   for (const [k, v] of Object.entries(FAKE_ENV)) vi.stubEnv(k, v)
 })
@@ -31,6 +36,18 @@ afterEach(() => vi.unstubAllEnvs())
 describe('POST /api/upload', () => {
   it('returns 401 when not signed in', async () => {
     authMock.mockResolvedValue(null)
+    const res = await POST(request({ contentType: 'image/png', size: 1000 }))
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 401 for a suspended user', async () => {
+    findUnique.mockResolvedValue({ suspendedAt: new Date('2026-01-01'), suspendedUntil: null })
+    const res = await POST(request({ contentType: 'image/png', size: 1000 }))
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 401 when the user no longer exists', async () => {
+    findUnique.mockResolvedValue(null)
     const res = await POST(request({ contentType: 'image/png', size: 1000 }))
     expect(res.status).toBe(401)
   })

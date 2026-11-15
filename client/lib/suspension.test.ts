@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SignJWT } from 'jose'
-import { isSuspendedNow, readSuspensionNotice, signSuspensionNotice } from './suspension'
+import { isActiveUser, isSuspendedNow, readSuspensionNotice, signSuspensionNotice } from './suspension'
 
 const NOW = new Date('2026-11-15T12:00:00Z')
 const SECRET = 'a-test-secret-that-is-long-enough'
@@ -21,6 +21,26 @@ describe('isSuspendedNow', () => {
     expect(
       isSuspendedNow({ suspendedAt: new Date('2026-11-01'), suspendedUntil: new Date('2026-11-10') }, NOW)
     ).toBe(false)
+  })
+})
+
+describe('isActiveUser', () => {
+  it('is false when the row is missing (deleted user)', () => {
+    expect(isActiveUser(null, NOW)).toBe(false)
+  })
+  it('is true for a user who was never suspended', () => {
+    expect(isActiveUser({ suspendedAt: null, suspendedUntil: null }, NOW)).toBe(true)
+  })
+  it('is false while suspended, open-ended or timed', () => {
+    expect(isActiveUser({ suspendedAt: new Date('2026-11-01'), suspendedUntil: null }, NOW)).toBe(false)
+    expect(
+      isActiveUser({ suspendedAt: new Date('2026-11-01'), suspendedUntil: new Date('2026-11-20') }, NOW)
+    ).toBe(false)
+  })
+  it('is true again once a timed suspension has passed', () => {
+    expect(
+      isActiveUser({ suspendedAt: new Date('2026-11-01'), suspendedUntil: new Date('2026-11-10') }, NOW)
+    ).toBe(true)
   })
 })
 
