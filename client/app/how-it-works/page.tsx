@@ -160,7 +160,7 @@ export default function HowItWorksPage() {
             <p className={strong}>Votes are secret</p>
             <p>
               Nobody sees who you voted for. While a battle is running, nobody sees the vote counts either:
-              entries show &ldquo;vote count hidden&rdquo; and are listed in the order they were submitted, not by
+              entries show &ldquo;hidden&rdquo; and are listed in the order they were submitted, not by
               popularity. That way no one is swayed by who looks like they are ahead.
             </p>
           </div>
