@@ -8,7 +8,22 @@ import { useQuery } from '@apollo/client'
 import Link from 'next/link'
 import { useState } from 'react'
 
-function ParticipantAvatars({ submissions }: { submissions: any[] }) {
+// The fields GET_BATTLES returns that this page uses.
+interface Participant {
+  id: string
+  user: { id: string; username: string | null; name: string | null; image: string | null }
+}
+interface BattleSummary {
+  id: string
+  title: string
+  description: string | null
+  startDate: string
+  endDate: string
+  status: string
+  submissions: Participant[] | null
+}
+
+function ParticipantAvatars({ submissions }: { submissions: Participant[] }) {
   const MAX_SHOWN = 5
   const participants = submissions.slice(0, MAX_SHOWN)
   const overflow = submissions.length - MAX_SHOWN
@@ -31,7 +46,7 @@ function ParticipantAvatars({ submissions }: { submissions: any[] }) {
   )
 }
 
-function BattleCard({ battle }: { battle: any }) {
+function BattleCard({ battle }: { battle: BattleSummary }) {
   const submissionCount = battle.submissions?.length || 0
   const statusVariantMap: Record<string, 'upcoming' | 'active' | 'completed'> = {
     UPCOMING: 'upcoming',
@@ -97,7 +112,7 @@ export default function BattlesPage() {
       </div>
     )
 
-  const battles = data?.battles || []
+  const battles: BattleSummary[] = data?.battles || []
 
   const STATUS_ORDER = ['ACTIVE', 'UPCOMING', 'COMPLETED'] as const
   const STATUS_LABELS: Record<string, string> = {
@@ -106,8 +121,8 @@ export default function BattlesPage() {
     COMPLETED: 'Completed'
   }
 
-  const grouped = STATUS_ORDER.reduce<Record<string, any[]>>((acc, status) => {
-    acc[status] = battles.filter((b: any) => b.status === status)
+  const grouped = STATUS_ORDER.reduce<Record<string, BattleSummary[]>>((acc, status) => {
+    acc[status] = battles.filter((b) => b.status === status)
     return acc
   }, {})
 
@@ -156,7 +171,7 @@ export default function BattlesPage() {
               <section key={status}>
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">{STATUS_LABELS[status]}</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {group.map((battle: any) => (
+                  {group.map((battle) => (
                     <BattleCard key={battle.id} battle={battle} />
                   ))}
                 </div>
