@@ -25,6 +25,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     verifyRequest: '/auth/verify-request',
   },
   session: { strategy: 'jwt' },
+  events: {
+    // Runs after a sign-in succeeded (suspended and blocked users are refused earlier, in
+    // callbacks.signIn). Best effort: a failed write must never block the sign-in.
+    async signIn({ user }) {
+      if (!user.id) return
+      try {
+        await db.user.update({ where: { id: user.id }, data: { lastSignInAt: new Date() } })
+      } catch (err) {
+        console.error('[auth] could not record last sign-in', err instanceof Error ? err.name : err)
+      }
+    },
+  },
   callbacks: {
     // Runs for Google sign-in AND when a magic link is requested, before the email is
     // sent (Auth.js calls it ahead of sendVerificationRequest). Returning a path redirects
