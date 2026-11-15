@@ -206,13 +206,13 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
 
           {/* DJ info + vote */}
           <div className="flex items-center justify-between pt-1">
-            <Link href={`/users/${submission.user.id}`} className="flex items-center gap-2 group">
+            <Link href={`/users/${submission.user.id}`} className="flex min-w-0 items-center gap-2 group">
               {submission.user.image ? (
                 <img src={submission.user.image} alt={displayName} className="w-7 h-7 rounded-full object-cover border border-border" />
               ) : (
                 <span className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-base font-bold flex items-center justify-center border border-amber-500/30">{initial}</span>
               )}
-              <span className="text-base font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{displayName}</span>
+              <span className="truncate text-base font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{displayName}</span>
             </Link>
 
             <VoteCount voteCount={submission.voteCount} className="text-base text-muted-foreground font-mono" />
