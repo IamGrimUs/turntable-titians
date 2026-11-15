@@ -19,6 +19,12 @@ export default function Home() {
             <Link href="/battles/create">Create Battle</Link>
           </Button>
         </div>
+        <p className="mt-6 text-base text-muted-foreground">
+          New here?{' '}
+          <Link href="/how-it-works" className="text-amber-500 font-semibold hover:underline">
+            See how battles work
+          </Link>
+        </p>
       </div>
     </div>
   );
