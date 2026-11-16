@@ -11,10 +11,10 @@ import { getInternalApiSecret } from './config';
 import { formatError } from './errors';
 import { createLimiter } from './rateLimit';
 import { createQueryLimitRule } from './queryLimits';
-import { createIpLimitMiddleware, createMutationLimitPlugin } from './rateLimiting';
+import { createIpLimitMiddleware } from './rateLimiting';
 import { createClientIpResolver } from './clientIp';
 import { createAuthContext } from './authContext';
-import { createSuspensionBackstopPlugin } from './suspensionBackstop';
+import { buildPlugins } from './plugins';
 import type { Context } from './context';
 
 dotenv.config();
@@ -26,7 +26,9 @@ const allowedOrigins = CLIENT_URL.split(',').map((o) => o.trim());
 // Throws at startup if the secret is missing, so we never run with a guessable one.
 const INTERNAL_API_SECRET = getInternalApiSecret();
 
-// Escape hatch if a limit ever locks out real users: set RATE_LIMIT_DISABLED=true and redeploy.
+// Escape hatch if a request-rate limit ever locks out real users: set RATE_LIMIT_DISABLED=true and
+// redeploy. It turns off the per-IP and per-user mutation limits only; the query depth/size rule
+// and the suspension backstop stay on.
 const RATE_LIMIT_DISABLED = process.env.RATE_LIMIT_DISABLED === 'true';
 // How many proxies sit in front of the app (Railway's edge = 1). Needed so req.ip is the
 // real caller and not the proxy; a wrong value lets callers spoof addresses or share one limit.
@@ -48,15 +50,11 @@ async function startServer() {
     // Never send stack traces, whatever NODE_ENV is; mask unexpected errors (see errors.ts).
     includeStacktraceInErrorResponses: false,
     formatError,
-    // Refuse queries that are too deep or ask for too many fields.
-    validationRules: RATE_LIMIT_DISABLED ? [] : [createQueryLimitRule({ maxDepth: 6, maxFields: 150 })],
-    plugins: [
-      // Always on (the rate-limit switch does not touch it) and listed first, so a suspended
-      // caller hears "suspended" rather than "too often". No mutation runs while suspended.
-      createSuspensionBackstopPlugin(),
-      // At most 30 mutations a minute per user (per IP when not signed in).
-      ...(RATE_LIMIT_DISABLED ? [] : [createMutationLimitPlugin(createLimiter({ limit: 30, windowMs: 60_000 }))]),
-    ],
+    // Refuse queries that are too deep or ask for too many fields. Always on: the RATE_LIMIT_DISABLED
+    // emergency switch turns off the request-rate limits only, never this guard against expensive queries.
+    validationRules: [createQueryLimitRule({ maxDepth: 6, maxFields: 150 })],
+    // Order matters (suspension backstop first); see plugins.ts.
+    plugins: buildPlugins(RATE_LIMIT_DISABLED),
   });
 
   await server.start();
