@@ -2,6 +2,7 @@
 
 import { useQuery } from '@apollo/client'
 import { VoteCount } from '@/components/VoteCount'
+import { buildProfileStats } from '@/lib/user-profile-stats'
 import { useParams } from 'next/navigation'
 import { gql } from '@apollo/client'
 
@@ -13,6 +14,7 @@ const GET_USER = gql`
       name
       image
       externalCrews
+      battlesWon
       submissions {
         id
         title
@@ -23,6 +25,15 @@ const GET_USER = gql`
     }
   }
 `
+
+function StatCard({ label, value, accent = false }: { label: string; value: number | string; accent?: boolean }) {
+  return (
+    <div className="rounded-md border border-border px-4 py-3">
+      <p className={accent ? 'text-xl font-bold text-amber-500' : 'text-2xl font-bold text-foreground'}>{value}</p>
+      <p className="text-base text-muted-foreground">{label}</p>
+    </div>
+  )
+}
 
 export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -45,6 +56,7 @@ export default function UserProfilePage() {
   }
 
   const user = data.user
+  const stats = buildProfileStats(user)
 
   return (
     <div className="p-8 max-w-2xl mx-auto">
@@ -64,19 +76,13 @@ export default function UserProfilePage() {
           <h1 className="text-2xl font-graffiti text-foreground">
             {user.username ?? user.name ?? 'Anonymous'}
           </h1>
-          {user.externalCrews.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {user.externalCrews.map((crew: string) => (
-                <span
-                  key={crew}
-                  className="rounded-full bg-amber-500/10 px-3 py-0.5 text-base font-semibold text-amber-500"
-                >
-                  {crew}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 mb-8">
+        <StatCard label="Battles won" value={stats.battlesWon} />
+        <StatCard label="Battles entered" value={stats.battlesEntered} />
+        {stats.crew && <StatCard label={stats.crew.label} value={stats.crew.names} accent />}
       </div>
 
       <div>
