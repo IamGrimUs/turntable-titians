@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildASTSchema, parse, validate } from 'graphql'
+import { buildASTSchema, isObjectType, parse, validate } from 'graphql'
 import { typeDefs } from './schema'
 
 const schema = buildASTSchema(typeDefs)
@@ -49,6 +49,7 @@ describe('public GraphQL schema privacy', () => {
   it('still allows the public profile fields the app uses', () => {
     expect(errorsFor('{ user(id: "x") { id username name image externalCrews } }')).toEqual([])
   })
+
   it('keeps email, role, suspension reason and last sign-in off the public User type', () => {
     const userType = schema.getType('User')
     const fields = userType && 'getFields' in userType ? Object.keys(userType.getFields()) : []
@@ -101,3 +102,42 @@ describe('public GraphQL schema privacy', () => {
     expect(String(field.type)).toBe('AdminUser!')
   })
 })
+
+/** Name -> printed type of every field of an object type, in declaration order. */
+function fieldTypes(name: string): Record<string, string> {
+  const type = schema.getType(name)
+  if (!isObjectType(type)) throw new Error(`${name} is not an object type in the schema`)
+  return Object.fromEntries(Object.entries(type.getFields()).map(([field, def]) => [field, String(def.type)]))
+}
+
+describe('pinned public types', () => {
+  // These two types are readable by anyone, signed in or not. The lists are exact on purpose: a
+  // new field makes these tests fail, so adding one is a deliberate privacy decision, not an
+  // accident. Private data belongs on AdminUser (reachable only through the admin queries).
+  it('User has exactly the public profile fields: never email, role, suspension data or last sign-in', () => {
+    // User.email is deliberately not exposed, and neither are role, suspendedAt, suspendedUntil,
+    // suspensionReason, status or lastSignInAt. If you are adding a field here, ask whether
+    // anyone on the internet should be able to read it; if not, it goes on AdminUser instead.
+    expect(fieldTypes('User')).toEqual({
+      id: 'ID!',
+      username: 'String',
+      name: 'String',
+      image: 'String',
+      externalCrews: '[String!]!',
+      submissions: '[Submission!]!',
+      createdAt: 'String!',
+    })
+  })
+
+  it('Vote has exactly the non-identifying fields: voting is secret, so never a voter', () => {
+    // Voting is secret. A Vote must not say who cast it (no userId, no user, no voter of any
+    // kind); Submission.viewerHasVoted is the only per-viewer vote field, and it is about the caller.
+    expect(fieldTypes('Vote')).toEqual({
+      id: 'ID!',
+      submissionId: 'ID!',
+      battleId: 'ID!',
+      createdAt: 'String!',
+    })
+  })
+})
+

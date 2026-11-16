@@ -14,6 +14,7 @@ import { createQueryLimitRule } from './queryLimits';
 import { createIpLimitMiddleware, createMutationLimitPlugin } from './rateLimiting';
 import { createClientIpResolver } from './clientIp';
 import { createAuthContext } from './authContext';
+import { createSuspensionBackstopPlugin } from './suspensionBackstop';
 import type { Context } from './context';
 
 dotenv.config();
@@ -49,10 +50,13 @@ async function startServer() {
     formatError,
     // Refuse queries that are too deep or ask for too many fields.
     validationRules: RATE_LIMIT_DISABLED ? [] : [createQueryLimitRule({ maxDepth: 6, maxFields: 150 })],
-    // At most 30 mutations a minute per user (per IP when not signed in).
-    plugins: RATE_LIMIT_DISABLED
-      ? []
-      : [createMutationLimitPlugin(createLimiter({ limit: 30, windowMs: 60_000 }))],
+    plugins: [
+      // Always on (the rate-limit switch does not touch it) and listed first, so a suspended
+      // caller hears "suspended" rather than "too often". No mutation runs while suspended.
+      createSuspensionBackstopPlugin(),
+      // At most 30 mutations a minute per user (per IP when not signed in).
+      ...(RATE_LIMIT_DISABLED ? [] : [createMutationLimitPlugin(createLimiter({ limit: 30, windowMs: 60_000 }))]),
+    ],
   });
 
   await server.start();
