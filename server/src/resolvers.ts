@@ -4,6 +4,7 @@ import { db } from './db'
 import { computeBattleStatus } from './battleStatus'
 import { requireAuth, type Context } from './context'
 import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
+import { countBattlesWon } from './userBattlesWon'
 import { prepareCrews, prepareUsername } from './profileRules'
 import {
   LIMITS,
@@ -269,6 +270,7 @@ export const resolvers = {
     submissions: (parent: { id: string }) =>
       db.submission.findMany({ where: { userId: parent.id } }),
     externalCrews: (parent: { externalCrews: string[] }) => parent.externalCrews,
+    battlesWon: (parent: { id: string }) => countBattlesWon(parent.id),
     createdAt: (parent: { createdAt: Date }) => parent.createdAt.toISOString(),
   },
 
