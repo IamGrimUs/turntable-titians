@@ -161,7 +161,7 @@ export default function HowItWorksPage() {
             <p>
               Nobody sees who you voted for. While a battle is running, nobody sees the vote counts either:
               entries show &ldquo;hidden&rdquo; and are listed in the order they were submitted, not by
-              popularity. That way no one is swayed by who looks like they are ahead.
+              popularity.
             </p>
           </div>
         </div>

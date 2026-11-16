@@ -143,7 +143,7 @@ export default function BattleDetailPage() {
             <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
             <p>
               <span className="font-semibold text-foreground">{VOTES_HIDDEN_HINT}.</span>{' '}
-              Votes are secret while voting is open, so no one can be swayed by the standings. Results are revealed once the battle ends.{' '}
+              Votes are secret while voting is open. Results are revealed once the battle ends.{' '}
               <Link href="/how-it-works" className="text-amber-500 font-semibold hover:underline">
                 How battles work
               </Link>
