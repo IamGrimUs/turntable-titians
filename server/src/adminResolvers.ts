@@ -127,6 +127,11 @@ function actorParty(ctx: Context, actor: { id: string }) {
   return { id: actor.id, username: ctx.username, email: ctx.email }
 }
 
+/** The target as the audit log snapshots them: who they were when the action happened. */
+function partyOf(user: { id: string; username: string | null; email: string }) {
+  return { id: user.id, username: user.username, email: user.email }
+}
+
 /** Admin mutations; each later task adds its own to this object. */
 export const adminMutation = {
   adminUpdateUser: async (_: unknown, args: AdminUpdateUserArgs, ctx: Context) => {
@@ -172,7 +177,7 @@ export const adminMutation = {
       const audit = auditData({
         actor: actorParty(ctx, actor),
         action: 'USER_EDIT',
-        target: { id: user.id, username: user.username, email: user.email },
+        target: partyOf(user),
         details: { changes },
       })
       const data = Object.fromEntries(Object.entries(changes).map(([key, change]) => [key, change.to]))
@@ -197,7 +202,7 @@ export const adminMutation = {
     const audit = auditData({
       actor: actorParty(ctx, actor),
       action: 'USER_SUSPEND',
-      target: { id: user.id, username: user.username, email: user.email },
+      target: partyOf(user),
       details: { reason, until: until?.toISOString() ?? null },
     })
     // Suspending someone already suspended simply replaces the reason and date, and logs again.
@@ -223,7 +228,7 @@ export const adminMutation = {
       const audit = auditData({
         actor: actorParty(ctx, actor),
         action: 'USER_REINSTATE',
-        target: { id: user.id, username: user.username, email: user.email },
+        target: partyOf(user),
         details: { previousReason: user.suspensionReason, previousUntil: user.suspendedUntil?.toISOString() ?? null },
       })
       await db.$transaction([
@@ -258,7 +263,7 @@ export const adminMutation = {
     // Audit rows are built first: they throw if the actor's email is missing, before any write is queued.
     // They snapshot the target's username and email, so they still read correctly once the user is gone.
     const actorSnapshot = actorParty(ctx, actor)
-    const targetParty = { id: user.id, username: user.username, email: user.email }
+    const targetParty = partyOf(user)
     const blockAudit = blockEmail
       ? auditData({ actor: actorSnapshot, action: 'EMAIL_BLOCK', target: targetParty })
       : null
@@ -312,7 +317,7 @@ export const adminMutation = {
       const audit = auditData({
         actor: actorParty(ctx, actor),
         action: args.role === 'ADMIN' ? 'ROLE_GRANT' : 'ROLE_REVOKE',
-        target: { id: user.id, username: user.username, email: user.email },
+        target: partyOf(user),
         details: { from: user.role, to: args.role },
       })
       await db.$transaction([
