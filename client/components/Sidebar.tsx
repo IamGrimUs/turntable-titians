@@ -6,6 +6,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { Home, Swords, Plus, HelpCircle, Shield, User, LogIn, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isAdminRole } from '@/lib/admin-access';
+import { NavAvatar } from '@/components/NavAvatar';
 import {
   Tooltip,
   TooltipContent,
@@ -74,6 +75,7 @@ export function Sidebar() {
                 <TooltipTrigger asChild>
                   <Link
                     href="/profile"
+                    aria-label="Profile"
                     className={cn(
                       'group flex items-center justify-center rounded-md p-2.5 transition-colors',
                       pathname === '/profile'
@@ -82,11 +84,7 @@ export function Sidebar() {
                     )}
                   >
                     {session.user.image ? (
-                      <img
-                        src={session.user.image}
-                        alt="Profile"
-                        className="h-5 w-5 rounded-full object-cover"
-                      />
+                      <NavAvatar key={session.user.image} src={session.user.image} />
                     ) : (
                       <User className="h-5 w-5" />
                     )}

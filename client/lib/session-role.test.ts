@@ -7,7 +7,7 @@ const row = (
   role: 'USER' | 'ADMIN' | 'OWNER',
   suspendedAt: Date | null = null,
   suspendedUntil: Date | null = null
-) => ({ role, suspendedAt, suspendedUntil })
+) => ({ role, suspendedAt, suspendedUntil, username: 'dj_fox', image: null as string | null })
 
 describe('refreshRoleIntoToken', () => {
   it('skips the load while the role is fresh', async () => {
@@ -107,6 +107,49 @@ describe('refreshRoleIntoToken', () => {
     const token: { id: string; role?: unknown; roleCheckedAt?: unknown } = { id: 'u1' }
     expect(await refreshRoleIntoToken(token, load, 5000)).toBe(token)
     expect(token.role).toBe('USER')
+  })
+
+  describe('username and avatar', () => {
+    it('copies the stored username and avatar into the token on a refresh', async () => {
+      const load = vi.fn().mockResolvedValue({ ...row('USER'), username: 'new_name', image: 'https://cdn.example/a/new.png' })
+      const token = { id: 'u1', role: 'USER', roleCheckedAt: 0, username: 'old_name', picture: 'https://cdn.example/a/old.png' }
+      await refreshRoleIntoToken(token, load, 10 * MIN)
+      expect(token.username).toBe('new_name')
+      expect(token.picture).toBe('https://cdn.example/a/new.png')
+    })
+
+    it('clears the avatar in the token when the profile no longer has one', async () => {
+      const load = vi.fn().mockResolvedValue({ ...row('USER'), image: null })
+      const token = { id: 'u1', role: 'USER', roleCheckedAt: 0, picture: 'https://cdn.example/a/old.png' }
+      await refreshRoleIntoToken(token, load, 10 * MIN)
+      expect(token.picture).toBeNull()
+    })
+
+    it('leaves them alone while the role is still fresh', async () => {
+      const load = vi.fn()
+      const token = { id: 'u1', role: 'USER', roleCheckedAt: 0, username: 'old_name', picture: 'https://cdn.example/a/old.png' }
+      await refreshRoleIntoToken(token, load, 1 * MIN)
+      expect(load).not.toHaveBeenCalled()
+      expect(token.username).toBe('old_name')
+      expect(token.picture).toBe('https://cdn.example/a/old.png')
+    })
+
+    it('keeps the old values when the lookup fails', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const load = vi.fn().mockRejectedValue(new Error('db down'))
+      const token = { id: 'u1', role: 'USER', roleCheckedAt: 0, username: 'old_name', picture: 'https://cdn.example/a/old.png' }
+      await refreshRoleIntoToken(token, load, 10 * MIN)
+      expect(token.username).toBe('old_name')
+      expect(token.picture).toBe('https://cdn.example/a/old.png')
+      spy.mockRestore()
+    })
+
+    it('does not touch them for a suspended user, whose session ends', async () => {
+      const load = vi.fn().mockResolvedValue({ ...row('USER', new Date(0), null), image: 'https://cdn.example/a/new.png' })
+      const token = { id: 'u1', role: 'USER', roleCheckedAt: 0, picture: 'https://cdn.example/a/old.png' }
+      expect(await refreshRoleIntoToken(token, load, 10 * MIN)).toBeNull()
+      expect(token.picture).toBe('https://cdn.example/a/old.png')
+    })
   })
 
   it('ignores a token without a string id', async () => {

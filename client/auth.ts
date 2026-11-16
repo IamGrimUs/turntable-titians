@@ -88,7 +88,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return refreshRoleIntoToken(token, (id) =>
           db.user.findUnique({
             where: { id },
-            select: { role: true, suspendedAt: true, suspendedUntil: true },
+            select: { role: true, suspendedAt: true, suspendedUntil: true, username: true, image: true },
           })
         )
       }

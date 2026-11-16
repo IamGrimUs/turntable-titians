@@ -1,5 +1,6 @@
 /**
- * Keeps the user's role in the login token (JWT).
+ * Keeps the user's role in the login token (JWT), and refreshes the username and avatar the
+ * navigation shows in the same lookup.
  *
  * The role in the token is only a hint for the UI and for routing (showing the admin menu,
  * redirecting non-admins away from /admin). It is re-read from the database at most every
@@ -16,12 +17,23 @@ import { isSuspendedNow } from './suspension'
 
 export const ROLE_MAX_AGE_MS = 5 * 60 * 1000
 
-type TokenLike = { id?: unknown; role?: unknown; roleCheckedAt?: unknown; [key: string]: unknown }
+type TokenLike = {
+  id?: unknown
+  role?: unknown
+  roleCheckedAt?: unknown
+  username?: unknown
+  picture?: unknown
+  [key: string]: unknown
+}
 
 export type SessionUserRow = {
   role: Role
   suspendedAt: Date | null
   suspendedUntil: Date | null
+  // The navigation shows these, so they ride along on the same lookup: a profile saved in
+  // another browser, or changed by an admin, reaches this session within the refresh window.
+  username: string | null
+  image: string | null
 }
 
 /** The token with a fresh role, or null when the session must end (suspended or deleted user). */
@@ -42,6 +54,8 @@ export async function refreshRoleIntoToken<T extends TokenLike>(
     const row = await load(token.id)
     if (!row || isSuspendedNow(row, new Date(now))) return null
     token.role = row.role
+    token.username = row.username
+    token.picture = row.image
     token.roleCheckedAt = now
   } catch (err) {
     console.error('[session] could not refresh the role into the token', err)

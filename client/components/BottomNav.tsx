@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { Home, Swords, Plus, User, LogIn, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { NavAvatar } from '@/components/NavAvatar'
 
 const navigation = [
   { name: 'Home', href: '/', icon: Home },
@@ -52,11 +53,7 @@ export function BottomNav() {
             )}
           >
             {session.user.image ? (
-              <img
-                src={session.user.image}
-                alt="Profile"
-                className="h-5 w-5 rounded-full object-cover"
-              />
+              <NavAvatar key={session.user.image} src={session.user.image} />
             ) : (
               <User className="h-5 w-5" />
             )}
