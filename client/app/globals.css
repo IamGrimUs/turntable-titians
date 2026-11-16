@@ -4,6 +4,8 @@
 
 @layer base {
   :root {
+    /* The whole site is dark: native scrollbars, date pickers and form controls follow it. */
+    color-scheme: dark;
     --background: 0 0% 7%;
     --foreground: 0 0% 95%;
     --card: 0 0% 11%;

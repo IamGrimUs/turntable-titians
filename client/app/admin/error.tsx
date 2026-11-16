@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'
  *
  * Only failures in a page below this folder land here. The same check also runs in
  * `layout.tsx`, which sits above this boundary: a failure there is not caught here and goes
- * to the parent error boundary.
+ * to the root error boundary (`app/error.tsx`).
  */
 export default function AdminError({ retry }: { error: unknown; retry: () => void }) {
   return (

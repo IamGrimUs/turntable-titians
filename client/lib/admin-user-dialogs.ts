@@ -59,20 +59,25 @@ export function editErrorField(message: string | null): 'username' | 'name' | 'c
   return null
 }
 
+/** Failure codes that are known to have changed nothing on the server. */
+const NOTHING_CHANGED_CODES = new Set(['BAD_USER_INPUT', 'RATE_LIMITED'])
+
 /**
  * True when the table behind a dialog may be out of date after this failure and should be
- * reloaded: the user was already deleted or changed by someone else (NOT_FOUND, FORBIDDEN),
- * or, for a delete, the request failed on the network and may have gone through anyway.
- * A rejected form (BAD_USER_INPUT) never reloads: the admin is still fixing it.
+ * reloaded. Only two kinds of failure are known to have changed nothing: a rejected form
+ * (BAD_USER_INPUT, the admin is still fixing it) and a rate limit (RATE_LIMITED). Anything else
+ * reloads: the user was already deleted or changed by someone else (NOT_FOUND, FORBIDDEN), or the
+ * answer never arrived (a network failure) or was not one we recognise, so the action may have gone
+ * through anyway. A reload costs one query and the dialog stays open with its message.
  */
-export function shouldRefreshAfterFailure(error: unknown, isDelete: boolean): boolean {
+export function shouldRefreshAfterFailure(error: unknown): boolean {
   const e = error as { graphQLErrors?: readonly unknown[] } | null | undefined
   const graphQLErrors = Array.isArray(e?.graphQLErrors) ? e.graphQLErrors : []
-  for (const item of graphQLErrors) {
+  if (graphQLErrors.length === 0) return true
+  return graphQLErrors.some((item) => {
     const code = (item as { extensions?: { code?: unknown } } | null)?.extensions?.code
-    if (code === 'NOT_FOUND' || code === 'FORBIDDEN') return true
-  }
-  return isDelete && graphQLErrors.length === 0
+    return typeof code !== 'string' || !NOTHING_CHANGED_CODES.has(code)
+  })
 }
 
 /** Who a dialog talks about: the username, else the email (an account with no username yet). */
