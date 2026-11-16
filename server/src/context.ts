@@ -14,6 +14,14 @@ export interface Context {
   email?: string
 }
 
+/** The error a suspended caller gets, with the reason when there is one. Shared by requireAuth and the suspension backstop. */
+export function suspendedError(suspension: NonNullable<Context['suspension']>): GraphQLError {
+  const reason = suspension.reason
+  return new GraphQLError(reason ? `Your account is suspended. Reason: ${reason}` : 'Your account is suspended.', {
+    extensions: { code: 'FORBIDDEN' },
+  })
+}
+
 /**
  * Returns the signed-in user's id. Anonymous callers get UNAUTHENTICATED; a suspended caller
  * gets FORBIDDEN, so every mutation that goes through here is blocked while suspended.
@@ -24,12 +32,7 @@ export function requireAuth(ctx: Context): string {
       extensions: { code: 'UNAUTHENTICATED' },
     })
   }
-  if (ctx.suspension) {
-    const reason = ctx.suspension.reason
-    throw new GraphQLError(reason ? `Your account is suspended. Reason: ${reason}` : 'Your account is suspended.', {
-      extensions: { code: 'FORBIDDEN' },
-    })
-  }
+  if (ctx.suspension) throw suspendedError(ctx.suspension)
   return ctx.userId
 }
 

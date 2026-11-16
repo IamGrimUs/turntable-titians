@@ -1,4 +1,5 @@
 import { GraphQLError } from 'graphql'
+import type { Prisma } from '@prisma/client'
 import { db } from './db'
 import { requireAdmin, type Context } from './context'
 import type { Role } from './permissions'
@@ -105,14 +106,26 @@ const suspensionTargetSelect = {
   suspensionReason: true,
 } as const
 
-async function loadSuspensionTarget(userId: string) {
-  const user = await db.user.findUnique({ where: { id: userId }, select: suspensionTargetSelect })
+/** The columns delete and set-role need about their target: who it is, and what the audit entry snapshots. */
+const partyTargetSelect = { id: true, role: true, username: true, email: true } as const
+
+/**
+ * Loads the user an admin mutation acts on, or throws NOT_FOUND. Call it only after the coarse
+ * `requireAdmin(ctx, 'viewAdmin')` check (R10): a caller who is not allowed in must not be able to
+ * learn whether a user id exists. The target-aware `requireAdmin(..., target)` check follows the load.
+ */
+async function loadTarget<S extends Prisma.UserSelect>(userId: string, select: S) {
+  const user = await db.user.findUnique({ where: { id: userId }, select })
   if (!user) {
     throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } })
   }
   return user
 }
 
+/** The actor as the audit log snapshots them: the id the permission check returned, plus the request's name and email. */
+function actorParty(ctx: Context, actor: { id: string }) {
+  return { id: actor.id, username: ctx.username, email: ctx.email }
+}
 
 /** Admin mutations; each later task adds its own to this object. */
 export const adminMutation = {
@@ -123,13 +136,15 @@ export const adminMutation = {
     // allowed in cannot learn whether a user id exists. The target-aware check follows the load.
     requireAdmin(ctx, 'viewAdmin')
 
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { id: true, role: true, username: true, name: true, image: true, externalCrews: true, email: true },
+    const user = await loadTarget(userId, {
+      id: true,
+      role: true,
+      username: true,
+      name: true,
+      image: true,
+      externalCrews: true,
+      email: true,
     })
-    if (!user) {
-      throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } })
-    }
     const actor = requireAdmin(ctx, 'manageUser', { id: user.id, role: user.role })
 
     // Validate everything before any write. Only supplied fields end up in `after`.
@@ -155,7 +170,7 @@ export const adminMutation = {
     if (Object.keys(changes).length > 0) {
       // The audit row is built first: it throws if the actor's email is missing, before any write is queued.
       const audit = auditData({
-        actor: { id: actor.id, username: ctx.username, email: ctx.email },
+        actor: actorParty(ctx, actor),
         action: 'USER_EDIT',
         target: { id: user.id, username: user.username, email: user.email },
         details: { changes },
@@ -174,13 +189,13 @@ export const adminMutation = {
   adminSuspendUser: async (_: unknown, args: AdminSuspendUserArgs, ctx: Context) => {
     // Same order as adminUpdateUser: access check, load, target-aware check, then validate.
     requireAdmin(ctx, 'viewAdmin')
-    const user = await loadSuspensionTarget(args.userId)
+    const user = await loadTarget(args.userId, suspensionTargetSelect)
     const actor = requireAdmin(ctx, 'manageUser', { id: user.id, role: user.role })
 
     const { reason, until } = cleanSuspension({ reason: args.reason, until: args.until })
 
     const audit = auditData({
-      actor: { id: actor.id, username: ctx.username, email: ctx.email },
+      actor: actorParty(ctx, actor),
       action: 'USER_SUSPEND',
       target: { id: user.id, username: user.username, email: user.email },
       details: { reason, until: until?.toISOString() ?? null },
@@ -199,14 +214,14 @@ export const adminMutation = {
 
   adminReinstateUser: async (_: unknown, args: { userId: string }, ctx: Context) => {
     requireAdmin(ctx, 'viewAdmin')
-    const user = await loadSuspensionTarget(args.userId)
+    const user = await loadTarget(args.userId, suspensionTargetSelect)
     const actor = requireAdmin(ctx, 'manageUser', { id: user.id, role: user.role })
 
     const clear = { suspendedAt: null, suspendedUntil: null, suspensionReason: null }
 
     if (isSuspended(user)) {
       const audit = auditData({
-        actor: { id: actor.id, username: ctx.username, email: ctx.email },
+        actor: actorParty(ctx, actor),
         action: 'USER_REINSTATE',
         target: { id: user.id, username: user.username, email: user.email },
         details: { previousReason: user.suspensionReason, previousUntil: user.suspendedUntil?.toISOString() ?? null },
@@ -229,13 +244,7 @@ export const adminMutation = {
     // Same order as the other admin mutations: access check before any database read, then the
     // load, then the target-aware check.
     requireAdmin(ctx, 'viewAdmin')
-    const user = await db.user.findUnique({
-      where: { id: args.userId },
-      select: { id: true, role: true, username: true, email: true },
-    })
-    if (!user) {
-      throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } })
-    }
+    const user = await loadTarget(args.userId, partyTargetSelect)
     const actor = requireAdmin(ctx, 'manageUser', { id: user.id, role: user.role })
     const blockEmail = args.blockEmail === true
 
@@ -248,13 +257,13 @@ export const adminMutation = {
 
     // Audit rows are built first: they throw if the actor's email is missing, before any write is queued.
     // They snapshot the target's username and email, so they still read correctly once the user is gone.
-    const actorParty = { id: actor.id, username: ctx.username, email: ctx.email }
+    const actorSnapshot = actorParty(ctx, actor)
     const targetParty = { id: user.id, username: user.username, email: user.email }
     const blockAudit = blockEmail
-      ? auditData({ actor: actorParty, action: 'EMAIL_BLOCK', target: targetParty })
+      ? auditData({ actor: actorSnapshot, action: 'EMAIL_BLOCK', target: targetParty })
       : null
     const deleteAudit = auditData({
-      actor: actorParty,
+      actor: actorSnapshot,
       action: 'USER_DELETE',
       target: targetParty,
       details: { entries, votesCast, votesReceived, emailBlocked: blockEmail },
@@ -293,13 +302,7 @@ export const adminMutation = {
       throw new GraphQLError("You don't have permission to do that.", { extensions: { code: 'FORBIDDEN' } })
     }
 
-    const user = await db.user.findUnique({
-      where: { id: args.userId },
-      select: { id: true, role: true, username: true, email: true },
-    })
-    if (!user) {
-      throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } })
-    }
+    const user = await loadTarget(args.userId, partyTargetSelect)
     // Owner only, and only on a USER or an ADMIN: the OWNER (even the owner themselves) is rejected here.
     const actor = requireAdmin(ctx, 'setRole', { id: user.id, role: user.role })
 
@@ -307,7 +310,7 @@ export const adminMutation = {
     // nothing, so there is nothing to write or log.
     if (user.role !== args.role) {
       const audit = auditData({
-        actor: { id: actor.id, username: ctx.username, email: ctx.email },
+        actor: actorParty(ctx, actor),
         action: args.role === 'ADMIN' ? 'ROLE_GRANT' : 'ROLE_REVOKE',
         target: { id: user.id, username: user.username, email: user.email },
         details: { from: user.role, to: args.role },
