@@ -9,6 +9,8 @@ const schema = buildSchema(
   `type Query { a: A }
    type A { name: String, child: A, kids: [A] }`
 );
+// Length of the chained fragments in the pathological documents.
+const CHAIN = 40;
 const run = (query: string, opts = { maxDepth: 4, maxFields: 10 }) =>
   validate(schema, parse(query), [createQueryLimitRule(opts)]).map((e) => e.message);
 
@@ -47,6 +49,99 @@ describe('createQueryLimitRule', () => {
   it('does not loop forever on a fragment cycle', () => {
     const q = `query { a { ...F } } fragment F on A { child { ...F } }`;
     expect(() => run(q, { maxDepth: 50, maxFields: 1000 })).not.toThrow();
+  });
+
+  it('counts a fragment every time it is spread', () => {
+    const five = Array.from({ length: 5 }, (_, i) => `f${i}: name`).join(' ');
+    const doc = (spreads: string) => `query { a { ${spreads} } } fragment F on A { ${five} }`;
+    // `a` itself is one field: 1 + 5 + 5 = 11 is over a cap of 10, 1 + 5 + 4 is not.
+    expect(run(doc('...F ...F')).join()).toMatch(/too many fields/i);
+    expect(run(doc('...F ...F'), { maxDepth: 4, maxFields: 11 })).toEqual([]);
+    expect(run(doc('...F ... on A { name }'), { maxDepth: 4, maxFields: 6 }).join()).toMatch(/too many fields/i);
+    expect(run(doc('...F ... on A { __typename }'), { maxDepth: 4, maxFields: 6 })).toEqual([]);
+  });
+
+  it('reports whichever limit is crossed first, as the plain walk would', () => {
+    const wide = Array.from({ length: 12 }, (_, i) => `f${i}: name`).join(' ');
+    const q = (first: string, second: string) => `
+      query { a { ...${first} ...${second} } }
+      fragment Wide on A { ${wide} }
+      fragment Deep on A { child { child { child { child { name } } } } }`;
+    expect(run(q('Wide', 'Deep')).join()).toMatch(/too many fields/i);
+    expect(run(q('Deep', 'Wide')).join()).toMatch(/too deep/i);
+  });
+
+  it('measures depth through a fragment from where it is spread', () => {
+    const q = (at: string) => `
+      query { a { ${at} } }
+      fragment D on A { child { child { name } } }`;
+    expect(run(q('...D'), { maxDepth: 4, maxFields: 50 })).toEqual([]);
+    expect(run(q('child { ...D }'), { maxDepth: 4, maxFields: 50 }).join()).toMatch(/too deep/i);
+    expect(run(q('child { child { ...D } }'), { maxDepth: 4, maxFields: 50 }).join()).toMatch(/too deep/i);
+  });
+
+  it('ignores unknown fragments', () => {
+    expect(run('query { a { ...Nope name } }')).toEqual([]);
+  });
+
+  it('counts mutually recursive fragments once per path, ignoring the way back in', () => {
+    const q = `
+      query { a { ...A } }
+      fragment A on A { n1: name ...B }
+      fragment B on A { n2: name ...A }`;
+    // a, n1, n2 and nothing more: 3 fields.
+    expect(run(q, { maxDepth: 5, maxFields: 3 })).toEqual([]);
+    expect(run(q, { maxDepth: 5, maxFields: 2 }).join()).toMatch(/too many fields/i);
+  });
+
+  describe('fragments that spread the next one twice', () => {
+    const chain = (n: number, last: string, on = 'A') =>
+      Array.from({ length: n }, (_, i) => `fragment F${i} on ${on} { ...F${i + 1} ...F${i + 1} }`).join('\n') +
+      `\nfragment F${n} on ${on} { ${last} }`;
+    const prod = { maxDepth: 6, maxFields: 150 };
+
+    it('is checked in linear time when the expansion is free', () => {
+      const doc = parse(`query { a { ...F0 } } ${chain(CHAIN, '__typename')}`);
+      const start = performance.now();
+      const errors = validate(schema, doc, [createQueryLimitRule(prod)]);
+      const ms = performance.now() - start;
+      expect(errors).toEqual([]);
+      expect(ms).toBeLessThan(100);
+    });
+
+    it('is checked in linear time when only the last fragment holds a real field', () => {
+      const doc = parse(`query { a { ...F0 } } ${chain(CHAIN, 'name')}`);
+      const start = performance.now();
+      const errors = validate(schema, doc, [createQueryLimitRule(prod)]).map((e) => e.message);
+      const ms = performance.now() - start;
+      expect(errors.join()).toMatch(/too many fields \(more than 150\)/i);
+      expect(ms).toBeLessThan(100);
+    });
+
+    it('still reports "too many fields" when the count is beyond any number (2^1100)', () => {
+      const doc = parse(`query { a { ...F0 } } ${chain(1100, 'name')}`);
+      const errors = validate(schema, doc, [createQueryLimitRule(prod)]).map((e) => e.message);
+      expect(errors).toEqual(['Query is too complex: too many fields (more than 150).']);
+    });
+
+    it('is checked in linear time when the fragments are nested', () => {
+      const nested =
+        Array.from({ length: CHAIN }, (_, i) => `fragment F${i} on A { x: child { ...F${i + 1} } y: child { ...F${i + 1} } }`).join('\n') +
+        `\nfragment F${CHAIN} on A { __typename }`;
+      const doc = parse(`query { a { ...F0 } } ${nested}`);
+      const start = performance.now();
+      const errors = validate(schema, doc, [createQueryLimitRule({ maxDepth: 60, maxFields: 150 })]).map((e) => e.message);
+      const ms = performance.now() - start;
+      expect(errors.join()).toMatch(/too many fields/i);
+      expect(ms).toBeLessThan(100);
+    });
+
+    it('stays fast when the chain also loops back on itself (an invalid document)', () => {
+      const doc = parse(`query { a { ...F0 } } ${chain(CHAIN, '...F0')}`);
+      const start = performance.now();
+      expect(() => validate(schema, doc, [createQueryLimitRule(prod)])).not.toThrow();
+      expect(performance.now() - start).toBeLessThan(500);
+    });
   });
 
   it('lets introspection through (tools and the sandbox need it)', () => {

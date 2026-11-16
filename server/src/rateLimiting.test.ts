@@ -1,8 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GraphQLError, parse, Kind, type OperationDefinitionNode } from 'graphql';
 import { createLimiter } from './rateLimit';
-import { createMutationLimitPlugin, createIpLimitMiddleware, mutationLimitKey } from './rateLimiting';
+import {
+  countMutationRootFields,
+  createMutationLimitPlugin,
+  createIpLimitMiddleware,
+  mutationLimitKey,
+} from './rateLimiting';
 
+// Length of the chained fragments in the pathological documents.
+const CHAIN = 40;
 const limiter = (limit: number) => createLimiter({ limit, windowMs: 60_000, now: () => 1 });
 
 async function resolveOp(
@@ -141,6 +148,65 @@ describe('createMutationLimitPlugin per root field', () => {
     for (let i = 0; i < 5; i++) {
       await hooks.didResolveOperation({ operation, document, contextValue: { userId: 'u1' } });
     }
+  });
+});
+
+describe('countMutationRootFields', () => {
+  const count = (source: string) => {
+    const document = parse(source);
+    const operation = document.definitions.find(
+      (d): d is OperationDefinitionNode => d.kind === Kind.OPERATION_DEFINITION
+    );
+    return countMutationRootFields(operation, document);
+  };
+  const chain = (n: number, last: string) =>
+    Array.from({ length: n }, (_, i) => `fragment F${i} on Mutation { ...F${i + 1} ...F${i + 1} }`).join('\n') +
+    `\nfragment F${n} on Mutation { ${last} }`;
+
+  it('counts a fragment every time it is spread', () => {
+    // two spreads at each of 3 levels = 8 copies of the last fragment's 2 fields
+    expect(count(`mutation { ...F0 } ${chain(3, 'a: x b: y')}`)).toBe(16);
+    expect(count('mutation { ...P ...P c: z } fragment P on Mutation { a: x b: y }')).toBe(5);
+  });
+
+  it('ignores unknown fragments', () => {
+    expect(count('mutation { ...Nope a: x }')).toBe(1);
+    expect(count('mutation { ...Nope }')).toBe(1);
+  });
+
+  it('counts mutually recursive fragments once per path, ignoring the way back in', () => {
+    // ...A: a, then ...B: b (...A is skipped); ...B: b, then ...A: a (...B is skipped)
+    expect(count('mutation { ...A ...B } fragment A on Mutation { a: x ...B } fragment B on Mutation { b: x ...A }')).toBe(4);
+    expect(count('mutation { ...A } fragment A on Mutation { a: x ...A }')).toBe(1);
+  });
+
+  it('is linear in time when each fragment spreads the next one twice (free expansion)', () => {
+    const start = performance.now();
+    expect(count(`mutation { ...F0 } ${chain(CHAIN, '__typename')}`)).toBe(1);
+    expect(performance.now() - start).toBeLessThan(100);
+  });
+
+  it('is linear in time when the expansion is astronomically large', () => {
+    const start = performance.now();
+    const n = count(`mutation { ...F0 } ${chain(CHAIN, 'a: x')}`);
+    expect(n).toBe(2 ** CHAIN);
+    expect(performance.now() - start).toBeLessThan(100);
+  });
+
+  it('rate limits a request whose expansion is astronomically large, quickly', async () => {
+    const plugin = createMutationLimitPlugin(limiter(30));
+    const start = performance.now();
+    const err = await resolveMutationDoc(plugin, `mutation { ...F0 } ${chain(CHAIN, 'a: x')}`, { userId: 'u1' }).catch(
+      (e) => e
+    );
+    expect(err.extensions.code).toBe('RATE_LIMITED');
+    expect(performance.now() - start).toBeLessThan(100);
+  });
+
+  it('stays fast and charges a lot when the chain also loops back on itself (an invalid document)', () => {
+    const start = performance.now();
+    expect(count(`mutation { ...F0 } ${chain(CHAIN, '...F0 a: x')}`)).toBeGreaterThanOrEqual(1);
+    expect(performance.now() - start).toBeLessThan(500);
   });
 });
 
