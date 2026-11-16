@@ -166,8 +166,19 @@ export function createQueryLimitRule({ maxDepth, maxFields }: QueryLimits) {
         try {
           walk(operation.selectionSet, 1);
         } catch (e) {
-          if (e instanceof LimitExceeded) context.reportError(new GraphQLError(e.message, { nodes: [operation] }));
-          else throw e;
+          if (e instanceof LimitExceeded) {
+            context.reportError(new GraphQLError(e.message, { nodes: [operation] }));
+          } else if (e instanceof RangeError) {
+            // A fragment chain so long that the walk ran out of call stack. Refuse it like any
+            // other limit instead of letting the error escape (Apollo would log it and answer 500).
+            // Whatever the abandoned walk left in `stack` is dropped so nothing leaks to the next
+            // operation (it is also cleared when each operation starts); `summaries` only ever
+            // holds finished results, so it is safe to keep.
+            stack.clear();
+            context.reportError(
+              new GraphQLError('Query is too complex: its fragments expand too many times.', { nodes: [operation] })
+            );
+          } else throw e;
         }
       },
     };

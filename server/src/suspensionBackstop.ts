@@ -1,4 +1,5 @@
 import type { ApolloServerPlugin } from '@apollo/server'
+import { GraphQLError } from 'graphql'
 import { suspendedError, type Context } from './context'
 import { isSuspended } from './suspension'
 
@@ -32,7 +33,14 @@ export function createSuspensionBackstopPlugin(now: () => Date = () => new Date(
           // The context already holds only a current suspension (see loadViewer); checking the end
           // date again covers a request that outlives the suspension and a context built elsewhere.
           const at = now()
-          if (isSuspended({ suspendedAt: at, suspendedUntil: suspension.until }, at)) throw suspendedError(suspension)
+          if (isSuspended({ suspendedAt: at, suspendedUntil: suspension.until }, at)) {
+            const err = suspendedError(suspension)
+            // Same message and code as requireAuth, but answered with HTTP 200: an error thrown this
+            // early would otherwise get HTTP 500 and no data, which Apollo Client turns into a
+            // network error, so the suspension message would never reach the user. Apollo strips
+            // `http` before the error is sent to the client.
+            throw new GraphQLError(err.message, { extensions: { ...err.extensions, http: { status: 200 } } })
+          }
         },
       }
     },

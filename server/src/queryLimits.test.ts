@@ -124,6 +124,60 @@ describe('createQueryLimitRule', () => {
       expect(errors).toEqual(['Query is too complex: too many fields (more than 150).']);
     });
 
+    // How much call stack a request has left depends on the machine and on how warm the code is,
+    // so these tests use up the stack in steps until the walk really does run out of it. Whatever
+    // the step, validation must never throw; at some step it must give the clean refusal.
+    const TOO_COMPLEX = 'Query is too complex: its fragments expand too many times.';
+    const links = 3000;
+    const distinctChain = (...operations: string[]) =>
+      operations.join('\n') +
+      '\n' +
+      Array.from({ length: links }, (_, i) => `fragment F${i} on A{...F${i + 1}}`).join('\n') +
+      `\nfragment F${links} on A{name}`;
+    const burn = (frames: number, fn: () => unknown): unknown => (frames > 0 ? burn(frames - 1, fn) : fn());
+    function validateWithStackLeft(doc: ReturnType<typeof parse>, frames: number) {
+      let entered = false;
+      try {
+        return burn(frames, () => {
+          entered = true;
+          return validate(schema, doc, [createQueryLimitRule(prod)]).map((e) => e.message);
+        }) as string[];
+      } catch (e) {
+        // Running out of stack while burning it is the test's own doing, not the rule's.
+        if (!entered) return null;
+        throw e;
+      }
+    }
+
+    it('refuses a chain of 3,000 distinct fragments cleanly instead of running out of call stack', () => {
+      const source = distinctChain('query { a { ...F0 } }');
+      expect(source.length).toBeLessThan(100 * 1024);
+      const doc = parse(source);
+      const start = performance.now();
+      let refused = false;
+      for (let frames = 0; frames <= 9000 && !refused; frames += 250) {
+        const errors = validateWithStackLeft(doc, frames);
+        if (errors === null) break;
+        refused = errors.length === 1 && errors[0] === TOO_COMPLEX;
+        if (!refused) expect(errors).toEqual([]);
+      }
+      expect(refused).toBe(true);
+      expect(performance.now() - start).toBeLessThan(500);
+    });
+
+    it('checks the next operation normally after a too-deep chain was abandoned', () => {
+      const doc = parse(distinctChain('query Deep { a { ...F0 } }', 'query Small { a { name } }'));
+      let refused = false;
+      for (let frames = 0; frames <= 9000 && !refused; frames += 250) {
+        const errors = validateWithStackLeft(doc, frames);
+        if (errors === null) break;
+        // Only the deep operation is ever refused (once); the small one adds no error of its own.
+        expect(errors.length).toBeLessThanOrEqual(1);
+        refused = errors.length === 1 && errors[0] === TOO_COMPLEX;
+      }
+      expect(refused).toBe(true);
+    });
+
     it('is checked in linear time when the fragments are nested', () => {
       const nested =
         Array.from({ length: CHAIN }, (_, i) => `fragment F${i} on A { x: child { ...F${i + 1} } y: child { ...F${i + 1} } }`).join('\n') +

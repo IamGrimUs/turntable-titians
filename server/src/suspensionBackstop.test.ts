@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { ApolloServer } from '@apollo/server'
+import { ApolloServer, HeaderMap, type ApolloServerPlugin } from '@apollo/server'
 import { GraphQLError, parse, Kind, type OperationDefinitionNode } from 'graphql'
 import { createSuspensionBackstopPlugin } from './suspensionBackstop'
 import { createMutationLimitPlugin } from './rateLimiting'
@@ -66,7 +66,8 @@ describe('createSuspensionBackstopPlugin', () => {
         fromRequireAuth = e as GraphQLError
       }
       expect(fromBackstop.message).toBe(fromRequireAuth!.message)
-      expect(fromBackstop.extensions).toEqual(fromRequireAuth!.extensions)
+      // Same code; the backstop adds only the `http` status hint, which Apollo strips before sending.
+      expect(fromBackstop.extensions).toEqual({ ...fromRequireAuth!.extensions, http: { status: 200 } })
     }
   })
 
@@ -176,3 +177,58 @@ describe('the suspension backstop inside Apollo Server', () => {
     expect(resolver).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('the HTTP answer to a refused mutation (real Apollo request path)', () => {
+  // An error thrown before execution is answered with HTTP 500 and no data unless it says
+  // otherwise, and Apollo Client then drops the message. These check the real status and body.
+  async function post(plugins: ApolloServerPlugin<Context>[], contextValue: Context, query: string) {
+    const resolver = vi.fn(() => 'ok')
+    const server = new ApolloServer<Context>({
+      typeDefs: 'type Query { read: String } type Mutation { write: String }',
+      resolvers: { Query: { read: resolver }, Mutation: { write: resolver } },
+      plugins,
+    })
+    await server.start()
+    try {
+      const response = await server.executeHTTPGraphQLRequest({
+        httpGraphQLRequest: {
+          method: 'POST',
+          headers: new HeaderMap([['content-type', 'application/json']]),
+          search: '',
+          body: { query },
+        },
+        context: async () => contextValue,
+      })
+      if (response.body.kind !== 'complete') throw new Error('expected a complete body')
+      return { status: response.status, body: JSON.parse(response.body.string), resolver }
+    } finally {
+      await server.stop()
+    }
+  }
+
+  it('answers a suspended caller\'s mutation with HTTP 200, the reason and FORBIDDEN, and no http key', async () => {
+    const { status, body, resolver } = await post([createSuspensionBackstopPlugin(clock)], suspended(), 'mutation { write }')
+    expect(status).toBe(200)
+    expect(body.errors).toHaveLength(1)
+    expect(body.errors[0].message).toBe('Your account is suspended. Reason: spam')
+    expect(body.errors[0].extensions.code).toBe('FORBIDDEN')
+    expect(body.errors[0].extensions).not.toHaveProperty('http')
+    expect(resolver).not.toHaveBeenCalled()
+  })
+
+  it('answers a rate-limited mutation with HTTP 200, the message, RATE_LIMITED and retryAfterSeconds, and no http key', async () => {
+    const limiter = createLimiter({ limit: 1, windowMs: 60_000, now: () => 1 })
+    const plugins = [createMutationLimitPlugin(limiter)]
+    const ctx: Context = { userId: 'u1' }
+    // A successful response carries no explicit status (Apollo's HTTP layer then answers 200).
+    expect((await post(plugins, ctx, 'mutation { write }')).body.errors).toBeUndefined()
+    const { status, body, resolver } = await post(plugins, ctx, 'mutation { write }')
+    expect(status).toBe(200)
+    expect(resolver).not.toHaveBeenCalled()
+    expect(body.errors[0].message).toBe('You are doing that too often. Please slow down and try again shortly.')
+    expect(body.errors[0].extensions.code).toBe('RATE_LIMITED')
+    expect(body.errors[0].extensions.retryAfterSeconds).toBeGreaterThan(0)
+    expect(body.errors[0].extensions).not.toHaveProperty('http')
+  })
+})
+

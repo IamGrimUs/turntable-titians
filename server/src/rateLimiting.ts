@@ -109,7 +109,10 @@ export function createMutationLimitPlugin(limiter: Limiter): ApolloServerPlugin<
             const result = limiter.hit(key);
             if (!result.allowed) {
               throw new GraphQLError('You are doing that too often. Please slow down and try again shortly.', {
-                extensions: { code: 'RATE_LIMITED', retryAfterSeconds: result.retryAfterSeconds },
+                // http.status 200: an error thrown this early would otherwise be answered with HTTP 500 and
+                // no data, which Apollo Client turns into a network error and the message never arrives.
+                // Apollo strips `http` before the error is sent to the client.
+                extensions: { code: 'RATE_LIMITED', retryAfterSeconds: result.retryAfterSeconds, http: { status: 200 } },
               });
             }
           }
