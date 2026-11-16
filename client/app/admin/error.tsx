@@ -15,7 +15,7 @@ import { Card, CardContent } from '@/components/ui/card'
  * `layout.tsx`, which sits above this boundary: a failure there is not caught here and goes
  * to the parent error boundary.
  */
-export default function AdminError({ retry }: { error: Error & { digest?: string }; retry: () => void }) {
+export default function AdminError({ retry }: { error: unknown; retry: () => void }) {
   return (
     <div className="p-8">
       <h1 className="font-graffiti text-4xl">Something went wrong</h1>
