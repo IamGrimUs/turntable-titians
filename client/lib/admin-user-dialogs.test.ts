@@ -65,32 +65,39 @@ describe('shouldRefreshAfterFailure', () => {
   const gql = (code: string) => ({ graphQLErrors: [{ message: 'm', extensions: { code } }] })
 
   it('refreshes when the user is gone or changed under the admin', () => {
-    expect(shouldRefreshAfterFailure(gql('NOT_FOUND'), false)).toBe(true)
-    expect(shouldRefreshAfterFailure(gql('FORBIDDEN'), false)).toBe(true)
-    expect(shouldRefreshAfterFailure(gql('NOT_FOUND'), true)).toBe(true)
+    expect(shouldRefreshAfterFailure(gql('NOT_FOUND'))).toBe(true)
+    expect(shouldRefreshAfterFailure(gql('FORBIDDEN'))).toBe(true)
   })
-  it('does not refresh while the admin is fixing the form', () => {
-    expect(shouldRefreshAfterFailure(gql('BAD_USER_INPUT'), false)).toBe(false)
-    expect(shouldRefreshAfterFailure(gql('BAD_USER_INPUT'), true)).toBe(false)
-    expect(shouldRefreshAfterFailure(gql('RATE_LIMITED'), true)).toBe(false)
+  it('does not refresh while the admin is fixing the form, or when rate limited', () => {
+    expect(shouldRefreshAfterFailure(gql('BAD_USER_INPUT'))).toBe(false)
+    expect(shouldRefreshAfterFailure(gql('RATE_LIMITED'))).toBe(false)
   })
-  it('refreshes after a delete whose response was lost, but not other network failures', () => {
-    const network = { graphQLErrors: [], networkError: new Error('Failed to fetch') }
-    expect(shouldRefreshAfterFailure(network, true)).toBe(true)
-    expect(shouldRefreshAfterFailure(new Error('Failed to fetch'), true)).toBe(true)
-    expect(shouldRefreshAfterFailure(network, false)).toBe(false)
+  it('refreshes after a network failure, because the action may have gone through', () => {
+    expect(shouldRefreshAfterFailure({ graphQLErrors: [], networkError: new Error('Failed to fetch') })).toBe(true)
+    expect(shouldRefreshAfterFailure(new Error('Failed to fetch'))).toBe(true)
+  })
+  it('refreshes after an error code it does not recognise', () => {
+    expect(shouldRefreshAfterFailure(gql('INTERNAL_SERVER_ERROR'))).toBe(true)
+    expect(shouldRefreshAfterFailure(gql('UNAUTHENTICATED'))).toBe(true)
+    expect(shouldRefreshAfterFailure({ graphQLErrors: [{ message: 'no code' }] })).toBe(true)
   })
   it('refreshes when any of several errors qualifies', () => {
     expect(
-      shouldRefreshAfterFailure(
-        { graphQLErrors: [{ extensions: { code: 'BAD_USER_INPUT' } }, { extensions: { code: 'NOT_FOUND' } }] },
-        false,
-      ),
+      shouldRefreshAfterFailure({
+        graphQLErrors: [{ extensions: { code: 'BAD_USER_INPUT' } }, { extensions: { code: 'NOT_FOUND' } }],
+      }),
     ).toBe(true)
   })
-  it('tolerates junk', () => {
-    expect(shouldRefreshAfterFailure(null, false)).toBe(false)
-    expect(shouldRefreshAfterFailure(undefined, true)).toBe(true)
+  it('does not refresh when every error is a known no-change code', () => {
+    expect(
+      shouldRefreshAfterFailure({
+        graphQLErrors: [{ extensions: { code: 'BAD_USER_INPUT' } }, { extensions: { code: 'RATE_LIMITED' } }],
+      }),
+    ).toBe(false)
+  })
+  it('tolerates junk by refreshing (one harmless query)', () => {
+    expect(shouldRefreshAfterFailure(null)).toBe(true)
+    expect(shouldRefreshAfterFailure(undefined)).toBe(true)
   })
 })
 

@@ -94,25 +94,31 @@ export function UsersView({ viewerRole }: { viewerRole: Role }) {
     notifyOnNetworkStatusChange: true,
   })
 
+  // Reloads the table with the same query variables. A failed reload already shows in `error` (the
+  // card below), so the rejected promise is swallowed rather than left unhandled.
+  const reload = useCallback(() => {
+    refetch().catch(() => {})
+  }, [refetch])
+
   const closeDialog = useCallback(() => setPendingAction(null), [])
   const onActionDone = useCallback(
     (message: string) => {
       setPendingAction(null)
       setNotice(message)
-      // Same query variables: the table shows the change (and a deleted user is gone).
-      void refetch()
+      // The table shows the change (and a deleted user is gone).
+      reload()
     },
-    [refetch]
+    [reload]
   )
 
-  // A dialog's action failed. When the row may be stale (already deleted or changed by someone
-  // else, or a delete whose answer was lost) reload the table; the dialog stays open with its message.
-  const pendingKind = pendingAction?.action
+  // A dialog's action failed. Unless it is known to have changed nothing (a rejected form, a rate
+  // limit), the row may be stale (already deleted or changed by someone else, or the answer was
+  // lost), so reload the table; the dialog stays open with its message.
   const onActionFailed = useCallback(
     (failure: unknown) => {
-      if (shouldRefreshAfterFailure(failure, pendingKind === 'delete')) void refetch()
+      if (shouldRefreshAfterFailure(failure)) reload()
     },
-    [pendingKind, refetch]
+    [reload]
   )
 
   // A different action or row mounts a fresh dialog: fresh form state and a fresh showModal().
@@ -199,7 +205,7 @@ export function UsersView({ viewerRole }: { viewerRole: Role }) {
               <p className="text-base text-destructive">
                 We couldn&apos;t load the users right now. Please try again in a moment.
               </p>
-              <Button type="button" variant="outline" className="mt-4" onClick={() => void refetch()}>
+              <Button type="button" variant="outline" className="mt-4" onClick={reload}>
                 Try again
               </Button>
             </CardContent>
