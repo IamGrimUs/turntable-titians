@@ -3,8 +3,7 @@
 import { gql, useMutation } from '@apollo/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-
-const BATTLE_TYPES = ['Skratch Battle', 'Mix Battle', 'Beat Battle', 'Match a Skratch Battle', 'Open Format']
+import { BATTLE_TYPES } from '@/lib/battle-types'
 
 const CREATE_BATTLE = gql`
   mutation CreateBattle($title: String!, $type: String!, $description: String, $startDate: String!, $endDate: String!) {
