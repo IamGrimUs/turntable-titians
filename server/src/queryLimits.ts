@@ -52,6 +52,9 @@ export function createQueryLimitRule({ maxDepth, maxFields }: QueryLimits) {
   return (context: ValidationContext): ASTVisitor => {
     let fragments: Map<string, FragmentDefinitionNode> | undefined;
     const summaries = new Map<string, Summary>();
+    // The fragments being expanded right now, shared by the walk and the summaries so that
+    // checking a spread never copies the path.
+    const stack = new Set<string>();
     let work = 0;
     // Counts spreads skipped because the fragment was already being expanded (a cycle).
     let cyclesSkipped = 0;
@@ -72,7 +75,7 @@ export function createQueryLimitRule({ maxDepth, maxFields }: QueryLimits) {
      * cannot be stated once for all places: skipping a cycle's way back in depends on where the
      * walk entered the cycle, so anything that touched a cycle is walked the long way instead.
      */
-    const summarise = (name: string, stack: Set<string>): Summary | undefined => {
+    const summarise = (name: string): Summary | undefined => {
       const known = summaries.get(name);
       if (known) return known;
       const fragment = getFragments().get(name);
@@ -80,14 +83,14 @@ export function createQueryLimitRule({ maxDepth, maxFields }: QueryLimits) {
 
       const cyclesBefore = cyclesSkipped;
       stack.add(name);
-      const result = summariseSet(fragment.selectionSet, stack);
+      const result = summariseSet(fragment.selectionSet);
       stack.delete(name);
       if (cyclesSkipped !== cyclesBefore) return undefined;
       summaries.set(name, result);
       return result;
     };
 
-    const summariseSet = (set: SelectionSetNode, stack: Set<string>): Summary => {
+    const summariseSet = (set: SelectionSetNode): Summary => {
       let fields = 0;
       let depth = -1;
       for (const selection of set.selections) {
@@ -99,12 +102,12 @@ export function createQueryLimitRule({ maxDepth, maxFields }: QueryLimits) {
           fields = Math.min(fields + 1, fieldCap);
           depth = Math.max(depth, 0);
           if (selection.selectionSet) {
-            const inner = summariseSet(selection.selectionSet, stack);
+            const inner = summariseSet(selection.selectionSet);
             fields = Math.min(fields + inner.fields, fieldCap);
             if (inner.depth >= 0) depth = Math.max(depth, inner.depth + 1);
           }
         } else if (selection.kind === Kind.INLINE_FRAGMENT) {
-          const inner = summariseSet(selection.selectionSet, stack);
+          const inner = summariseSet(selection.selectionSet);
           fields = Math.min(fields + inner.fields, fieldCap);
           depth = Math.max(depth, inner.depth);
         } else {
@@ -113,7 +116,7 @@ export function createQueryLimitRule({ maxDepth, maxFields }: QueryLimits) {
             cyclesSkipped++;
             continue;
           }
-          const inner = summarise(name, stack);
+          const inner = summarise(name);
           // No summary means a cycle was touched below, so this fragment gets none either
           // (cyclesSkipped has moved); the caller falls back to the long way.
           if (!inner) continue;
@@ -127,7 +130,9 @@ export function createQueryLimitRule({ maxDepth, maxFields }: QueryLimits) {
     return {
       OperationDefinition(operation) {
         let fields = 0;
-        const walk = (set: SelectionSetNode, depth: number, spreading: string[]) => {
+        // A walk that stopped early (limit reached) can leave names behind.
+        stack.clear();
+        const walk = (set: SelectionSetNode, depth: number) => {
           for (const selection of set.selections) {
             if (selection.kind === Kind.FIELD) {
               if (selection.name.value.startsWith('__')) continue;
@@ -135,28 +140,31 @@ export function createQueryLimitRule({ maxDepth, maxFields }: QueryLimits) {
               if (++fields > maxFields) {
                 throw new LimitExceeded(`Query is too complex: too many fields (more than ${maxFields}).`);
               }
-              if (selection.selectionSet) walk(selection.selectionSet, depth + 1, spreading);
+              if (selection.selectionSet) walk(selection.selectionSet, depth + 1);
             } else if (selection.kind === Kind.INLINE_FRAGMENT) {
-              walk(selection.selectionSet, depth, spreading);
+              walk(selection.selectionSet, depth);
             } else {
               const name = selection.name.value;
-              const fragment = getFragments().get(name);
               // Unknown fragments and cycles are reported by the standard rules.
-              if (!fragment || spreading.includes(name)) continue;
-              const summary = summarise(name, new Set(spreading));
+              if (stack.has(name)) continue;
+              const fragment = getFragments().get(name);
+              if (!fragment) continue;
+              const summary = summaries.get(name) ?? summarise(name);
               // A fragment that stays within both limits is added in one step; one that would
               // cross a limit is walked, so the error is the one the plain walk would give.
               if (summary && depth + summary.depth <= maxDepth && fields + summary.fields <= maxFields) {
                 fields += summary.fields;
                 continue;
               }
-              walk(fragment.selectionSet, depth, [...spreading, name]);
+              stack.add(name);
+              walk(fragment.selectionSet, depth);
+              stack.delete(name);
             }
           }
         };
 
         try {
-          walk(operation.selectionSet, 1, []);
+          walk(operation.selectionSet, 1);
         } catch (e) {
           if (e instanceof LimitExceeded) context.reportError(new GraphQLError(e.message, { nodes: [operation] }));
           else throw e;

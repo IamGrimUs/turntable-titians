@@ -136,6 +136,27 @@ describe('createQueryLimitRule', () => {
       expect(ms).toBeLessThan(100);
     });
 
+    it('is not slowed by a long chain of fragments whose last one spreads a leaf fragment thousands of times', () => {
+      // About 90 KB, so it fits under express.json's 100 kb body limit. The deep selection at the
+      // end forces the walk down the whole chain, and every spread of M must cost the same however
+      // long the chain above it is.
+      const length = 1500;
+      const spreads = 9000;
+      const chained = Array.from({ length }, (_, i) => `fragment f${i} on A { ...f${i + 1} }`).join('\n');
+      const deep = 'child { '.repeat(7) + 'name' + ' }'.repeat(7);
+      const source =
+        `query { a { ...f0 } }\n${chained}\n` +
+        `fragment f${length} on A { ${'...M '.repeat(spreads)} ${deep} }\n` +
+        'fragment M on A { __typename }';
+      expect(source.length).toBeLessThan(100_000);
+      const doc = parse(source);
+      const start = performance.now();
+      const errors = validate(schema, doc, [createQueryLimitRule(prod)]).map((e) => e.message);
+      const ms = performance.now() - start;
+      expect(errors.join()).toMatch(/too deep/i);
+      expect(ms).toBeLessThan(100);
+    });
+
     it('stays fast when the chain also loops back on itself (an invalid document)', () => {
       const doc = parse(`query { a { ...F0 } } ${chain(CHAIN, '...F0')}`);
       const start = performance.now();
