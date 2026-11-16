@@ -44,6 +44,8 @@ export const typeDefs = gql`
     image: String
     externalCrews: [String!]!
     submissions: [Submission!]!
+    """COMPLETED battles where this user's entry had the most votes (ties count for everyone tied). Open battles never count."""
+    battlesWon: Int!
     createdAt: String!
   }
 

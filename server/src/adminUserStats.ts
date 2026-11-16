@@ -1,4 +1,5 @@
 import { computeBattleStatus } from './battleStatus'
+import { winnersOfBattle } from './battleResults'
 import type { Role } from './permissions'
 import { isSuspended } from './suspension'
 
@@ -86,13 +87,9 @@ export function buildAdminUserRows(input: StatsInput, now: Date = new Date()): A
 
   const winsByUser = new Map<string, number>()
   for (const entries of submissionsByBattle.values()) {
-    let max = 0
-    for (const e of entries) if (e.votes > max) max = e.votes
-    if (max <= 0) continue
-    // A user counts once per battle even if several of their entries tie for the top.
-    const winners = new Set<string>()
-    for (const e of entries) if (e.votes === max) winners.add(e.userId)
-    for (const userId of winners) winsByUser.set(userId, (winsByUser.get(userId) ?? 0) + 1)
+    for (const userId of winnersOfBattle(entries)) {
+      winsByUser.set(userId, (winsByUser.get(userId) ?? 0) + 1)
+    }
   }
 
   return input.users.map((u) => {

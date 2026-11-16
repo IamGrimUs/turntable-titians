@@ -47,7 +47,7 @@ describe('public GraphQL schema privacy', () => {
   })
 
   it('still allows the public profile fields the app uses', () => {
-    expect(errorsFor('{ user(id: "x") { id username name image externalCrews } }')).toEqual([])
+    expect(errorsFor('{ user(id: "x") { id username name image externalCrews battlesWon } }')).toEqual([])
   })
 
   it('keeps email, role, suspension reason and last sign-in off the public User type', () => {
@@ -125,6 +125,9 @@ describe('pinned public types', () => {
       image: 'String',
       externalCrews: '[String!]!',
       submissions: '[Submission!]!',
+      // Added on purpose: a win count is public once battles complete, like Submission.voteCount.
+      // It never counts open battles, and reveals no voter.
+      battlesWon: 'Int!',
       createdAt: 'String!',
     })
   })
