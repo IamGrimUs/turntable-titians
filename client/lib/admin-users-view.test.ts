@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   rowActions,
   rowNote,
+  rowNoteExplanation,
   nextSort,
   DEFAULT_SORT,
   formatJoined,
@@ -74,6 +75,13 @@ describe('rowNote', () => {
   it('user target: no note', () => {
     expect(rowNote('ADMIN', { role: 'USER' })).toBeNull()
     expect(rowNote('OWNER', { role: 'USER' })).toBeNull()
+  })
+})
+
+describe('rowNoteExplanation', () => {
+  it('explains each note in a full sentence', () => {
+    expect(rowNoteExplanation('Owner only')).toBe('Only the owner can change admins')
+    expect(rowNoteExplanation('Protected')).toBe("The owner account can't be changed here")
   })
 })
 

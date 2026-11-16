@@ -3,14 +3,16 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery } from '@apollo/client'
 import { Button } from '@/components/ui/button'
-import { Modal, ModalError, ModalFooter, fieldClass, labelClass } from '@/components/admin/Modal'
+import { Modal, ModalError, ModalFooter } from '@/components/admin/Modal'
 import { useDialogSubmit } from '@/components/admin/useDialogSubmit'
+import { fieldClass, labelClass } from '@/lib/form-styles'
 import { ADMIN_UPDATE_USER, USER_EXTERNAL_CREWS_QUERY } from '@/lib/graphql/admin'
 import type { AdminUserRow } from '@/lib/admin-users-view'
 import {
   DIALOG_LIMITS,
   addCrew,
   buildUpdateInput,
+  editErrorField,
   internalCrewNames,
   userLabel,
 } from '@/lib/admin-user-dialogs'
@@ -19,9 +21,11 @@ export interface EditUserDialogProps {
   row: AdminUserRow
   onClose: () => void
   onSuccess: (message: string) => void
+  /** Told about a failed action (the page reloads the table when the row may be stale). */
+  onFailure?: (error: unknown) => void
 }
 
-export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps) {
+export function EditUserDialog({ row, onClose, onSuccess, onFailure }: EditUserDialogProps) {
   const [username, setUsername] = useState(row.username ?? '')
   const [name, setName] = useState(row.name ?? '')
   const [removeAvatar, setRemoveAvatar] = useState(false)
@@ -30,7 +34,7 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
   const [crewInput, setCrewInput] = useState('')
 
   const [updateUser] = useMutation(ADMIN_UPDATE_USER)
-  const { submitting, error, submit } = useDialogSubmit(onSuccess)
+  const { submitting, error, setError, submit } = useDialogSubmit(onSuccess, onFailure)
 
   // The user's own crew list. network-only: never edit against a stale copy.
   const crewsQuery = useQuery<{ user: { externalCrews: string[] } | null }>(USER_EXTERNAL_CREWS_QUERY, {
@@ -49,10 +53,16 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
   const input = buildUpdateInput(row, loadedCrews, { username, name, crews: finalCrews, removeAvatar })
   const others = internalCrewNames(row.crews, loadedCrews ?? [])
 
+  // Which field the server's message is about (by its wording), so that field can be marked invalid.
+  // The crew box also has its own, client-side message.
+  const errorField = editErrorField(error)
+  const crewMessageId = crewError ? 'edit-crew-error' : errorField === 'crew' ? 'edit-error' : null
+
   const onAddCrew = () => {
     if (pendingCrew.ok) {
       setEditedCrews(pendingCrew.crews)
       setCrewInput('')
+      setError(null)
     }
   }
 
@@ -87,7 +97,12 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
             autoComplete="off"
             disabled={submitting}
             placeholder={row.username ? undefined : 'No username yet'}
-            onChange={(e) => setUsername(e.target.value)}
+            aria-invalid={errorField === 'username'}
+            aria-describedby={errorField === 'username' ? 'edit-error' : undefined}
+            onChange={(e) => {
+              setUsername(e.target.value)
+              setError(null)
+            }}
             className={fieldClass}
           />
         </div>
@@ -103,10 +118,17 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
             maxLength={DIALOG_LIMITS.displayName}
             autoComplete="off"
             disabled={submitting}
-            onChange={(e) => setName(e.target.value)}
+            aria-invalid={errorField === 'name'}
+            aria-describedby={`${errorField === 'name' ? 'edit-error ' : ''}edit-name-help`}
+            onChange={(e) => {
+              setName(e.target.value)
+              setError(null)
+            }}
             className={fieldClass}
           />
-          <p className="text-base text-muted-foreground">Leave it empty to clear the display name.</p>
+          <p id="edit-name-help" className="text-base text-muted-foreground">
+            Leave it empty to clear the display name.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -130,7 +152,12 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
                   autoComplete="off"
                   disabled={submitting}
                   placeholder="e.g. The Allies"
-                  onChange={(e) => setCrewInput(e.target.value)}
+                  aria-invalid={crewMessageId !== null}
+                  aria-describedby={crewMessageId ?? undefined}
+                  onChange={(e) => {
+                    setCrewInput(e.target.value)
+                    setError(null)
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -143,7 +170,11 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
                   Add
                 </Button>
               </div>
-              {crewError && <p className="text-base text-red-400">{crewError}</p>}
+              {crewError && (
+                <p id="edit-crew-error" className="text-base text-red-400">
+                  {crewError}
+                </p>
+              )}
               {crews.length > 0 ? (
                 <ul className="flex flex-wrap gap-2 pt-1">
                   {crews.map((crew) => (
@@ -155,7 +186,10 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
                       <button
                         type="button"
                         disabled={submitting}
-                        onClick={() => setEditedCrews(crews.filter((c) => c !== crew))}
+                        onClick={() => {
+                          setEditedCrews(crews.filter((c) => c !== crew))
+                          setError(null)
+                        }}
                         className="rounded-sm hover:text-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
                         aria-label={`Remove ${crew}`}
                       >
@@ -183,7 +217,10 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
                 type="checkbox"
                 checked={removeAvatar}
                 disabled={submitting}
-                onChange={(e) => setRemoveAvatar(e.target.checked)}
+                onChange={(e) => {
+                  setRemoveAvatar(e.target.checked)
+                  setError(null)
+                }}
                 className="h-5 w-5 accent-amber-500"
               />
               <img src={row.image} alt="" className="h-10 w-10 rounded-full border border-border object-cover" />
@@ -194,7 +231,7 @@ export function EditUserDialog({ row, onClose, onSuccess }: EditUserDialogProps)
           )}
         </div>
 
-        <ModalError message={error} />
+        <ModalError id="edit-error" message={error} />
 
         <ModalFooter>
           <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>

@@ -18,7 +18,10 @@ export interface ModalProps {
 /**
  * A thin wrapper around the native <dialog>. It is open for as long as it is mounted: the
  * caller mounts it to open it (so a dialog's own state starts fresh each time) and unmounts it
- * to close it. The browser provides the focus trap, the inert page behind it and the scroll lock.
+ * to close it. The browser provides the focus trap and makes the page behind it inert. It does NOT
+ * lock the page's scroll: the wheel over the backdrop can still scroll the (inert) page. That is
+ * accepted rather than locked by hand, because hiding the body scrollbar shifts the layout and the
+ * dialog's own content scrolls inside it (max height below).
  *
  * Initial focus goes to the first element marked `data-autofocus`, else the first focusable
  * element. Focus goes back to whatever opened the dialog when it closes.
@@ -86,7 +89,7 @@ export function Modal({ onClose, title, description, busy = false, children }: M
         if (e.target === e.currentTarget && pressStartedOnBackdrop.current && !busy) onClose()
         pressStartedOnBackdrop.current = false
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg overflow-visible border-0 bg-transparent p-0 text-foreground backdrop:bg-black/70"
+      className="m-auto w-[calc(100%-2rem)] max-w-lg overflow-visible border-0 bg-transparent p-0 text-foreground [color-scheme:dark] backdrop:bg-black/70"
     >
       <Card className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden shadow-2xl">
         <div className="shrink-0 p-6 pb-4">
@@ -105,10 +108,13 @@ export function Modal({ onClose, title, description, busy = false, children }: M
   )
 }
 
-/** The place a dialog shows a failure. Always rendered so screen readers announce it when it fills. */
-export function ModalError({ message }: { message: string | null }) {
+/**
+ * The place a dialog shows a failure. Always rendered so screen readers announce it when it fills.
+ * `id` lets the field the message is about point at it with aria-describedby.
+ */
+export function ModalError({ message, id }: { message: string | null; id?: string }) {
   return (
-    <div role="alert" className={cn(message && 'mt-4')}>
+    <div id={id} role="alert" className={cn(message && 'mt-4')}>
       {message && <p className="text-base font-medium text-red-400">{message}</p>}
     </div>
   )
@@ -117,10 +123,3 @@ export function ModalError({ message }: { message: string | null }) {
 export function ModalFooter({ children }: { children: ReactNode }) {
   return <div className="mt-6 flex flex-wrap justify-end gap-2">{children}</div>
 }
-
-/** Field label look shared with the profile form. */
-export const labelClass = 'block text-base font-bold tracking-widest uppercase text-muted-foreground'
-
-/** Text input look shared with the profile form. */
-export const fieldClass =
-  'w-full rounded-md border border-border bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:border-amber-500/60 transition-colors disabled:opacity-50'

@@ -3,8 +3,9 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation } from '@apollo/client'
 import { Button } from '@/components/ui/button'
-import { Modal, ModalError, ModalFooter, fieldClass, labelClass } from '@/components/admin/Modal'
+import { Modal, ModalError, ModalFooter } from '@/components/admin/Modal'
 import { useDialogSubmit } from '@/components/admin/useDialogSubmit'
+import { fieldClass, labelClass } from '@/lib/form-styles'
 import { ADMIN_DELETE_USER } from '@/lib/graphql/admin'
 import type { AdminUserRow } from '@/lib/admin-users-view'
 import { deleteConfirmMatches, deleteConfirmTarget, userLabel } from '@/lib/admin-user-dialogs'
@@ -13,14 +14,16 @@ export interface DeleteUserDialogProps {
   row: AdminUserRow
   onClose: () => void
   onSuccess: (message: string) => void
+  /** Told about a failed action (the page reloads the table when the row may be stale). */
+  onFailure?: (error: unknown) => void
 }
 
-export function DeleteUserDialog({ row, onClose, onSuccess }: DeleteUserDialogProps) {
+export function DeleteUserDialog({ row, onClose, onSuccess, onFailure }: DeleteUserDialogProps) {
   const [typed, setTyped] = useState('')
   const [blockEmail, setBlockEmail] = useState(false)
 
   const [deleteUser] = useMutation(ADMIN_DELETE_USER)
-  const { submitting, error, submit } = useDialogSubmit(onSuccess)
+  const { submitting, error, setError, submit } = useDialogSubmit(onSuccess, onFailure)
 
   const label = userLabel(row)
   const target = deleteConfirmTarget(row)
@@ -50,7 +53,10 @@ export function DeleteUserDialog({ row, onClose, onSuccess }: DeleteUserDialogPr
             type="checkbox"
             checked={blockEmail}
             disabled={submitting}
-            onChange={(e) => setBlockEmail(e.target.checked)}
+            onChange={(e) => {
+              setBlockEmail(e.target.checked)
+              setError(null)
+            }}
             className="mt-1 h-5 w-5 shrink-0 accent-amber-500"
           />
           <span>
@@ -63,7 +69,9 @@ export function DeleteUserDialog({ row, onClose, onSuccess }: DeleteUserDialogPr
           <label className={labelClass} htmlFor="delete-confirm">
             Type {row.username !== null ? 'the username' : 'the email'} to confirm
           </label>
-          <p className="break-all text-base font-semibold text-foreground">{target}</p>
+          <p id="delete-confirm-target" className="break-all text-base font-semibold text-foreground">
+            {target}
+          </p>
           <input
             id="delete-confirm"
             type="text"
@@ -73,12 +81,18 @@ export function DeleteUserDialog({ row, onClose, onSuccess }: DeleteUserDialogPr
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
-            onChange={(e) => setTyped(e.target.value)}
+            // A wrong confirmation is not an error: the button just stays off. A failed delete is about
+            // the action, not this field, so the message is described here but the field is not marked invalid.
+            aria-describedby={error ? 'delete-confirm-target delete-error' : 'delete-confirm-target'}
+            onChange={(e) => {
+              setTyped(e.target.value)
+              setError(null)
+            }}
             className={fieldClass}
           />
         </div>
 
-        <ModalError message={error} />
+        <ModalError id="delete-error" message={error} />
 
         <ModalFooter>
           <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
