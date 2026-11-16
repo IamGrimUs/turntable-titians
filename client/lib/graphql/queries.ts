@@ -5,6 +5,7 @@ export const GET_BATTLES = gql`
     battles {
       id
       title
+      type
       description
       startDate
       endDate

@@ -5,14 +5,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { PROPS_LABELS } from '@/lib/props-button'
+import { BATTLE_TYPES } from '@/lib/battle-types'
 
 export const metadata: Metadata = {
   title: 'How Battles Work - Battle Skratch',
   description:
     'How Battle Skratch battles run: entering a set, voting, and how winners are decided.',
 }
-
-const BATTLE_TYPES = ['Skratch Battle', 'Mix Battle', 'Beat Battle', 'Match a Skratch Battle', 'Open Format']
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from '@/components/ui/card'
 import { GET_BATTLES } from '@/lib/graphql/queries'
+import { groupBattlesByType } from '@/lib/battle-groups'
 import { useQuery } from '@apollo/client'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -16,6 +17,7 @@ interface Participant {
 interface BattleSummary {
   id: string
   title: string
+  type: string | null
   description: string | null
   startDate: string
   endDate: string
@@ -58,7 +60,7 @@ function BattleCard({ battle }: { battle: BattleSummary }) {
 
   return (
     <Link href={`/battles/${battle.id}`} className="block h-full">
-      <Card className="h-full hover:border-border transition-all cursor-pointer">
+      <Card className="h-full flex flex-col hover:border-border transition-all cursor-pointer">
         <CardHeader className="pb-3">
           <div className="flex justify-between items-start gap-3">
             <h2 className="text-3xl font-graffiti">{battle.title}</h2>
@@ -76,7 +78,8 @@ function BattleCard({ battle }: { battle: BattleSummary }) {
             </div>
           </div>
         </CardContent>
-        <CardFooter className="pt-3 flex flex-col items-start gap-2">
+        {/* mt-auto pins the avatars and submission count to the bottom of every card, whatever the title and description take. */}
+        <CardFooter className="mt-auto pt-3 flex flex-col items-start gap-2">
           <ParticipantAvatars submissions={battle.submissions ?? []} />
           <span className="text-base text-muted-foreground">
             {submissionCount} {submissionCount === 1 ? 'submission' : 'submissions'}
@@ -87,15 +90,19 @@ function BattleCard({ battle }: { battle: BattleSummary }) {
   )
 }
 
-const FILTER_STYLES: Record<string, { base: string; active: string }> = {
-  ALL: { base: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30', active: 'border-foreground/60 bg-foreground/10 text-foreground' },
-  ACTIVE: { base: 'border-green-500/30 text-green-600 hover:bg-green-500/10', active: 'border-green-500/60 bg-green-500/20 text-green-400' },
-  UPCOMING: { base: 'border-amber-500/30 text-amber-600 hover:bg-amber-500/10', active: 'border-amber-500/60 bg-amber-500/20 text-amber-400' },
-  COMPLETED: { base: 'border-slate-500/30 text-slate-500 hover:bg-slate-500/10', active: 'border-slate-500/60 bg-slate-500/20 text-slate-400' }
+const FILTER_STYLES = {
+  all: {
+    base: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
+    active: 'border-foreground/60 bg-foreground/10 text-foreground'
+  },
+  type: {
+    base: 'border-amber-500/30 text-amber-600 hover:bg-amber-500/10',
+    active: 'border-amber-500/60 bg-amber-500/20 text-amber-400'
+  }
 }
 
 export default function BattlesPage() {
-  const [activeFilter, setActiveFilter] = useState<'ACTIVE' | 'UPCOMING' | 'COMPLETED' | null>(null)
+  const [activeType, setActiveType] = useState<string | null>(null)
   const { loading, error, data } = useQuery(GET_BATTLES)
 
   if (loading)
@@ -114,20 +121,12 @@ export default function BattlesPage() {
 
   const battles: BattleSummary[] = data?.battles || []
 
-  const STATUS_ORDER = ['ACTIVE', 'UPCOMING', 'COMPLETED'] as const
-  const STATUS_LABELS: Record<string, string> = {
-    ACTIVE: 'Active',
-    UPCOMING: 'Upcoming',
-    COMPLETED: 'Completed'
-  }
-
-  const grouped = STATUS_ORDER.reduce<Record<string, BattleSummary[]>>((acc, status) => {
-    acc[status] = battles.filter((b) => b.status === status)
-    return acc
-  }, {})
-
+  // One section per battle type; Active battles first inside each (see lib/battle-groups.ts).
+  const groups = groupBattlesByType(battles)
   const hasAny = battles.length > 0
-  const visibleStatuses = activeFilter ? [activeFilter] : STATUS_ORDER
+  // A chosen type that no longer has battles (they were deleted) falls back to showing everything.
+  const selected = groups.some((g) => g.type === activeType) ? activeType : null
+  const visibleGroups = selected ? groups.filter((g) => g.type === selected) : groups
 
   return (
     <div className="p-8">
@@ -143,17 +142,14 @@ export default function BattlesPage() {
 
       {hasAny && (
         <div className="flex items-center gap-2 mb-8 flex-wrap">
-          <button onClick={() => setActiveFilter(null)} className={`px-3 py-1 rounded-full border text-base font-medium transition-colors ${activeFilter === null ? FILTER_STYLES.ALL.active : FILTER_STYLES.ALL.base}`}>
+          <button onClick={() => setActiveType(null)} className={`px-3 py-1 rounded-full border text-base font-medium transition-colors ${selected === null ? FILTER_STYLES.all.active : FILTER_STYLES.all.base}`}>
             All · {battles.length}
           </button>
-          {STATUS_ORDER.map(status => {
-            const count = grouped[status].length
-            if (count === 0) return null
-            const isActive = activeFilter === status
-            const styles = FILTER_STYLES[status]
+          {groups.map(({ type, battles: inType }) => {
+            const isActive = selected === type
             return (
-              <button key={status} onClick={() => setActiveFilter(isActive ? null : status)} className={`px-3 py-1 rounded-full border text-base font-medium transition-colors ${isActive ? styles.active : styles.base}`}>
-                {STATUS_LABELS[status]} · {count}
+              <button key={type} onClick={() => setActiveType(isActive ? null : type)} className={`px-3 py-1 rounded-full border text-base font-medium transition-colors ${isActive ? FILTER_STYLES.type.active : FILTER_STYLES.type.base}`}>
+                {type} · {inType.length}
               </button>
             )
           })}
@@ -169,20 +165,16 @@ export default function BattlesPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-10">
-          {visibleStatuses.map(status => {
-            const group = grouped[status]
-            if (group.length === 0) return null
-            return (
-              <section key={status}>
-                <h2 className="text-base font-semibold uppercase tracking-widest text-muted-foreground mb-4">{STATUS_LABELS[status]}</h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {group.map((battle) => (
-                    <BattleCard key={battle.id} battle={battle} />
-                  ))}
-                </div>
-              </section>
-            )
-          })}
+          {visibleGroups.map(({ type, battles: inType }) => (
+            <section key={type}>
+              <h2 className="text-base font-semibold uppercase tracking-widest text-muted-foreground mb-4">{type}</h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {inType.map((battle) => (
+                  <BattleCard key={battle.id} battle={battle} />
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       )}
     </div>
