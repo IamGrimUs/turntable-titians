@@ -4,6 +4,7 @@ import { db } from './db'
 import { computeBattleStatus } from './battleStatus'
 import { requireAuth, type Context } from './context'
 import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
+import { boardComment, boardIdea, boardQuery } from './boardResolvers'
 import { countBattlesWon } from './userBattlesWon'
 import { prepareCrews, prepareUsername } from './profileRules'
 import {
@@ -17,6 +18,7 @@ import {
 
 export const resolvers = {
   Query: {
+    ...boardQuery,
     battles: () => db.battle.findMany({ orderBy: { createdAt: 'desc' } }),
     battle: (_: unknown, { id }: { id: string }) =>
       db.battle.findUnique({ where: { id } }),
@@ -275,6 +277,10 @@ export const resolvers = {
   },
 
   AdminUser,
+
+  Idea: boardIdea,
+
+  IdeaComment: boardComment,
 
   Vote: {
     createdAt: (parent: Vote) => parent.createdAt.toISOString(),
