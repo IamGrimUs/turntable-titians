@@ -96,6 +96,27 @@ describe('can: viewAuditLog', () => {
   })
 })
 
+describe('can: moderateBoard', () => {
+  it.each([
+    ['USER', false],
+    ['ADMIN', true],
+    ['OWNER', true],
+  ] as const)('%s -> %s', (role, expected) => {
+    expect(can(actor(role), 'moderateBoard')).toBe(expected)
+  })
+
+  it('is false for a null actor', () => {
+    expect(can(null, 'moderateBoard')).toBe(false)
+  })
+
+  it('ignores the role of a target (an ADMIN may moderate content by an OWNER)', () => {
+    for (const role of ROLES) {
+      expect(can(actor('ADMIN'), 'moderateBoard', target(role))).toBe(true)
+      expect(can(actor('USER'), 'moderateBoard', target(role))).toBe(false)
+    }
+  })
+})
+
 describe('assertCan', () => {
   it('returns undefined when the action is allowed', () => {
     expect(assertCan(actor('OWNER'), 'viewAuditLog')).toBeUndefined()

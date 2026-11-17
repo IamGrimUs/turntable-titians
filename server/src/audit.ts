@@ -8,6 +8,13 @@ export type AuditAction =
   | 'EMAIL_BLOCK'
   | 'ROLE_GRANT'
   | 'ROLE_REVOKE'
+  | 'IDEA_STATUS'
+  | 'IDEA_HIDE'
+  | 'IDEA_UNHIDE'
+  | 'IDEA_DELETE'
+  | 'COMMENT_HIDE'
+  | 'COMMENT_UNHIDE'
+  | 'COMMENT_DELETE'
 
 export interface AuditParty {
   id: string
@@ -18,13 +25,17 @@ export interface AuditParty {
 // Builds the row for AdminAuditLog. Id, username and email are copied (snapshotted)
 // rather than linked, so the entry still reads correctly after either user is deleted.
 // The log is append-only: there is deliberately no update or delete helper.
+// `target` is always a person (for board moderation, the content's author); `targetType` and
+// `targetId` default to that user and only differ when the thing acted on is an idea or comment.
 export function auditData(input: {
   actor: AuditParty
   action: AuditAction
   target: AuditParty
   details?: Record<string, unknown>
+  targetType?: 'USER' | 'IDEA' | 'COMMENT'
+  targetId?: string
 }): Prisma.AdminAuditLogCreateInput {
-  const { actor, action, target, details } = input
+  const { actor, action, target, details, targetType = 'USER', targetId = target.id } = input
   // User.email is never null, so a missing one is a loader bug. Fail closed: this runs inside
   // the same transaction as the change, so throwing rolls the action back instead of writing
   // a blank snapshot into an append-only log.
@@ -34,8 +45,8 @@ export function auditData(input: {
     actorUsername: actor.username,
     actorEmail: actor.email,
     action,
-    targetType: 'USER',
-    targetId: target.id,
+    targetType,
+    targetId,
     targetUsername: target.username,
     targetEmail: target.email,
     details: (details ?? {}) as Prisma.InputJsonObject,

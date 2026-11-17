@@ -2,7 +2,7 @@ import { GraphQLError } from 'graphql'
 
 export type Role = 'USER' | 'ADMIN' | 'OWNER'
 
-export type AdminAction = 'viewAdmin' | 'manageUser' | 'setRole' | 'viewAuditLog'
+export type AdminAction = 'viewAdmin' | 'manageUser' | 'setRole' | 'viewAuditLog' | 'moderateBoard'
 
 export interface Actor {
   id: string
@@ -24,6 +24,9 @@ export interface Target {
  *   admin cannot act on themselves.
  * - setRole (make or remove an ADMIN): OWNER only, on a USER or an ADMIN.
  * - viewAuditLog: OWNER only.
+ * - moderateBoard (hide, unhide, delete suggestions-board ideas and comments, set idea status):
+ *   ADMIN and OWNER. No target is needed and a target's role is ignored, so an ADMIN may
+ *   moderate content written by an OWNER or another ADMIN.
  *
  * A missing actor or (for target actions) a missing target is always denied.
  */
@@ -43,6 +46,8 @@ export function can(actor: Actor | null, action: AdminAction, target?: Target): 
       return actor.role === 'OWNER' && (target.role === 'USER' || target.role === 'ADMIN')
     case 'viewAuditLog':
       return actor.role === 'OWNER'
+    case 'moderateBoard':
+      return actor.role === 'ADMIN' || actor.role === 'OWNER'
     default:
       return false
   }

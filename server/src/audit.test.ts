@@ -24,6 +24,29 @@ describe('auditData', () => {
     expect(auditData({ actor, action: 'USER_EDIT', target }).targetType).toBe('USER')
   })
 
+  it('can target content: targetType and targetId override, author is still snapshotted', () => {
+    const data = auditData({ actor, action: 'IDEA_HIDE', target, targetType: 'IDEA', targetId: 'i1' })
+    expect(data).toMatchObject({
+      action: 'IDEA_HIDE',
+      targetType: 'IDEA',
+      targetId: 'i1',
+      targetUsername: 'dj_kid',
+      targetEmail: 'kid@example.com',
+    })
+  })
+
+  it('accepts COMMENT as a target type', () => {
+    const data = auditData({ actor, action: 'COMMENT_DELETE', target, targetType: 'COMMENT', targetId: 'c1' })
+    expect(data.targetType).toBe('COMMENT')
+    expect(data.targetId).toBe('c1')
+  })
+
+  it('defaults targetType to USER and targetId to the target id when not given', () => {
+    const data = auditData({ actor, action: 'USER_EDIT', target })
+    expect(data.targetType).toBe('USER')
+    expect(data.targetId).toBe('target-1')
+  })
+
   it('defaults details to an empty object', () => {
     expect(auditData({ actor, action: 'USER_REINSTATE', target }).details).toEqual({})
   })
