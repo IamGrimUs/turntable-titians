@@ -26,7 +26,8 @@ interface Column {
 }
 
 // Order and labels are fixed by the design. "Votes (in)" = votes the user cast,
-// "Votes (out)" = votes their entries received.
+// "Votes (out)" = votes their entries received. "Ideas posted" counts suggestions-board
+// ideas only; board votes never appear in the battle vote columns.
 const COLUMNS: Column[] = [
   { key: 'username', label: 'Username', width: 220 },
   { key: 'role', label: 'Role', width: 120 },
@@ -36,6 +37,7 @@ const COLUMNS: Column[] = [
   { key: 'battlesWon', label: 'Battles won', width: 150 },
   { key: 'votesCast', label: 'Votes (in)', width: 140 },
   { key: 'votesReceived', label: 'Votes (out)', width: 150 },
+  { key: 'ideasPosted', label: 'Ideas posted', width: 150 },
   { key: 'createdAt', label: 'Joined', width: 140 },
   { key: 'lastSignInAt', label: 'Last sign-in', width: 160 },
   { key: 'email', label: 'Email', width: 250 },
@@ -250,6 +252,7 @@ export function UsersTable({ viewerRole, rows, sort, onSort, onAction }: UsersTa
                 <td className={cn(cell, 'tabular-nums text-muted-foreground')}>{row.battlesWon}</td>
                 <td className={cn(cell, 'tabular-nums text-muted-foreground')}>{row.votesCast}</td>
                 <td className={cn(cell, 'tabular-nums text-muted-foreground')}>{row.votesReceived}</td>
+                <td className={cn(cell, 'tabular-nums text-muted-foreground')}>{row.ideasPosted}</td>
                 <td className={cn(cell, 'whitespace-nowrap text-muted-foreground')}>{formatJoined(row.createdAt)}</td>
                 <td className={cn(cell, 'whitespace-nowrap text-muted-foreground')}>
                   {formatLastSignIn(row.lastSignInAt)}

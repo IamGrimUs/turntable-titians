@@ -20,6 +20,7 @@ export const ADMIN_USER_FIELDS = gql`
     battlesWon
     votesCast
     votesReceived
+    ideasPosted
     createdAt
     lastSignInAt
   }
