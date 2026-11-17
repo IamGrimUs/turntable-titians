@@ -191,7 +191,7 @@ export const typeDefs = gql`
     """Optional area of the site the idea is about."""
     topic: IdeaTopic
     status: IdeaStatus!
-    """Hidden by a moderator. Only the author and admins can see a hidden idea."""
+    """Hidden by a moderator. Only admins can see a hidden idea; it is never returned to anyone else, including the author."""
     hidden: Boolean!
     author: User!
     voteCount: Int!
@@ -207,7 +207,7 @@ export const typeDefs = gql`
     id: ID!
     ideaId: ID!
     body: String!
-    """Hidden by a moderator. Only the author and admins can see a hidden comment."""
+    """Hidden by a moderator. Only admins can see a hidden comment; it is never returned to anyone else, including the author."""
     hidden: Boolean!
     author: User!
     voteCount: Int!
