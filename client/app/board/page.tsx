@@ -1,9 +1,11 @@
 'use client'
 
 import { useMutation, useQuery } from '@apollo/client'
+import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 import { IdeaCard } from '@/components/board/IdeaCard'
+import { PostIdeaForm } from '@/components/board/PostIdeaForm'
 import { Button } from '@/components/ui/button'
 import {
   CATEGORY_TABS,
@@ -52,6 +54,7 @@ export default function BoardPage() {
   const [sort, setSort] = useState<IdeaSort>('VOTES')
   const [page, setPage] = useState(1)
   const [voteError, setVoteError] = useState<string | null>(null)
+  const [posting, setPosting] = useState(false)
 
   const { loading, error, data, previousData, refetch } = useQuery<{ ideas: IdeasPage }>(GET_IDEAS, {
     variables: { category, topic, status, sort, page, pageSize: PAGE_SIZE },
@@ -81,6 +84,17 @@ export default function BoardPage() {
   const changeStatus = change(setStatus)
   const changeSort = change(setSort)
 
+  // Close the form and show the new idea: newest first, no filters, first page. (The form has
+  // already refetched the list; this makes sure the idea is not hidden by the current view.)
+  function handlePosted() {
+    setPosting(false)
+    setCategory(null)
+    setTopic(null)
+    setStatus(null)
+    setSort('NEWEST')
+    setPage(1)
+  }
+
   async function toggleVote(idea: IdeaRow) {
     setVoteError(null)
     try {
@@ -97,10 +111,23 @@ export default function BoardPage() {
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="mb-6">
-        <h1 className="text-5xl font-graffiti mb-2 text-foreground">Board</h1>
-        <p className="text-muted-foreground text-base">Suggest features, report bugs and vote on what the site should do next.</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-5xl font-graffiti mb-2 text-foreground">Board</h1>
+          <p className="text-muted-foreground text-base">Suggest features, report bugs and vote on what the site should do next.</p>
+        </div>
+        {access === 'READY' ? (
+          !posting && <Button onClick={() => setPosting(true)}>Post an idea</Button>
+        ) : (
+          <Button asChild>
+            <Link href={access === 'ANONYMOUS' ? '/auth/signin' : '/onboarding'}>
+              {access === 'ANONYMOUS' ? 'Sign in to post an idea' : 'Choose a username to post'}
+            </Link>
+          </Button>
+        )}
       </div>
+
+      {access === 'READY' && posting && <PostIdeaForm onPosted={handlePosted} onCancel={() => setPosting(false)} />}
 
       <div className="flex items-center gap-2 mb-4 flex-wrap" role="group" aria-label="Category">
         {CATEGORY_TABS.map((tab) => {
