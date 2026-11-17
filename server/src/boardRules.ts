@@ -14,13 +14,15 @@ export const BOARD_LIMITS = {
   commentBody: 500,
   ideasPerDay: 5,
   commentsPerDay: 50,
+  maxCommentsShown: 200,
 } as const
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // Links are not allowed anywhere on the board (spam and phishing), so a plain
-// case-insensitive check for a scheme or a "www." prefix is enough.
-const LINK_PATTERN = /https?:\/\/|www\./i
+// case-insensitive check for a scheme or a "www." prefix is enough. The word boundary
+// keeps stretched words such as "Awww." from counting as a link.
+const LINK_PATTERN = /https?:\/\/|\bwww\./i
 
 export function containsLink(text: string): boolean {
   return LINK_PATTERN.test(text)

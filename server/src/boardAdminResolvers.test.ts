@@ -210,6 +210,10 @@ describe('board moderation writes', () => {
     expect(commentFindUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'c1' } }))
     expect(commentUpdate).toHaveBeenCalledWith({ where: { id: 'c1' }, data: { hiddenAt: expect.any(Date) } })
     expect(transaction).toHaveBeenCalledTimes(1)
+    expect(transaction.mock.calls[0][0]).toEqual([
+      { op: 'ideaComment.update', args: { where: { id: 'c1' }, data: { hiddenAt: expect.any(Date) } } },
+      { op: 'adminAuditLog.create', args: expect.objectContaining({ data: expect.objectContaining({ action: 'COMMENT_HIDE' }) }) },
+    ])
     expect(auditCreate).toHaveBeenCalledTimes(1)
     expect(auditCreate.mock.calls[0][0].data).toMatchObject({
       action: 'COMMENT_HIDE',
@@ -253,6 +257,10 @@ describe('board moderation writes', () => {
     expect(commentDelete).toHaveBeenCalledWith({ where: { id: 'c1' } })
     expect(ideaDelete).not.toHaveBeenCalled()
     expect(transaction).toHaveBeenCalledTimes(1)
+    expect(transaction.mock.calls[0][0]).toEqual([
+      { op: 'ideaComment.delete', args: { where: { id: 'c1' } } },
+      { op: 'adminAuditLog.create', args: expect.objectContaining({ data: expect.objectContaining({ action: 'COMMENT_DELETE' }) }) },
+    ])
     expect(auditCreate).toHaveBeenCalledTimes(1)
     expect(auditCreate.mock.calls[0][0].data).toMatchObject({
       action: 'COMMENT_DELETE',

@@ -20,7 +20,14 @@ const valid = { title: 'Add dark mode', body: 'It would be easier on the eyes.',
 
 describe('BOARD_LIMITS', () => {
   it('holds the agreed limits', () => {
-    expect(BOARD_LIMITS).toEqual({ ideaTitle: 100, ideaBody: 1000, commentBody: 500, ideasPerDay: 5, commentsPerDay: 50 })
+    expect(BOARD_LIMITS).toEqual({
+      ideaTitle: 100,
+      ideaBody: 1000,
+      commentBody: 500,
+      ideasPerDay: 5,
+      commentsPerDay: 50,
+      maxCommentsShown: 200,
+    })
   })
 })
 
@@ -29,6 +36,18 @@ describe('containsLink', () => {
     expect(containsLink('http://a.b')).toBe(true)
     expect(containsLink('HTTPS://A.B')).toBe(true)
     expect(containsLink('see WWW.x.com')).toBe(true)
+  })
+
+  it('still detects a www link at the start, after a space, and in any case', () => {
+    expect(containsLink('www.x.com')).toBe(true)
+    expect(containsLink(' www.x.com')).toBe(true)
+    expect(containsLink('HTTPS://x.com')).toBe(true)
+  })
+
+  it('does not mistake a stretched word such as "Awww." for a link', () => {
+    expect(containsLink('Awww. nice')).toBe(false)
+    expect(containsLink('awwww.')).toBe(false)
+    expect(cleanCommentBody('Awww. love this')).toBe('Awww. love this')
   })
 
   it('leaves ordinary text alone', () => {

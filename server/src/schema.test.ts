@@ -171,6 +171,14 @@ describe('suggestions board schema privacy', () => {
     })
   })
 
+  it('documents the Idea.comments cap, order and admin-only hidden comments', () => {
+    const idea = schema.getType('Idea')
+    const description = idea && 'getFields' in idea ? idea.getFields().comments.description : undefined
+    expect(description).toContain('at most the first 200 comments, oldest first')
+    expect(description).toContain('Admins also receive hidden comments, marked `hidden: true`')
+    expect(description).toContain('everyone else never receives them')
+  })
+
   it('IdeaComment has exactly the public fields: never who voted, never a user id or email', () => {
     expect(fieldTypes('IdeaComment')).toEqual({
       id: 'ID!',

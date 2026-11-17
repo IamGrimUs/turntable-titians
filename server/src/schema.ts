@@ -200,6 +200,7 @@ export const typeDefs = gql`
     commentCount: Int!
     """Whether the authenticated caller has voted for this idea. False when logged out."""
     viewerHasVoted: Boolean!
+    """The idea's comments: at most the first 200 comments, oldest first (commentCount counts all of them). Admins also receive hidden comments, marked \`hidden: true\`; everyone else never receives them."""
     comments: [IdeaComment!]!
     createdAt: String!
   }

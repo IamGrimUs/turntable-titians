@@ -46,8 +46,8 @@ export const boardQuery = {
 
     const orderBy: Prisma.IdeaOrderByWithRelationInput[] =
       args.sort === 'NEWEST'
-        ? [{ createdAt: 'desc' }]
-        : [{ votes: { _count: 'desc' } }, { createdAt: 'desc' }]
+        ? [{ createdAt: 'desc' }, { id: 'desc' }]
+        : [{ votes: { _count: 'desc' } }, { createdAt: 'desc' }, { id: 'desc' }]
 
     const rows = await db.idea.findMany({ where, orderBy, skip: (page - 1) * pageSize, take: pageSize })
     return { rows, total, page, pageCount }
@@ -82,7 +82,11 @@ export const boardIdea = {
     return vote !== null
   },
   comments: (parent: Idea, _args: unknown, ctx: Context) =>
-    db.ideaComment.findMany({ where: commentWhere(parent.id, ctx), orderBy: { createdAt: 'asc' } }),
+    db.ideaComment.findMany({
+      where: commentWhere(parent.id, ctx),
+      orderBy: { createdAt: 'asc' },
+      take: BOARD_LIMITS.maxCommentsShown,
+    }),
   commentCount: (parent: Idea, _args: unknown, ctx: Context) =>
     db.ideaComment.count({ where: commentWhere(parent.id, ctx) }),
 }

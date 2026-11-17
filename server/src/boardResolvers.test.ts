@@ -137,17 +137,18 @@ describe('ideas', () => {
     expect(ideaFindMany.mock.calls[0][0].where).toEqual({ hiddenAt: null })
   })
 
-  it('sorts VOTES by vote count then newest', async () => {
+  it('sorts VOTES by vote count, newest, then id (deterministic paging)', async () => {
     await ideas({}, { ...defaults, sort: 'VOTES' }, anonymous)
     expect(ideaFindMany.mock.calls[0][0].orderBy).toEqual([
       { votes: { _count: 'desc' } },
       { createdAt: 'desc' },
+      { id: 'desc' },
     ])
   })
 
-  it('sorts NEWEST by createdAt', async () => {
+  it('sorts NEWEST by createdAt then id (deterministic paging)', async () => {
     await ideas({}, { ...defaults, sort: 'NEWEST' }, anonymous)
-    expect(ideaFindMany.mock.calls[0][0].orderBy).toEqual([{ createdAt: 'desc' }])
+    expect(ideaFindMany.mock.calls[0][0].orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }])
   })
 
   it('defaults to a page size of 20 and clamps it to 1..50', async () => {
@@ -259,6 +260,7 @@ describe('Idea fields', () => {
     expect(commentFindMany).toHaveBeenCalledWith({
       where: { ideaId: 'i1', hiddenAt: null },
       orderBy: { createdAt: 'asc' },
+      take: 200,
     })
   })
 
