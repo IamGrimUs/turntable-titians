@@ -88,6 +88,7 @@ export const typeDefs = gql`
     battlesWon
     votesCast
     votesReceived
+    ideasPosted
     createdAt
     lastSignInAt
     email
@@ -114,6 +115,7 @@ export const typeDefs = gql`
     battlesWon: Int!
     votesCast: Int!
     votesReceived: Int!
+    ideasPosted: Int!
     createdAt: String!
     lastSignInAt: String!
   }
@@ -155,6 +157,75 @@ export const typeDefs = gql`
     pageCount: Int!
   }
 
+  enum IdeaCategory {
+    BUG
+    SUGGESTION
+    OTHER
+  }
+
+  enum IdeaTopic {
+    BATTLES
+    VOTING
+    PROFILES
+    LOGIN_ACCOUNT
+    SITE_WIDE
+  }
+
+  enum IdeaStatus {
+    OPEN
+    PLANNED
+    IN_PROGRESS
+    DONE
+    DECLINED
+  }
+
+  enum IdeaSort {
+    VOTES
+    NEWEST
+  }
+
+  """A suggestions board post. Voting is secret: only the count and the caller's own vote are exposed, never who voted. There is deliberately no email or user id here; the author is the public User."""
+  type Idea {
+    id: ID!
+    title: String!
+    body: String!
+    category: IdeaCategory!
+    """Optional area of the site the idea is about."""
+    topic: IdeaTopic
+    status: IdeaStatus!
+    """Hidden by a moderator. Only admins can see a hidden idea; it is never returned to anyone else, including the author."""
+    hidden: Boolean!
+    author: User!
+    voteCount: Int!
+    commentCount: Int!
+    """Whether the authenticated caller has voted for this idea. False when logged out."""
+    viewerHasVoted: Boolean!
+    """The idea's comments: at most the first 200 comments, oldest first (commentCount counts all of them). Admins also receive hidden comments, marked \`hidden: true\`; everyone else never receives them."""
+    comments: [IdeaComment!]!
+    createdAt: String!
+  }
+
+  """A comment on an idea. Same privacy as Idea: a count and the caller's own vote, never the voters."""
+  type IdeaComment {
+    id: ID!
+    ideaId: ID!
+    body: String!
+    """Hidden by a moderator. Only admins can see a hidden comment; it is never returned to anyone else, including the author."""
+    hidden: Boolean!
+    author: User!
+    voteCount: Int!
+    """Whether the authenticated caller has voted for this comment. False when logged out."""
+    viewerHasVoted: Boolean!
+    createdAt: String!
+  }
+
+  type IdeaPage {
+    rows: [Idea!]!
+    total: Int!
+    page: Int!
+    pageCount: Int!
+  }
+
   type Query {
     battles: [Battle!]!
     battle(id: ID!): Battle
@@ -173,6 +244,16 @@ export const typeDefs = gql`
       pageSize: Int = 25
     ): AdminUserPage!
     adminAuditLog(page: Int = 1, pageSize: Int = 50): AuditLogPage!
+    ideas(
+      category: IdeaCategory
+      topic: IdeaTopic
+      status: IdeaStatus
+      sort: IdeaSort = VOTES
+      includeHidden: Boolean = false
+      page: Int = 1
+      pageSize: Int = 20
+    ): IdeaPage!
+    idea(id: ID!): Idea
   }
 
   type Mutation {
@@ -207,6 +288,21 @@ export const typeDefs = gql`
     adminSetUserRole(userId: ID!, role: UserRole!): AdminUser!
     vote(submissionId: ID!): Vote!
     deleteVote(submissionId: ID!): Boolean!
+    createIdea(title: String!, body: String!, category: IdeaCategory!, topic: IdeaTopic): Idea!
+    deleteIdea(id: ID!): Boolean!
+    voteIdea(ideaId: ID!): Idea!
+    unvoteIdea(ideaId: ID!): Idea!
+    createComment(ideaId: ID!, body: String!): IdeaComment!
+    deleteComment(id: ID!): Boolean!
+    voteComment(commentId: ID!): IdeaComment!
+    unvoteComment(commentId: ID!): IdeaComment!
+    adminSetIdeaStatus(id: ID!, status: IdeaStatus!): Idea!
+    adminHideIdea(id: ID!): Idea!
+    adminUnhideIdea(id: ID!): Idea!
+    adminDeleteIdea(id: ID!): Boolean!
+    adminHideComment(id: ID!): IdeaComment!
+    adminUnhideComment(id: ID!): IdeaComment!
+    adminDeleteComment(id: ID!): Boolean!
   }
 
   type HealthStatus {

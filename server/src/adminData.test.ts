@@ -6,6 +6,8 @@ vi.mock('./db', () => ({
     submission: { findMany: vi.fn() },
     vote: { groupBy: vi.fn() },
     battle: { findMany: vi.fn() },
+    // Deliberately no ideaVote or ideaCommentVote: touching them would throw.
+    idea: { groupBy: vi.fn() },
   },
 }))
 
@@ -16,6 +18,7 @@ const userFindMany = db.user.findMany as unknown as ReturnType<typeof vi.fn>
 const submissionFindMany = db.submission.findMany as unknown as ReturnType<typeof vi.fn>
 const voteGroupBy = db.vote.groupBy as unknown as ReturnType<typeof vi.fn>
 const battleFindMany = db.battle.findMany as unknown as ReturnType<typeof vi.fn>
+const ideaGroupBy = db.idea.groupBy as unknown as ReturnType<typeof vi.fn>
 
 const day = 24 * 3600 * 1000
 const dbUser = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -40,6 +43,7 @@ beforeEach(() => {
   submissionFindMany.mockReset().mockResolvedValue([])
   voteGroupBy.mockReset().mockResolvedValue([])
   battleFindMany.mockReset().mockResolvedValue([])
+  ideaGroupBy.mockReset().mockResolvedValue([])
 })
 
 describe('loadAdminUserRows', () => {
@@ -71,6 +75,18 @@ describe('loadAdminUserRows', () => {
     expect(voteGroupBy).toHaveBeenCalledTimes(2)
     expect(voteGroupBy).toHaveBeenCalledWith({ by: ['submissionId'], _count: true })
     expect(voteGroupBy).toHaveBeenCalledWith({ by: ['userId'], _count: true })
+  })
+
+  it('counts ideas with one groupBy on the idea table and leaves the battle vote queries alone', async () => {
+    ideaGroupBy.mockResolvedValue([{ authorId: 'a', _count: 4 }])
+    userFindMany.mockResolvedValue([dbUser('a'), dbUser('b')])
+    const rows = await loadAdminUserRows()
+    expect(ideaGroupBy).toHaveBeenCalledTimes(1)
+    expect(ideaGroupBy).toHaveBeenCalledWith({ by: ['authorId'], _count: true })
+    expect(voteGroupBy).toHaveBeenCalledTimes(2)
+    expect(rows.find((r) => r.id === 'a')?.ideasPosted).toBe(4)
+    expect(rows.find((r) => r.id === 'b')?.ideasPosted).toBe(0)
+    expect(rows.every((r) => r.votesCast === 0 && r.votesReceived === 0)).toBe(true)
   })
 
   it('builds rows with merged crews and counts', async () => {

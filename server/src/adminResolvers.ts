@@ -123,12 +123,12 @@ async function loadTarget<S extends Prisma.UserSelect>(userId: string, select: S
 }
 
 /** The actor as the audit log snapshots them: the id the permission check returned, plus the request's name and email. */
-function actorParty(ctx: Context, actor: { id: string }) {
+export function actorParty(ctx: Context, actor: { id: string }) {
   return { id: actor.id, username: ctx.username, email: ctx.email }
 }
 
 /** The target as the audit log snapshots them: who they were when the action happened. */
-function partyOf(user: { id: string; username: string | null; email: string }) {
+export function partyOf(user: { id: string; username: string | null; email: string }) {
   return { id: user.id, username: user.username, email: user.email }
 }
 

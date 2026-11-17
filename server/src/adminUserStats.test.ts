@@ -34,6 +34,7 @@ function input(extra: Partial<StatsInput> = {}): StatsInput {
     submissions: [],
     voteCountsBySubmission: new Map(),
     votesCastByUser: new Map(),
+    ideasPostedByUser: new Map(),
     battles: [],
     ...extra,
   }
@@ -296,6 +297,45 @@ describe('buildAdminUserRows', () => {
     })
   })
 
+  it('takes ideasPosted from the map, 0 when absent', () => {
+    const rows = buildAdminUserRows(
+      input({ users: [user('a'), user('b')], ideasPostedByUser: new Map([['a', 4]]) }),
+      now
+    )
+    expect(byId(rows, 'a').ideasPosted).toBe(4)
+    expect(byId(rows, 'b').ideasPosted).toBe(0)
+  })
+
+  it('never lets board activity change the battle numbers', () => {
+    const base = {
+      users: [user('a'), user('b'), user('c')],
+      battles: [completed, active],
+      submissions: [
+        { id: 's1', userId: 'a', battleId: completed.id },
+        { id: 's2', userId: 'b', battleId: completed.id },
+        { id: 's3', userId: 'a', battleId: active.id },
+      ],
+      voteCountsBySubmission: new Map([['s1', 3], ['s2', 1], ['s3', 2]]),
+      votesCastByUser: new Map([['c', 6]]),
+    }
+    const without = buildAdminUserRows(input({ ...base, ideasPostedByUser: new Map() }), now)
+    const withIdeas = buildAdminUserRows(
+      input({ ...base, ideasPostedByUser: new Map([['a', 9], ['b', 5], ['c', 12]]) }),
+      now
+    )
+    const battleNumbers = (rows: typeof without) =>
+      rows.map((r) => ({
+        id: r.id,
+        votesCast: r.votesCast,
+        votesReceived: r.votesReceived,
+        entries: r.entries,
+        battlesWon: r.battlesWon,
+      }))
+    expect(battleNumbers(withIdeas)).toEqual(battleNumbers(without))
+    expect(byId(withIdeas, 'c').ideasPosted).toBe(12)
+    expect(byId(without, 'c').ideasPosted).toBe(0)
+  })
+
   it('does not mutate its input', () => {
     const data = input({
       users: [user('a', { internalCrewNames: ['X'], externalCrews: ['x', 'Y'] })],
@@ -303,6 +343,7 @@ describe('buildAdminUserRows', () => {
       submissions: [{ id: 's1', userId: 'a', battleId: completed.id }],
       voteCountsBySubmission: new Map([['s1', 2]]),
       votesCastByUser: new Map([['a', 1]]),
+      ideasPostedByUser: new Map([['a', 2]]),
     })
     const before = structuredClone(data)
     buildAdminUserRows(data, now)

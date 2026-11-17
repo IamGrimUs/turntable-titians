@@ -22,6 +22,11 @@ model User {
   votes         Vote[]
   createdAt     DateTime     @default(now())
 
+  ideas            Idea[]
+  ideaVotes        IdeaVote[]
+  ideaComments     IdeaComment[]
+  ideaCommentVotes IdeaCommentVote[]
+
   role             UserRole  @default(USER)
   suspendedAt      DateTime?
   suspendedUntil   DateTime?
@@ -174,4 +179,87 @@ model RateLimit {
   windowStart DateTime
 
   @@index([windowStart])
+}
+
+// Suggestions board. Separate from Vote on purpose: these votes are public
+// counts and have nothing to do with battle votes.
+enum IdeaCategory {
+  BUG
+  SUGGESTION
+  OTHER
+}
+
+enum IdeaTopic {
+  BATTLES
+  VOTING
+  PROFILES
+  LOGIN_ACCOUNT
+  SITE_WIDE
+}
+
+enum IdeaStatus {
+  OPEN
+  PLANNED
+  IN_PROGRESS
+  DONE
+  DECLINED
+}
+
+model Idea {
+  id        String       @id @default(cuid())
+  authorId  String
+  title     String
+  body      String
+  category  IdeaCategory
+  topic     IdeaTopic?
+  status    IdeaStatus   @default(OPEN)
+  hiddenAt  DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  votes    IdeaVote[]
+  comments IdeaComment[]
+
+  @@index([category, status])
+  @@index([createdAt])
+}
+
+model IdeaVote {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  idea Idea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ideaId, userId])
+}
+
+model IdeaComment {
+  id        String    @id @default(cuid())
+  ideaId    String
+  authorId  String
+  body      String
+  hiddenAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  idea   Idea              @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  author User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  votes  IdeaCommentVote[]
+
+  @@index([ideaId])
+}
+
+model IdeaCommentVote {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment IdeaComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
 }
