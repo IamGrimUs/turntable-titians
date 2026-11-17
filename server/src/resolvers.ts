@@ -5,6 +5,7 @@ import { computeBattleStatus } from './battleStatus'
 import { requireAuth, type Context } from './context'
 import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
 import { boardComment, boardIdea, boardMutation, boardQuery } from './boardResolvers'
+import { boardAdminMutation } from './boardAdminResolvers'
 import { countBattlesWon } from './userBattlesWon'
 import { prepareCrews, prepareUsername } from './profileRules'
 import {
@@ -229,6 +230,7 @@ export const resolvers = {
       return true
     },
     ...boardMutation,
+    ...boardAdminMutation,
     ...adminMutation,
   },
 
