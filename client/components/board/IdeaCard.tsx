@@ -3,26 +3,11 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { MessageSquare } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { StatusBadge } from '@/components/board/StatusBadge'
 import { VoteButton } from '@/components/board/VoteButton'
-import {
-  categoryLabel,
-  statusLabel,
-  statusTone,
-  topicLabel,
-  type BoardAccess,
-  type IdeaRow,
-  type StatusTone,
-} from '@/lib/board-view'
+import { authorDisplayName, categoryLabel, topicLabel, type BoardAccess, type IdeaRow } from '@/lib/board-view'
 import { formatRelativeDate } from '@/lib/relative-date'
-
-const TONE_VARIANT: Record<StatusTone, 'active' | 'upcoming' | 'destructive' | 'completed'> = {
-  good: 'active',
-  warn: 'upcoming',
-  danger: 'destructive',
-  neutral: 'completed',
-}
 
 interface IdeaCardProps {
   idea: IdeaRow
@@ -36,7 +21,7 @@ interface IdeaCardProps {
  */
 export function IdeaCard({ idea, access, onToggleVote }: IdeaCardProps) {
   const [pending, setPending] = useState(false)
-  const authorName = idea.author.username ?? idea.author.name ?? 'DJ'
+  const authorName = authorDisplayName(idea.author)
   const initials = authorName.slice(0, 2).toUpperCase()
 
   async function toggle() {
@@ -58,9 +43,7 @@ export function IdeaCard({ idea, access, onToggleVote }: IdeaCardProps) {
               {idea.title}
             </Link>
           </h2>
-          <Badge variant={TONE_VARIANT[statusTone(idea.status)]} className="shrink-0">
-            {statusLabel(idea.status)}
-          </Badge>
+          <StatusBadge status={idea.status} className="shrink-0" />
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-muted-foreground">
           <span>{categoryLabel(idea.category)}</span>

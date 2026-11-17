@@ -85,6 +85,11 @@ export interface BoardAuthor {
   image: string | null
 }
 
+/** Name shown for an author: username, then display name, then a neutral fallback. */
+export function authorDisplayName(author: Pick<BoardAuthor, 'username' | 'name'>): string {
+  return author.username ?? author.name ?? 'DJ'
+}
+
 /** Mirrors the `IdeaComment` GraphQL type. Dates are ISO strings. */
 export interface CommentRow {
   id: string

@@ -5,6 +5,7 @@ import {
   IDEA_CATEGORIES,
   IDEA_STATUSES,
   IDEA_TOPICS,
+  authorDisplayName,
   boardAccess,
   categoryLabel,
   statusLabel,
@@ -85,6 +86,14 @@ describe('boardAccess', () => {
 
   it('is READY with id and username', () => {
     expect(boardAccess({ id: 'u', username: 'dj' })).toBe('READY')
+  })
+})
+
+describe('authorDisplayName', () => {
+  it('prefers the username, then the name, then a fallback', () => {
+    expect(authorDisplayName({ username: 'dj_a', name: 'Alex' })).toBe('dj_a')
+    expect(authorDisplayName({ username: null, name: 'Alex' })).toBe('Alex')
+    expect(authorDisplayName({ username: null, name: null })).toBe('DJ')
   })
 })
 

@@ -11,6 +11,8 @@ interface VoteButtonProps {
   access: BoardAccess
   onToggle: () => void
   disabled?: boolean
+  /** True while the session is still loading: shows an inert control instead of a sign-in link. */
+  sessionLoading?: boolean
 }
 
 const base =
@@ -23,13 +25,22 @@ const voted = 'border-amber-500/60 bg-amber-500/20 text-amber-400'
  * what they need to do first (sign in, or choose a username). Generic on purpose: ideas and
  * comments both use it.
  */
-export function VoteButton({ count, viewerHasVoted, access, onToggle, disabled }: VoteButtonProps) {
+export function VoteButton({ count, viewerHasVoted, access, onToggle, disabled, sessionLoading }: VoteButtonProps) {
   const content = (
     <>
       <ChevronUp className="h-5 w-5" aria-hidden="true" />
       <span>{count}</span>
     </>
   )
+
+  // Until the session is known, a signed-in viewer must not be shown a "sign in" link.
+  if (sessionLoading) {
+    return (
+      <button type="button" disabled aria-label={`${count} votes`} className={cn(base, idle, 'disabled:pointer-events-none disabled:opacity-50')}>
+        {content}
+      </button>
+    )
+  }
 
   if (access === 'ANONYMOUS') {
     return (
