@@ -4,7 +4,7 @@ import { db } from './db'
 import { computeBattleStatus } from './battleStatus'
 import { requireAuth, type Context } from './context'
 import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
-import { boardComment, boardIdea, boardQuery } from './boardResolvers'
+import { boardComment, boardIdea, boardMutation, boardQuery } from './boardResolvers'
 import { countBattlesWon } from './userBattlesWon'
 import { prepareCrews, prepareUsername } from './profileRules'
 import {
@@ -228,6 +228,7 @@ export const resolvers = {
       await db.vote.delete({ where: { id: vote.id } })
       return true
     },
+    ...boardMutation,
     ...adminMutation,
   },
 

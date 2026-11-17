@@ -1,6 +1,9 @@
 import type { Idea, IdeaCategory, IdeaComment, IdeaStatus, IdeaTopic, Prisma } from '@prisma/client'
+import { GraphQLError } from 'graphql'
 import { db } from './db'
-import type { Context } from './context'
+import { requireAuth, type Context } from './context'
+import { BOARD_LIMITS, cleanCommentBody, cleanIdeaInput, dayAgo } from './boardRules'
+import { badInput } from './validation'
 import { can } from './permissions'
 import { clampPage, clampPageSize } from './adminUserQuery'
 
@@ -96,5 +99,156 @@ export const boardComment = {
       select: { id: true },
     })
     return vote !== null
+  },
+}
+
+// ---------------------------------------------------------------------------------------------
+// Member mutations. Every one calls requireAuth first (anonymous -> UNAUTHENTICATED, suspended ->
+// FORBIDDEN). A hidden idea or comment (or a comment under a hidden idea) behaves as if it did
+// not exist for anyone who cannot see hidden items, so a mutation can never confirm or return one.
+// ---------------------------------------------------------------------------------------------
+
+function notFound(what: string): GraphQLError {
+  return new GraphQLError(`${what} not found`, { extensions: { code: 'NOT_FOUND' } })
+}
+
+/** Signed in, not suspended, and has chosen a username. Returns the user id. */
+function requireMember(ctx: Context): string {
+  const userId = requireAuth(ctx)
+  if (!ctx.username) {
+    throw new GraphQLError('Choose a username first.', { extensions: { code: 'FORBIDDEN' } })
+  }
+  return userId
+}
+
+function isUniqueViolation(e: unknown): boolean {
+  return (e as { code?: string } | null)?.code === 'P2002'
+}
+
+const alreadyVoted = () => badInput('You already voted for this.')
+
+/** The idea, or NOT_FOUND when it is missing or hidden from this caller. */
+async function loadIdea(id: string, ctx: Context): Promise<Idea> {
+  const row = await db.idea.findUnique({ where: { id } })
+  if (!row || (row.hiddenAt !== null && !canSeeHidden(ctx))) throw notFound('Idea')
+  return row
+}
+
+/** The comment, or NOT_FOUND when it or its idea is missing or hidden from this caller. */
+async function loadComment(id: string, ctx: Context): Promise<IdeaComment> {
+  const found = await db.ideaComment.findUnique({
+    where: { id },
+    include: { idea: { select: { hiddenAt: true } } },
+  })
+  if (!found) throw notFound('Comment')
+  const { idea: parentIdea, ...row } = found
+  if ((row.hiddenAt !== null || parentIdea.hiddenAt !== null) && !canSeeHidden(ctx)) throw notFound('Comment')
+  return row
+}
+
+export const boardMutation = {
+  createIdea: async (
+    _: unknown,
+    args: { title: string; body: string; category: IdeaCategory; topic?: IdeaTopic | null },
+    ctx: Context
+  ) => {
+    const userId = requireMember(ctx)
+    const input = cleanIdeaInput(args)
+    const since = dayAgo()
+    // Hidden ideas count toward the cap and the duplicate check, so hiding one frees no slot.
+    const recent = await db.idea.count({ where: { authorId: userId, createdAt: { gte: since } } })
+    if (recent >= BOARD_LIMITS.ideasPerDay) {
+      throw badInput(`You can post up to ${BOARD_LIMITS.ideasPerDay} ideas a day. Try again tomorrow.`)
+    }
+    const duplicate = await db.idea.findFirst({
+      where: {
+        authorId: userId,
+        createdAt: { gte: since },
+        title: { equals: input.title, mode: 'insensitive' },
+      },
+      select: { id: true },
+    })
+    if (duplicate) throw badInput('You already posted an idea with this title.')
+    return db.idea.create({ data: { ...input, authorId: userId } })
+  },
+
+  deleteIdea: async (_: unknown, { id }: { id: string }, ctx: Context) => {
+    const userId = requireMember(ctx)
+    // A hidden idea is NOT_FOUND for non-moderators, its author included: no feedback signal.
+    const row = await loadIdea(id, ctx)
+    if (row.authorId !== userId) {
+      throw new GraphQLError('You can only delete your own ideas.', { extensions: { code: 'FORBIDDEN' } })
+    }
+    await db.idea.delete({ where: { id } })
+    return true
+  },
+
+  voteIdea: async (_: unknown, { ideaId }: { ideaId: string }, ctx: Context) => {
+    const userId = requireMember(ctx)
+    const row = await loadIdea(ideaId, ctx)
+    const existing = await db.ideaVote.findUnique({ where: { ideaId_userId: { ideaId, userId } } })
+    if (existing) throw alreadyVoted()
+    try {
+      await db.ideaVote.create({ data: { ideaId, userId } })
+    } catch (e) {
+      if (isUniqueViolation(e)) throw alreadyVoted()
+      throw e
+    }
+    return row
+  },
+
+  unvoteIdea: async (_: unknown, { ideaId }: { ideaId: string }, ctx: Context) => {
+    const userId = requireMember(ctx)
+    const row = await loadIdea(ideaId, ctx)
+    await db.ideaVote.deleteMany({ where: { ideaId, userId } })
+    return row
+  },
+
+  createComment: async (_: unknown, args: { ideaId: string; body: string }, ctx: Context) => {
+    const userId = requireMember(ctx)
+    const body = cleanCommentBody(args.body)
+    await loadIdea(args.ideaId, ctx)
+    const since = dayAgo()
+    const recent = await db.ideaComment.count({ where: { authorId: userId, createdAt: { gte: since } } })
+    if (recent >= BOARD_LIMITS.commentsPerDay) {
+      throw badInput(`You can post up to ${BOARD_LIMITS.commentsPerDay} comments a day. Try again tomorrow.`)
+    }
+    const duplicate = await db.ideaComment.findFirst({
+      where: { authorId: userId, createdAt: { gte: since }, body: { equals: body, mode: 'insensitive' } },
+      select: { id: true },
+    })
+    if (duplicate) throw badInput('You already posted this comment.')
+    return db.ideaComment.create({ data: { ideaId: args.ideaId, authorId: userId, body } })
+  },
+
+  deleteComment: async (_: unknown, { id }: { id: string }, ctx: Context) => {
+    const userId = requireMember(ctx)
+    const row = await loadComment(id, ctx)
+    if (row.authorId !== userId) {
+      throw new GraphQLError('You can only delete your own comments.', { extensions: { code: 'FORBIDDEN' } })
+    }
+    await db.ideaComment.delete({ where: { id } })
+    return true
+  },
+
+  voteComment: async (_: unknown, { commentId }: { commentId: string }, ctx: Context) => {
+    const userId = requireMember(ctx)
+    const row = await loadComment(commentId, ctx)
+    const existing = await db.ideaCommentVote.findUnique({ where: { commentId_userId: { commentId, userId } } })
+    if (existing) throw alreadyVoted()
+    try {
+      await db.ideaCommentVote.create({ data: { commentId, userId } })
+    } catch (e) {
+      if (isUniqueViolation(e)) throw alreadyVoted()
+      throw e
+    }
+    return row
+  },
+
+  unvoteComment: async (_: unknown, { commentId }: { commentId: string }, ctx: Context) => {
+    const userId = requireMember(ctx)
+    const row = await loadComment(commentId, ctx)
+    await db.ideaCommentVote.deleteMany({ where: { commentId, userId } })
+    return row
   },
 }
