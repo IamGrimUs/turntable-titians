@@ -88,6 +88,7 @@ export const typeDefs = gql`
     battlesWon
     votesCast
     votesReceived
+    ideasPosted
     createdAt
     lastSignInAt
     email
@@ -114,6 +115,7 @@ export const typeDefs = gql`
     battlesWon: Int!
     votesCast: Int!
     votesReceived: Int!
+    ideasPosted: Int!
     createdAt: String!
     lastSignInAt: String!
   }

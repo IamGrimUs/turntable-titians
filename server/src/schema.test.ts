@@ -67,7 +67,7 @@ describe('public GraphQL schema privacy', () => {
   it('validates the full adminUsers query with every argument and the page fields', () => {
     const query = `{ adminUsers(search: "x", filter: ADMINS, sortKey: battlesWon, sortDir: ASC, page: 2, pageSize: 10) {
       total page pageCount counts { all active suspended admins }
-      rows { id username name image email role status suspendedUntil suspensionReason crews entries battlesWon votesCast votesReceived createdAt lastSignInAt }
+      rows { id username name image email role status suspendedUntil suspensionReason crews entries battlesWon votesCast votesReceived ideasPosted createdAt lastSignInAt }
     } }`
     expect(errorsFor(query)).toEqual([])
   })
@@ -89,7 +89,7 @@ describe('public GraphQL schema privacy', () => {
     expect(values('SortDirection')).toEqual(['ASC', 'DESC'])
     expect(values('AdminUserSortKey')).toEqual([
       'role', 'username', 'crews', 'status', 'entries', 'battlesWon',
-      'votesCast', 'votesReceived', 'createdAt', 'lastSignInAt', 'email',
+      'votesCast', 'votesReceived', 'ideasPosted', 'createdAt', 'lastSignInAt', 'email',
     ])
   })
 

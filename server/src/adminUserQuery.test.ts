@@ -26,6 +26,7 @@ function row(id: string, extra: Partial<AdminUserRow>): AdminUserRow {
     battlesWon: 0,
     votesCast: 0,
     votesReceived: 0,
+    ideasPosted: 0,
     createdAt: d('2026-01-01'),
     lastSignInAt: d('2026-01-01'),
     ...extra,
@@ -44,6 +45,7 @@ const u1 = row('u1', {
   battlesWon: 2,
   votesCast: 10,
   votesReceived: 30,
+  ideasPosted: 0,
   createdAt: d('2026-01-01'),
   lastSignInAt: d('2026-11-10'),
 })
@@ -58,6 +60,7 @@ const u2 = row('u2', {
   battlesWon: 0,
   votesCast: 40,
   votesReceived: 5,
+  ideasPosted: 7,
   createdAt: d('2026-03-01'),
   lastSignInAt: d('2026-11-01'),
 })
@@ -72,6 +75,7 @@ const u3 = row('u3', {
   battlesWon: 4,
   votesCast: 20,
   votesReceived: 50,
+  ideasPosted: 7,
   createdAt: d('2026-02-01'),
   lastSignInAt: d('2026-11-14'),
 })
@@ -86,6 +90,7 @@ const u4 = row('u4', {
   battlesWon: 1,
   votesCast: 0,
   votesReceived: 20,
+  ideasPosted: 2,
   createdAt: d('2026-05-01'),
   lastSignInAt: d('2026-10-01'),
 })
@@ -100,6 +105,7 @@ const u5 = row('u5', {
   battlesWon: 3,
   votesCast: 30,
   votesReceived: 10,
+  ideasPosted: 0,
   createdAt: d('2026-04-01'),
   lastSignInAt: d('2026-11-12'),
 })
@@ -121,6 +127,7 @@ describe('queryAdminUsers sorting', () => {
     ['battlesWon', ['u2', 'u4', 'u1', 'u5', 'u3']],
     ['votesCast', ['u4', 'u1', 'u3', 'u5', 'u2']],
     ['votesReceived', ['u2', 'u5', 'u4', 'u1', 'u3']],
+    ['ideasPosted', ['u1', 'u5', 'u4', 'u2', 'u3']], // ties (0, 0 and 7, 7) by id
     ['createdAt', ['u1', 'u3', 'u2', 'u5', 'u4']],
     ['lastSignInAt', ['u4', 'u2', 'u1', 'u5', 'u3']],
     ['email', ['u1', 'u3', 'u5', 'u4', 'u2']],
@@ -143,6 +150,7 @@ describe('queryAdminUsers sorting', () => {
     ['battlesWon', ['u3', 'u5', 'u1', 'u4', 'u2']],
     ['votesCast', ['u2', 'u5', 'u3', 'u1', 'u4']],
     ['votesReceived', ['u3', 'u1', 'u4', 'u5', 'u2']],
+    ['ideasPosted', ['u2', 'u3', 'u4', 'u1', 'u5']], // ties stay in id order
     ['createdAt', ['u4', 'u5', 'u2', 'u3', 'u1']],
     ['lastSignInAt', ['u3', 'u5', 'u1', 'u2', 'u4']],
     ['email', ['u2', 'u4', 'u5', 'u3', 'u1']],

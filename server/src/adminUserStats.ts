@@ -18,6 +18,7 @@ export interface AdminUserRow {
   battlesWon: number
   votesCast: number
   votesReceived: number
+  ideasPosted: number
   createdAt: Date
   lastSignInAt: Date
 }
@@ -41,6 +42,8 @@ export interface StatsInput {
   submissions: Array<{ id: string; userId: string; battleId: string }>
   voteCountsBySubmission: Map<string, number>
   votesCastByUser: Map<string, number>
+  /** Ideas posted on the suggestions board, hidden ones included. Never touches the battle vote numbers. */
+  ideasPostedByUser: Map<string, number>
   battles: Array<{ id: string; startDate: Date; endDate: Date }>
 }
 
@@ -110,6 +113,7 @@ export function buildAdminUserRows(input: StatsInput, now: Date = new Date()): A
       battlesWon: winsByUser.get(u.id) ?? 0,
       votesCast: input.votesCastByUser.get(u.id) ?? 0,
       votesReceived: votesReceivedByUser.get(u.id) ?? 0,
+      ideasPosted: input.ideasPostedByUser.get(u.id) ?? 0,
       createdAt: u.createdAt,
       lastSignInAt: u.lastSignInAt,
     }

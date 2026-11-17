@@ -10,6 +10,7 @@ export type UserSortKey =
   | 'battlesWon'
   | 'votesCast'
   | 'votesReceived'
+  | 'ideasPosted'
   | 'createdAt'
   | 'lastSignInAt'
   | 'email'
@@ -55,6 +56,7 @@ const COMPARERS: Record<UserSortKey, Compare> = {
   battlesWon: (a, b) => num(a.battlesWon, b.battlesWon),
   votesCast: (a, b) => num(a.votesCast, b.votesCast),
   votesReceived: (a, b) => num(a.votesReceived, b.votesReceived),
+  ideasPosted: (a, b) => num(a.ideasPosted, b.ideasPosted),
   createdAt: (a, b) => num(a.createdAt.getTime(), b.createdAt.getTime()),
   lastSignInAt: (a, b) => num(a.lastSignInAt.getTime(), b.lastSignInAt.getTime()),
   email: (a, b) => text(a.email.toLowerCase(), b.email.toLowerCase()),
