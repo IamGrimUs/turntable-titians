@@ -144,3 +144,129 @@ describe('pinned public types', () => {
   })
 })
 
+describe('suggestions board schema privacy', () => {
+  const fieldsOf = (name: string) => Object.keys(fieldTypes(name))
+  const values = (name: string) => {
+    const t = schema.getType(name)
+    return t && 'getValues' in t ? t.getValues().map((v) => v.name) : []
+  }
+
+  // Exact lists on purpose, like User and Vote above: board voting is secret, so a later
+  // votes/voters/userId/email field must fail here and be a deliberate decision.
+  it('Idea has exactly the public fields: never who voted, never a user id or email', () => {
+    expect(fieldTypes('Idea')).toEqual({
+      id: 'ID!',
+      title: 'String!',
+      body: 'String!',
+      category: 'IdeaCategory!',
+      topic: 'IdeaTopic',
+      status: 'IdeaStatus!',
+      hidden: 'Boolean!',
+      author: 'User!',
+      voteCount: 'Int!',
+      commentCount: 'Int!',
+      viewerHasVoted: 'Boolean!',
+      comments: '[IdeaComment!]!',
+      createdAt: 'String!',
+    })
+  })
+
+  it('IdeaComment has exactly the public fields: never who voted, never a user id or email', () => {
+    expect(fieldTypes('IdeaComment')).toEqual({
+      id: 'ID!',
+      ideaId: 'ID!',
+      body: 'String!',
+      hidden: 'Boolean!',
+      author: 'User!',
+      voteCount: 'Int!',
+      viewerHasVoted: 'Boolean!',
+      createdAt: 'String!',
+    })
+  })
+
+  it('Idea and IdeaComment have no votes, voters, userId or email field', () => {
+    for (const type of ['Idea', 'IdeaComment']) {
+      for (const name of ['votes', 'voters', 'userId', 'email']) {
+        expect(fieldsOf(type)).not.toContain(name)
+      }
+    }
+  })
+
+  it('authors are the public User type, never AdminUser', () => {
+    expect(fieldTypes('Idea').author).toBe('User!')
+    expect(fieldTypes('IdeaComment').author).toBe('User!')
+  })
+
+  it('allows the public idea list fields the board uses', () => {
+    expect(errorsFor('{ ideas { rows { id title voteCount viewerHasVoted author { id username } } } }')).toEqual([])
+  })
+
+  it('rejects reading an author email or listing voters through the board', () => {
+    expect(errorsFor('{ ideas { rows { author { email } } } }').some((m) => m.includes('Cannot query field "email"'))).toBe(true)
+    expect(errorsFor('{ ideas { rows { votes { id } } } }').length).toBeGreaterThan(0)
+    expect(errorsFor('{ idea(id: "x") { comments { voters { id } } } }').length).toBeGreaterThan(0)
+  })
+
+  it('IdeaPage has exactly the paging fields', () => {
+    expect(fieldTypes('IdeaPage')).toEqual({
+      rows: '[Idea!]!',
+      total: 'Int!',
+      page: 'Int!',
+      pageCount: 'Int!',
+    })
+  })
+
+  it('defines the board enums with exactly the expected values', () => {
+    expect(values('IdeaCategory')).toEqual(['BUG', 'SUGGESTION', 'OTHER'])
+    expect(values('IdeaTopic')).toEqual(['BATTLES', 'VOTING', 'PROFILES', 'LOGIN_ACCOUNT', 'SITE_WIDE'])
+    expect(values('IdeaStatus')).toEqual(['OPEN', 'PLANNED', 'IN_PROGRESS', 'DONE', 'DECLINED'])
+    expect(values('IdeaSort')).toEqual(['VOTES', 'NEWEST'])
+  })
+
+  it('ideas has the documented arguments and defaults', () => {
+    const field = schema.getQueryType()!.getFields().ideas
+    expect(field).toBeDefined()
+    expect(String(field.type)).toBe('IdeaPage!')
+    expect(field.args.map((a) => a.name).sort()).toEqual(
+      ['category', 'includeHidden', 'page', 'pageSize', 'sort', 'status', 'topic'],
+    )
+    const defaults = Object.fromEntries(field.args.map((a) => [a.name, a.defaultValue]))
+    expect(defaults).toMatchObject({ sort: 'VOTES', includeHidden: false, page: 1, pageSize: 20 })
+    expect(String(schema.getQueryType()!.getFields().idea.type)).toBe('Idea')
+  })
+
+  it('defines the board mutations with the documented return types', () => {
+    const m = schema.getMutationType()!.getFields()
+    const returns = Object.fromEntries(
+      [
+        'createIdea', 'deleteIdea', 'voteIdea', 'unvoteIdea', 'createComment', 'deleteComment',
+        'voteComment', 'unvoteComment', 'adminSetIdeaStatus', 'adminHideIdea', 'adminUnhideIdea',
+        'adminDeleteIdea', 'adminHideComment', 'adminUnhideComment', 'adminDeleteComment',
+      ].map((name) => [name, m[name] ? String(m[name].type) : undefined]),
+    )
+    expect(returns).toEqual({
+      createIdea: 'Idea!',
+      deleteIdea: 'Boolean!',
+      voteIdea: 'Idea!',
+      unvoteIdea: 'Idea!',
+      createComment: 'IdeaComment!',
+      deleteComment: 'Boolean!',
+      voteComment: 'IdeaComment!',
+      unvoteComment: 'IdeaComment!',
+      adminSetIdeaStatus: 'Idea!',
+      adminHideIdea: 'Idea!',
+      adminUnhideIdea: 'Idea!',
+      adminDeleteIdea: 'Boolean!',
+      adminHideComment: 'IdeaComment!',
+      adminUnhideComment: 'IdeaComment!',
+      adminDeleteComment: 'Boolean!',
+    })
+  })
+
+  it('board mutations return non-identifying fields only', () => {
+    expect(errorsFor('mutation { voteIdea(ideaId: "x") { id voteCount viewerHasVoted } }')).toEqual([])
+    expect(errorsFor('mutation { voteComment(commentId: "x") { id voteCount viewerHasVoted } }')).toEqual([])
+    expect(errorsFor('mutation { createIdea(title: "t", body: "b", category: BUG) { id } }')).toEqual([])
+  })
+})
+
