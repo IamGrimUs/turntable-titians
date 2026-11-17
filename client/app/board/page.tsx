@@ -17,6 +17,7 @@ import {
   type IdeaStatus,
   type IdeaTopic,
 } from '@/lib/board-view'
+import { boardListState } from '@/lib/board-list-state'
 import { GET_IDEAS, UNVOTE_IDEA, VOTE_IDEA } from '@/lib/graphql/board'
 import { fieldClass, labelClass } from '@/lib/form-styles'
 
@@ -60,6 +61,13 @@ export default function BoardPage() {
 
   // Keep showing the previous page of results while a new filter or page loads.
   const ideas = (data ?? previousData)?.ideas
+  const listState = boardListState({
+    hasError: !!error,
+    hasData: !!data,
+    hasPrevious: !!previousData,
+    loading,
+    rowCount: ideas?.rows.length ?? 0,
+  })
 
   // Any filter or sort change starts again from page 1.
   function change<T>(setter: (value: T) => void) {
@@ -152,16 +160,18 @@ export default function BoardPage() {
         </p>
       )}
 
-      {error && !ideas ? (
+      {listState === 'error' ? (
         <div className="text-center py-16">
-          <p className="text-destructive mb-4">Error loading ideas: {error.message}</p>
-          <Button variant="outline" onClick={() => refetch()}>
-            Try again
+          <p role="alert" className="text-destructive mb-4">
+            Error loading ideas: {error?.message}
+          </p>
+          <Button variant="outline" onClick={() => refetch().catch(() => {})}>
+            Retry
           </Button>
         </div>
-      ) : !ideas ? (
-        <p className="text-muted-foreground text-center py-16">{loading ? 'Loading ideas...' : 'No ideas to show.'}</p>
-      ) : ideas.rows.length === 0 ? (
+      ) : listState === 'loading' || !ideas ? (
+        <p className="text-muted-foreground text-center py-16">Loading ideas...</p>
+      ) : listState === 'empty' ? (
         <div className="text-center py-16">
           <p className="text-muted-foreground">{category || topic || status ? 'No ideas match these filters.' : 'No ideas yet.'}</p>
         </div>
