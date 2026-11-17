@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { Home, Swords, Plus, HelpCircle, Shield, User, LogIn, LogOut } from 'lucide-react';
+import { Home, Swords, Plus, Lightbulb, HelpCircle, Shield, User, LogIn, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isAdminRole } from '@/lib/admin-access';
 import { NavAvatar } from '@/components/NavAvatar';
@@ -18,6 +18,7 @@ const navigation = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Battles', href: '/battles', icon: Swords },
   { name: 'Create Battle', href: '/battles/create', icon: Plus },
+  { name: 'Board', href: '/board', icon: Lightbulb },
   { name: 'How It Works', href: '/how-it-works', icon: HelpCircle },
 ];
 

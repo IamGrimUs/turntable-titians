@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { getNamedType, isEnumType, isNonNullType, isObjectType, validate, type DocumentNode } from 'graphql'
 import {
   rowActions,
   rowNote,
@@ -10,6 +11,8 @@ import {
   crewsCell,
   USER_SORT_KEYS,
 } from './admin-users-view'
+import * as admin from './graphql/admin'
+import { loadServerSchema } from './test-support/server-sdl'
 
 describe('rowActions', () => {
   it('admin on active user', () => {
@@ -161,5 +164,47 @@ describe('crewsCell', () => {
   })
   it('three crews', () => {
     expect(crewsCell(['A', 'B', 'C'])).toEqual({ first: 'A', more: 2 })
+  })
+})
+
+describe('admin users against the server SDL', () => {
+  const schema = loadServerSchema()
+
+  it('USER_SORT_KEYS equals the server AdminUserSortKey enum (as a set)', () => {
+    const type = schema.getType('AdminUserSortKey')
+    expect(isEnumType(type)).toBe(true)
+    if (!isEnumType(type)) return
+    const serverKeys = type.getValues().map((v) => v.name)
+    expect(serverKeys.length).toBeGreaterThan(0)
+    expect(new Set(USER_SORT_KEYS)).toEqual(new Set(serverKeys))
+    expect(USER_SORT_KEYS.length).toBe(serverKeys.length) // no duplicates on the client side
+  })
+
+  it('sorts by ideasPosted', () => {
+    expect(USER_SORT_KEYS).toContain('ideasPosted')
+    expect(nextSort(DEFAULT_SORT, 'ideasPosted')).toEqual({ key: 'ideasPosted', dir: 'ASC' })
+  })
+
+  it('AdminUser.ideasPosted is Int!', () => {
+    const type = schema.getType('AdminUser')
+    expect(isObjectType(type)).toBe(true)
+    if (!isObjectType(type)) return
+    const field = type.getFields().ideasPosted
+    expect(field).toBeDefined()
+    expect(isNonNullType(field.type)).toBe(true)
+    expect(getNamedType(field.type).name).toBe('Int')
+  })
+
+  it('every admin document is valid, and the users query selects ideasPosted', () => {
+    const documents = Object.entries(admin).filter(
+      (entry): entry is [string, DocumentNode] => (entry[1] as DocumentNode | undefined)?.kind === 'Document',
+    )
+    expect(documents.map(([name]) => name)).toContain('ADMIN_USERS_QUERY')
+    for (const [name, doc] of documents) {
+      // Fragments alone fail validate (unused definition); skip documents with no operation.
+      if (!doc.definitions.some((d) => d.kind === 'OperationDefinition')) continue
+      expect({ name, errors: validate(schema, doc).map((e) => e.message) }).toEqual({ name, errors: [] })
+    }
+    expect(JSON.stringify(admin.ADMIN_USERS_QUERY.definitions)).toContain('"value":"ideasPosted"')
   })
 })

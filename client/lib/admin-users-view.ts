@@ -16,6 +16,7 @@ export const USER_SORT_KEYS = [
   'battlesWon',
   'votesCast',
   'votesReceived',
+  'ideasPosted',
   'createdAt',
   'lastSignInAt',
   'email',
@@ -39,6 +40,7 @@ export interface AdminUserRow {
   battlesWon: number
   votesCast: number
   votesReceived: number
+  ideasPosted: number
   createdAt: string
   lastSignInAt: string
 }

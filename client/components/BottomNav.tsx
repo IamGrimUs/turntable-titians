@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { Home, Swords, Plus, User, LogIn, LogOut } from 'lucide-react'
+import { Home, Swords, Plus, Lightbulb, User, LogIn, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NavAvatar } from '@/components/NavAvatar'
 
@@ -11,6 +11,7 @@ const navigation = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Battles', href: '/battles', icon: Swords },
   { name: 'Create', href: '/battles/create', icon: Plus },
+  { name: 'Board', href: '/board', icon: Lightbulb },
 ]
 
 export function BottomNav() {
@@ -29,7 +30,7 @@ export function BottomNav() {
             key={item.name}
             href={item.href}
             className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 text-base transition-colors',
+              'flex flex-1 flex-col items-center justify-center gap-1 px-0.5 text-sm whitespace-nowrap transition-colors',
               isActive
                 ? 'text-amber-500'
                 : 'text-muted-foreground hover:text-foreground'
@@ -46,7 +47,7 @@ export function BottomNav() {
           <Link
             href="/profile"
             className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 text-base transition-colors',
+              'flex flex-1 flex-col items-center justify-center gap-1 px-0.5 text-sm whitespace-nowrap transition-colors',
               pathname === '/profile'
                 ? 'text-amber-500'
                 : 'text-muted-foreground hover:text-foreground'
@@ -62,7 +63,7 @@ export function BottomNav() {
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
             className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 text-base transition-colors',
+              'flex flex-1 flex-col items-center justify-center gap-1 px-0.5 text-sm whitespace-nowrap transition-colors',
               'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -74,7 +75,7 @@ export function BottomNav() {
         <Link
           href="/auth/signin"
           className={cn(
-            'flex flex-1 flex-col items-center justify-center gap-1 text-base transition-colors',
+            'flex flex-1 flex-col items-center justify-center gap-1 px-0.5 text-sm whitespace-nowrap transition-colors',
             pathname === '/auth/signin'
               ? 'text-amber-500'
               : 'text-muted-foreground hover:text-foreground'

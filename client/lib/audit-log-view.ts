@@ -2,9 +2,12 @@
  * Display rules for the admin audit log. Pure functions, no React.
  *
  * The server writes `details` as JSON text whose shape depends on the action (see
- * server/src/adminResolvers.ts). It is untrusted display data: it is parsed defensively and
+ * server/src/adminResolvers.ts for user actions and server/src/boardAdminResolvers.ts for board
+ * moderation: `{ excerpt, ideaId?, from?, to? }`). It is untrusted display data: it is parsed defensively and
  * summarised in a short sentence. An unknown or broken shape gives an empty summary, never raw JSON.
  */
+
+import { statusLabel } from './board-view'
 
 export interface AuditLogRow {
   id: string
@@ -30,6 +33,13 @@ const ACTION_LABELS: Record<string, string> = {
   EMAIL_BLOCK: 'Blocked email',
   ROLE_GRANT: 'Made admin',
   ROLE_REVOKE: 'Removed admin',
+  IDEA_STATUS: 'Changed idea status',
+  IDEA_HIDE: 'Hid idea',
+  IDEA_UNHIDE: 'Unhid idea',
+  IDEA_DELETE: 'Deleted idea',
+  COMMENT_HIDE: 'Hid comment',
+  COMMENT_UNHIDE: 'Unhid comment',
+  COMMENT_DELETE: 'Deleted comment',
 }
 
 const ACTION_TONES: Record<string, ActionTone> = {
@@ -40,6 +50,20 @@ const ACTION_TONES: Record<string, ActionTone> = {
   EMAIL_BLOCK: 'danger',
   ROLE_GRANT: 'good',
   ROLE_REVOKE: 'warn',
+  IDEA_STATUS: 'neutral',
+  IDEA_HIDE: 'warn',
+  IDEA_UNHIDE: 'good',
+  IDEA_DELETE: 'danger',
+  COMMENT_HIDE: 'warn',
+  COMMENT_UNHIDE: 'good',
+  COMMENT_DELETE: 'danger',
+}
+
+// What a board entry's target is. For these rows the party shown in the Target column is the
+// author of the idea or comment (the server's `target` is always a person), not the content itself.
+const TARGET_KIND_LABELS: Record<string, string> = {
+  IDEA: 'Idea author',
+  COMMENT: 'Comment author',
 }
 
 // Field names the edit action reports, in the words an admin would use.
@@ -68,6 +92,11 @@ export function actionLabel(action: string): string {
 
 export function actionTone(action: string): ActionTone {
   return Object.prototype.hasOwnProperty.call(ACTION_TONES, action) ? ACTION_TONES[action] : 'neutral'
+}
+
+/** A short note on what the target person is, for board entries; null for a user target. */
+export function targetKindLabel(targetType: string): string | null {
+  return Object.prototype.hasOwnProperty.call(TARGET_KIND_LABELS, targetType) ? TARGET_KIND_LABELS[targetType] : null
 }
 
 /** Username when there is one (the snapshot may be null), else the email, else a dash. */
@@ -184,6 +213,17 @@ function summarizeRole(details: Record<string, unknown>): string {
   return `${truncate(details.from, 20)} ${ARROW} ${truncate(details.to, 20)}`
 }
 
+/** `Status: Open → Planned`. A status this client does not know is shown (shortened) as sent. */
+function summarizeIdeaStatus(details: Record<string, unknown>): string {
+  if (typeof details.from !== 'string' || typeof details.to !== 'string') return ''
+  return `Status: ${truncate(statusLabel(details.from), 20)} ${ARROW} ${truncate(statusLabel(details.to), 20)}`
+}
+
+/** The excerpt of the idea title or comment text the action was about (the server already shortened it). */
+function summarizeExcerpt(details: Record<string, unknown>): string {
+  return typeof details.excerpt === 'string' ? truncate(details.excerpt, MAX_REASON_LENGTH) : ''
+}
+
 /** One short line describing what changed, or '' when there is nothing safe and useful to show. */
 export function summarizeDetails(action: string, raw: unknown, timeZone?: string): string {
   const details = parseDetails(raw)
@@ -207,6 +247,17 @@ export function summarizeDetails(action: string, raw: unknown, timeZone?: string
       case 'ROLE_GRANT':
       case 'ROLE_REVOKE':
         summary = summarizeRole(details)
+        break
+      case 'IDEA_STATUS':
+        summary = summarizeIdeaStatus(details)
+        break
+      case 'IDEA_HIDE':
+      case 'IDEA_UNHIDE':
+      case 'IDEA_DELETE':
+      case 'COMMENT_HIDE':
+      case 'COMMENT_UNHIDE':
+      case 'COMMENT_DELETE':
+        summary = summarizeExcerpt(details)
         break
     }
   }
