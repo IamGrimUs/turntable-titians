@@ -6,6 +6,8 @@ import { useMutation } from '@apollo/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ConfirmDeleteButton } from '@/components/board/ConfirmDeleteButton'
+import { HiddenBadge } from '@/components/board/HiddenBadge'
+import { ModerationControls } from '@/components/board/ModerationControls'
 import { VoteButton } from '@/components/board/VoteButton'
 import { BOARD_LIMITS, authorDisplayName, type BoardAccess, type CommentRow } from '@/lib/board-view'
 import { canSubmitComment, isCommentListTruncated } from '@/lib/comment-form'
@@ -23,6 +25,8 @@ interface CommentListProps {
   /** True while the session is loading: no sign-in links and no form are shown yet. */
   sessionLoading: boolean
   viewerId: string | null
+  /** Show the hidden marker and the moderation controls. Display only; the server enforces. */
+  isAdmin?: boolean
 }
 
 function errorText(e: unknown): string {
@@ -34,10 +38,11 @@ interface CommentItemProps {
   access: BoardAccess
   sessionLoading: boolean
   isOwn: boolean
+  isAdmin: boolean
   onError: (message: string | null) => void
 }
 
-function CommentItem({ comment, access, sessionLoading, isOwn, onError }: CommentItemProps) {
+function CommentItem({ comment, access, sessionLoading, isOwn, isAdmin, onError }: CommentItemProps) {
   const [pending, setPending] = useState(false)
   const votingRef = useRef(false)
   const [voteComment] = useMutation(VOTE_COMMENT)
@@ -71,10 +76,12 @@ function CommentItem({ comment, access, sessionLoading, isOwn, onError }: Commen
   }
 
   const name = authorDisplayName(comment.author)
+  // The server sends hidden comments only to admins (inside an opened idea); the marker is for them alone.
+  const showHidden = isAdmin && comment.hidden
 
   return (
     <li>
-      <Card className="flex items-start gap-4 p-4">
+      <Card className={`flex items-start gap-4 p-4 ${showHidden ? 'border-dashed opacity-80' : ''}`}>
         <VoteButton
           count={comment.voteCount}
           viewerHasVoted={comment.viewerHasVoted}
@@ -84,15 +91,19 @@ function CommentItem({ comment, access, sessionLoading, isOwn, onError }: Commen
           sessionLoading={sessionLoading}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-base text-muted-foreground">
-            <span className="font-medium text-foreground">{name}</span> · {formatRelativeDate(comment.createdAt)}
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-muted-foreground">
+            <span>
+              <span className="font-medium text-foreground">{name}</span> · {formatRelativeDate(comment.createdAt)}
+            </span>
+            {showHidden && <HiddenBadge />}
           </p>
           <p className="mt-1 whitespace-pre-wrap break-words text-base text-foreground">{comment.body}</p>
-          {isOwn && (
+          {isOwn && !isAdmin && (
             <div className="mt-2">
               <ConfirmDeleteButton label="Delete" question="Delete this comment?" onConfirm={remove} />
             </div>
           )}
+          {isAdmin && <ModerationControls kind="comment" id={comment.id} hidden={comment.hidden} />}
         </div>
       </Card>
     </li>
@@ -108,7 +119,7 @@ function CommentItem({ comment, access, sessionLoading, isOwn, onError }: Commen
  * the new list and the idea's `commentCount` in one go (and stays right when the server caps
  * the list). Votes rely on the normalized `IdeaComment:<id>` the mutation result updates.
  */
-export function CommentList({ ideaId, comments, commentCount, access, sessionLoading, viewerId }: CommentListProps) {
+export function CommentList({ ideaId, comments, commentCount, access, sessionLoading, viewerId, isAdmin = false }: CommentListProps) {
   const [body, setBody] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [itemError, setItemError] = useState<string | null>(null)
@@ -167,6 +178,7 @@ export function CommentList({ ideaId, comments, commentCount, access, sessionLoa
               access={access}
               sessionLoading={sessionLoading}
               isOwn={!!viewerId && viewerId === comment.author.id}
+              isAdmin={isAdmin}
               onError={setItemError}
             />
           ))}

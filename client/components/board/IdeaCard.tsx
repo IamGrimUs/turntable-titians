@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { HiddenBadge } from '@/components/board/HiddenBadge'
 import { StatusBadge } from '@/components/board/StatusBadge'
 import { VoteButton } from '@/components/board/VoteButton'
 import { authorDisplayName, categoryLabel, topicLabel, type BoardAccess, type IdeaRow } from '@/lib/board-view'
@@ -13,13 +14,15 @@ interface IdeaCardProps {
   idea: IdeaRow
   access: BoardAccess
   onToggleVote: (idea: IdeaRow) => void | Promise<void>
+  /** Mark a hidden idea. Only the admin list sends hidden ideas; the marker is for admins alone. */
+  isAdmin?: boolean
 }
 
 /**
  * One idea in the board list. The vote call is made by the page (so it can show the server's
  * message when it fails); the card only tracks the pending state while it runs.
  */
-export function IdeaCard({ idea, access, onToggleVote }: IdeaCardProps) {
+export function IdeaCard({ idea, access, onToggleVote, isAdmin = false }: IdeaCardProps) {
   const [pending, setPending] = useState(false)
   const authorName = authorDisplayName(idea.author)
   const initials = authorName.slice(0, 2).toUpperCase()
@@ -34,7 +37,7 @@ export function IdeaCard({ idea, access, onToggleVote }: IdeaCardProps) {
   }
 
   return (
-    <Card className="flex items-start gap-4 p-4">
+    <Card className={`flex items-start gap-4 p-4 ${isAdmin && idea.hidden ? 'border-dashed opacity-80' : ''}`}>
       <VoteButton count={idea.voteCount} viewerHasVoted={idea.viewerHasVoted} access={access} onToggle={toggle} disabled={pending} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -43,7 +46,10 @@ export function IdeaCard({ idea, access, onToggleVote }: IdeaCardProps) {
               {idea.title}
             </Link>
           </h2>
-          <StatusBadge status={idea.status} className="shrink-0" />
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {isAdmin && idea.hidden && <HiddenBadge />}
+            <StatusBadge status={idea.status} />
+          </div>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-muted-foreground">
           <span>{categoryLabel(idea.category)}</span>

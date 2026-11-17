@@ -8,10 +8,13 @@ import { useSession } from 'next-auth/react'
 import { ArrowLeft, MessageSquare } from 'lucide-react'
 import { CommentList } from '@/components/board/CommentList'
 import { ConfirmDeleteButton } from '@/components/board/ConfirmDeleteButton'
+import { HiddenBadge } from '@/components/board/HiddenBadge'
+import { ModerationControls } from '@/components/board/ModerationControls'
 import { StatusBadge } from '@/components/board/StatusBadge'
 import { VoteButton } from '@/components/board/VoteButton'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { isAdminRole } from '@/lib/admin-access'
 import { authorDisplayName, boardAccess, categoryLabel, topicLabel, type IdeaRow } from '@/lib/board-view'
 import { DELETE_IDEA, GET_IDEA, UNVOTE_IDEA, VOTE_IDEA } from '@/lib/graphql/board'
 import { formatRelativeDate } from '@/lib/relative-date'
@@ -32,6 +35,8 @@ export default function IdeaDetailPage() {
   const sessionLoading = status === 'loading'
   const access = boardAccess(session?.user)
   const viewerId = session?.user?.id ?? null
+  // Only decides whether the moderation controls are drawn; the server enforces every action.
+  const isAdmin = isAdminRole(session?.user?.role)
 
   const [actionError, setActionError] = useState<string | null>(null)
   const [votePending, setVotePending] = useState(false)
@@ -123,7 +128,10 @@ export default function IdeaDetailPage() {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <h1 className="min-w-0 break-words text-3xl font-semibold text-foreground">{idea.title}</h1>
-                <StatusBadge status={idea.status} className="shrink-0" />
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {isAdmin && idea.hidden && <HiddenBadge />}
+                  <StatusBadge status={idea.status} />
+                </div>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-muted-foreground">
                 <span>{categoryLabel(idea.category)}</span>
@@ -140,7 +148,7 @@ export default function IdeaDetailPage() {
             </div>
           </div>
           <p className="mt-4 whitespace-pre-wrap break-words text-base text-foreground">{idea.body}</p>
-          {isOwn && (
+          {isOwn && !isAdmin && (
             <div className="mt-4">
               <ConfirmDeleteButton
                 label="Delete idea"
@@ -148,6 +156,11 @@ export default function IdeaDetailPage() {
                 onConfirm={removeIdea}
                 size="default"
               />
+            </div>
+          )}
+          {isAdmin && (
+            <div className="mt-4">
+              <ModerationControls kind="idea" id={idea.id} status={idea.status} hidden={idea.hidden} />
             </div>
           )}
         </Card>
@@ -165,6 +178,7 @@ export default function IdeaDetailPage() {
           access={access}
           sessionLoading={sessionLoading}
           viewerId={viewerId}
+          isAdmin={isAdmin}
         />
       </>
     )

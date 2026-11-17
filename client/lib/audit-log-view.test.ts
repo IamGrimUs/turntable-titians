@@ -3,10 +3,12 @@ import {
   actionLabel,
   actionTone,
   formatAuditTime,
+  MAX_REASON_LENGTH,
   MAX_SUMMARY_LENGTH,
   parseDetails,
   partyLabel,
   summarizeDetails,
+  targetKindLabel,
 } from './audit-log-view'
 
 const json = (value: unknown) => JSON.stringify(value)
@@ -20,6 +22,13 @@ describe('actionLabel', () => {
     expect(actionLabel('EMAIL_BLOCK')).toBe('Blocked email')
     expect(actionLabel('ROLE_GRANT')).toBe('Made admin')
     expect(actionLabel('ROLE_REVOKE')).toBe('Removed admin')
+    expect(actionLabel('IDEA_STATUS')).toBe('Changed idea status')
+    expect(actionLabel('IDEA_HIDE')).toBe('Hid idea')
+    expect(actionLabel('IDEA_UNHIDE')).toBe('Unhid idea')
+    expect(actionLabel('IDEA_DELETE')).toBe('Deleted idea')
+    expect(actionLabel('COMMENT_HIDE')).toBe('Hid comment')
+    expect(actionLabel('COMMENT_UNHIDE')).toBe('Unhid comment')
+    expect(actionLabel('COMMENT_DELETE')).toBe('Deleted comment')
   })
   it('falls back to the raw string for an unknown action', () => {
     expect(actionLabel('SOMETHING_NEW')).toBe('SOMETHING_NEW')
@@ -35,6 +44,27 @@ describe('actionTone', () => {
     expect(actionTone('USER_DELETE')).toBe('danger')
     expect(actionTone('USER_REINSTATE')).toBe('good')
     expect(actionTone('nope')).toBe('neutral')
+  })
+  it('gives the board actions a tone', () => {
+    expect(actionTone('IDEA_STATUS')).toBe('neutral')
+    expect(actionTone('IDEA_HIDE')).toBe('warn')
+    expect(actionTone('COMMENT_HIDE')).toBe('warn')
+    expect(actionTone('IDEA_UNHIDE')).toBe('good')
+    expect(actionTone('COMMENT_UNHIDE')).toBe('good')
+    expect(actionTone('IDEA_DELETE')).toBe('danger')
+    expect(actionTone('COMMENT_DELETE')).toBe('danger')
+  })
+})
+
+describe('targetKindLabel', () => {
+  it('says what a board target is (the party shown is its author)', () => {
+    expect(targetKindLabel('IDEA')).toBe('Idea author')
+    expect(targetKindLabel('COMMENT')).toBe('Comment author')
+  })
+  it('says nothing for a user target or an unknown type', () => {
+    expect(targetKindLabel('USER')).toBeNull()
+    expect(targetKindLabel('SOMETHING_NEW')).toBeNull()
+    expect(targetKindLabel('constructor')).toBeNull()
   })
 })
 
@@ -189,12 +219,58 @@ describe('summarizeDetails: delete, block and roles', () => {
   })
 })
 
+describe('summarizeDetails: board moderation', () => {
+  it('status change shows the labels from and to', () => {
+    expect(summarizeDetails('IDEA_STATUS', json({ excerpt: 'Dark mode', from: 'OPEN', to: 'PLANNED' }))).toBe(
+      'Status: Open → Planned'
+    )
+    expect(summarizeDetails('IDEA_STATUS', json({ from: 'IN_PROGRESS', to: 'DONE' }))).toBe('Status: In progress → Done')
+  })
+  it('status change shows an unknown status as sent, shortened', () => {
+    expect(summarizeDetails('IDEA_STATUS', json({ from: 'OPEN', to: 'ARCHIVED' }))).toBe('Status: Open → ARCHIVED')
+    const out = summarizeDetails('IDEA_STATUS', json({ from: 'OPEN', to: 'X'.repeat(200) }))
+    expect(out.length).toBeLessThan(60)
+    expect(out).toContain('…')
+  })
+  it('status change with a missing or wrong-typed side shows nothing', () => {
+    expect(summarizeDetails('IDEA_STATUS', json({ from: 'OPEN' }))).toBe('')
+    expect(summarizeDetails('IDEA_STATUS', json({ to: 'DONE' }))).toBe('')
+    expect(summarizeDetails('IDEA_STATUS', json({ from: 1, to: 2 }))).toBe('')
+    expect(summarizeDetails('IDEA_STATUS', json({ excerpt: 'Only an excerpt' }))).toBe('')
+  })
+  it('hide, unhide and delete show the excerpt', () => {
+    const actions = ['IDEA_HIDE', 'IDEA_UNHIDE', 'IDEA_DELETE', 'COMMENT_HIDE', 'COMMENT_UNHIDE', 'COMMENT_DELETE']
+    for (const action of actions) {
+      expect(summarizeDetails(action, json({ excerpt: 'Add a dark mode please' }))).toBe('Add a dark mode please')
+    }
+  })
+  it('a comment entry ignores its ideaId and any other key', () => {
+    const out = summarizeDetails('COMMENT_HIDE', json({ excerpt: 'Spammy comment', ideaId: 'idea_123', secret: 'x' }))
+    expect(out).toBe('Spammy comment')
+  })
+  it('collapses whitespace and caps a long excerpt', () => {
+    expect(summarizeDetails('IDEA_HIDE', json({ excerpt: 'a\n\n  b' }))).toBe('a b')
+    const out = summarizeDetails('COMMENT_DELETE', json({ excerpt: 'e'.repeat(1000) }))
+    expect(out.length).toBeLessThanOrEqual(MAX_REASON_LENGTH)
+    expect(out).toContain('…')
+  })
+  it('shows nothing when the excerpt is missing, blank or not text', () => {
+    for (const action of ['IDEA_HIDE', 'IDEA_UNHIDE', 'IDEA_DELETE', 'COMMENT_HIDE', 'COMMENT_UNHIDE', 'COMMENT_DELETE']) {
+      expect(summarizeDetails(action, json({}))).toBe('')
+      expect(summarizeDetails(action, json({ ideaId: 'x' }))).toBe('')
+      expect(summarizeDetails(action, json({ excerpt: '   ' }))).toBe('')
+      expect(summarizeDetails(action, json({ excerpt: 5 }))).toBe('')
+      expect(summarizeDetails(action, json({ excerpt: { a: 1 } }))).toBe('')
+    }
+  })
+})
+
 describe('summarizeDetails: unknown or broken input', () => {
   it('shows nothing for an unknown action, never raw JSON', () => {
     expect(summarizeDetails('SOMETHING_NEW', json({ secret: 'x' }))).toBe('')
   })
   it('shows nothing for malformed or odd JSON', () => {
-    for (const action of ['USER_EDIT', 'USER_SUSPEND', 'USER_REINSTATE', 'USER_DELETE', 'ROLE_GRANT']) {
+    for (const action of ['USER_EDIT', 'USER_SUSPEND', 'USER_REINSTATE', 'USER_DELETE', 'ROLE_GRANT', 'IDEA_STATUS', 'IDEA_HIDE', 'IDEA_DELETE', 'COMMENT_UNHIDE']) {
       expect(summarizeDetails(action, '{oops')).toBe('')
       expect(summarizeDetails(action, 'null')).toBe('')
       expect(summarizeDetails(action, '[]')).toBe('')

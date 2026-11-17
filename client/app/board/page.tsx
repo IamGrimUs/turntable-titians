@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { IdeaCard } from '@/components/board/IdeaCard'
 import { PostIdeaForm } from '@/components/board/PostIdeaForm'
 import { Button } from '@/components/ui/button'
+import { isAdminRole } from '@/lib/admin-access'
 import {
   CATEGORY_TABS,
   IDEA_STATUSES,
@@ -47,17 +48,21 @@ const CHIP_ACTIVE = 'border-foreground/60 bg-foreground/10 text-foreground'
 export default function BoardPage() {
   const { data: session } = useSession()
   const access = boardAccess(session?.user)
+  // Only decides whether the Show hidden toggle is drawn; the server decides who gets hidden ideas.
+  const isAdmin = isAdminRole(session?.user?.role)
 
   const [category, setCategory] = useState<IdeaCategory | null>(null)
   const [topic, setTopic] = useState<IdeaTopic | null>(null)
   const [status, setStatus] = useState<IdeaStatus | null>(null)
   const [sort, setSort] = useState<IdeaSort>('VOTES')
   const [page, setPage] = useState(1)
+  const [showHidden, setShowHidden] = useState(false)
   const [voteError, setVoteError] = useState<string | null>(null)
   const [posting, setPosting] = useState(false)
 
   const { loading, error, data, previousData, refetch } = useQuery<{ ideas: IdeasPage }>(GET_IDEAS, {
-    variables: { category, topic, status, sort, page, pageSize: PAGE_SIZE },
+    // `includeHidden` is only ever true for an admin who turned the toggle on (the server ignores it for anyone else).
+    variables: { category, topic, status, sort, includeHidden: isAdmin && showHidden, page, pageSize: PAGE_SIZE },
   })
   const [voteIdea] = useMutation(VOTE_IDEA)
   const [unvoteIdea] = useMutation(UNVOTE_IDEA)
@@ -181,6 +186,21 @@ export default function BoardPage() {
         </div>
       </div>
 
+      {isAdmin && (
+        <label className="mb-4 flex min-h-11 items-center gap-3 text-base text-foreground">
+          <input
+            type="checkbox"
+            checked={showHidden}
+            onChange={(e) => {
+              setShowHidden(e.target.checked)
+              setPage(1)
+            }}
+            className="h-5 w-5 shrink-0 accent-amber-500"
+          />
+          Show hidden ideas
+        </label>
+      )}
+
       {voteError && (
         <p role="alert" className="mb-4 text-base text-destructive">
           {voteError}
@@ -206,7 +226,7 @@ export default function BoardPage() {
         <>
           <div className={`flex flex-col gap-4 ${loading ? 'opacity-60' : ''}`} aria-busy={loading}>
             {ideas.rows.map((idea) => (
-              <IdeaCard key={idea.id} idea={idea} access={access} onToggleVote={toggleVote} />
+              <IdeaCard key={idea.id} idea={idea} access={access} onToggleVote={toggleVote} isAdmin={isAdmin} />
             ))}
           </div>
 

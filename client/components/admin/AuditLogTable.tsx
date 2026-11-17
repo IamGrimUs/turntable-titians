@@ -13,6 +13,7 @@ import {
   formatAuditTime,
   partyLabel,
   summarizeDetails,
+  targetKindLabel,
   type ActionTone,
   type AuditLogRow,
 } from '@/lib/audit-log-view'
@@ -139,6 +140,7 @@ export function AuditLogTable() {
                   <tbody>
                     {shown.rows.map((row) => {
                       const summary = summarizeDetails(row.action, row.details)
+                      const targetKind = targetKindLabel(row.targetType)
                       return (
                         <tr key={row.id}>
                           <td className={cn(TD, 'pl-4 text-muted-foreground')}>
@@ -154,6 +156,7 @@ export function AuditLogTable() {
                           </td>
                           <td className={TD}>
                             <Party username={row.targetUsername} email={row.targetEmail} />
+                            {targetKind && <span className="block truncate text-muted-foreground">{targetKind}</span>}
                           </td>
                           <td className={cn(TD, 'break-words pr-4 text-muted-foreground')}>
                             {summary || (
