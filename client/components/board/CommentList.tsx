@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRef, useState, type FormEvent } from 'react'
-import { useMutation } from '@apollo/client'
+import { useApolloClient, useMutation } from '@apollo/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ConfirmDeleteButton } from '@/components/board/ConfirmDeleteButton'
@@ -13,6 +13,7 @@ import { BOARD_LIMITS, authorDisplayName, type BoardAccess, type CommentRow } fr
 import { canSubmitComment, isCommentListTruncated } from '@/lib/comment-form'
 import { fieldClass, labelClass } from '@/lib/form-styles'
 import { CREATE_COMMENT, DELETE_COMMENT, GET_IDEA, UNVOTE_COMMENT, VOTE_COMMENT } from '@/lib/graphql/board'
+import { plural } from '@/lib/plural'
 import { remainingChars } from '@/lib/post-idea-form'
 import { formatRelativeDate } from '@/lib/relative-date'
 
@@ -45,6 +46,7 @@ interface CommentItemProps {
 function CommentItem({ comment, access, sessionLoading, isOwn, isAdmin, onError }: CommentItemProps) {
   const [pending, setPending] = useState(false)
   const votingRef = useRef(false)
+  const client = useApolloClient()
   const [voteComment] = useMutation(VOTE_COMMENT)
   const [unvoteComment] = useMutation(UNVOTE_COMMENT)
   // Deleting changes `commentCount` and the list, so the detail query is refetched.
@@ -60,6 +62,9 @@ function CommentItem({ comment, access, sessionLoading, isOwn, isAdmin, onError 
       await (comment.viewerHasVoted ? unvoteComment : voteComment)({ variables: { commentId: comment.id } })
     } catch (e) {
       onError(errorText(e))
+      // The cached vote state may be stale (for example it was changed in another tab): reload it
+      // so the button corrects itself. A failing reload must not replace the message above.
+      Promise.resolve(client.refetchQueries({ include: [GET_IDEA] })).catch(() => {})
     } finally {
       votingRef.current = false
       setPending(false)
@@ -97,7 +102,7 @@ function CommentItem({ comment, access, sessionLoading, isOwn, isAdmin, onError 
             </span>
             {showHidden && <HiddenBadge />}
           </p>
-          <p className="mt-1 whitespace-pre-wrap break-words text-base text-foreground">{comment.body}</p>
+          <p dir="auto" className="mt-1 whitespace-pre-wrap break-words text-base text-foreground">{comment.body}</p>
           {isOwn && !isAdmin && (
             <div className="mt-2">
               <ConfirmDeleteButton label="Delete" question="Delete this comment?" onConfirm={remove} />
@@ -202,7 +207,7 @@ export function CommentList({ ideaId, comments, commentCount, access, sessionLoa
             className={fieldClass}
           />
           <p id="comment-body-hint" className="text-base text-muted-foreground">
-            {remainingChars(body, BOARD_LIMITS.commentBody)} characters left
+            {plural(remainingChars(body, BOARD_LIMITS.commentBody), 'character')} left
           </p>
           {formError && (
             <p role="alert" className="text-base font-medium text-destructive">

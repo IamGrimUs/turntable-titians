@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { plural } from '@/lib/plural'
 import type { BoardAccess } from '@/lib/board-view'
 
 interface VoteButtonProps {
@@ -36,7 +37,7 @@ export function VoteButton({ count, viewerHasVoted, access, onToggle, disabled, 
   // Until the session is known, a signed-in viewer must not be shown a "sign in" link.
   if (sessionLoading) {
     return (
-      <button type="button" disabled aria-label={`${count} votes`} className={cn(base, idle, 'disabled:pointer-events-none disabled:opacity-50')}>
+      <button type="button" disabled aria-label={plural(count, 'vote')} className={cn(base, idle, 'disabled:pointer-events-none disabled:opacity-50')}>
         {content}
       </button>
     )

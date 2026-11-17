@@ -70,6 +70,9 @@ export default function IdeaDetailPage() {
       await (idea.viewerHasVoted ? unvoteIdea : voteIdea)({ variables: { ideaId: idea.id } })
     } catch (e) {
       setActionError(e instanceof Error && e.message ? e.message : 'Something went wrong. Please try again.')
+      // The cached vote state may be stale (for example it was changed in another tab): reload the
+      // idea so the button corrects itself. A failing reload must not replace the message above.
+      refetch().catch(() => {})
     } finally {
       votingRef.current = false
       setVotePending(false)
@@ -127,7 +130,7 @@ export default function IdeaDetailPage() {
             />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <h1 className="min-w-0 break-words text-3xl font-semibold text-foreground">{idea.title}</h1>
+                <h1 dir="auto" className="min-w-0 break-words text-3xl font-semibold text-foreground">{idea.title}</h1>
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
                   {isAdmin && idea.hidden && <HiddenBadge />}
                   <StatusBadge status={idea.status} />
@@ -147,7 +150,7 @@ export default function IdeaDetailPage() {
               </p>
             </div>
           </div>
-          <p className="mt-4 whitespace-pre-wrap break-words text-base text-foreground">{idea.body}</p>
+          <p dir="auto" className="mt-4 whitespace-pre-wrap break-words text-base text-foreground">{idea.body}</p>
           {isOwn && !isAdmin && (
             <div className="mt-4">
               <ConfirmDeleteButton

@@ -16,13 +16,15 @@ interface IdeaCardProps {
   onToggleVote: (idea: IdeaRow) => void | Promise<void>
   /** Mark a hidden idea. Only the admin list sends hidden ideas; the marker is for admins alone. */
   isAdmin?: boolean
+  /** True while the session is loading: the vote control is inert instead of a sign-in link. */
+  sessionLoading?: boolean
 }
 
 /**
  * One idea in the board list. The vote call is made by the page (so it can show the server's
  * message when it fails); the card only tracks the pending state while it runs.
  */
-export function IdeaCard({ idea, access, onToggleVote, isAdmin = false }: IdeaCardProps) {
+export function IdeaCard({ idea, access, onToggleVote, isAdmin = false, sessionLoading }: IdeaCardProps) {
   const [pending, setPending] = useState(false)
   const authorName = authorDisplayName(idea.author)
   const initials = authorName.slice(0, 2).toUpperCase()
@@ -38,10 +40,10 @@ export function IdeaCard({ idea, access, onToggleVote, isAdmin = false }: IdeaCa
 
   return (
     <Card className={`flex items-start gap-4 p-4 ${isAdmin && idea.hidden ? 'border-dashed opacity-80' : ''}`}>
-      <VoteButton count={idea.voteCount} viewerHasVoted={idea.viewerHasVoted} access={access} onToggle={toggle} disabled={pending} />
+      <VoteButton count={idea.voteCount} viewerHasVoted={idea.viewerHasVoted} access={access} onToggle={toggle} disabled={pending} sessionLoading={sessionLoading} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <h2 className="min-w-0 break-words text-xl font-semibold">
+          <h2 dir="auto" className="min-w-0 break-words text-xl font-semibold">
             <Link href={`/board/${idea.id}`} className="hover:underline">
               {idea.title}
             </Link>

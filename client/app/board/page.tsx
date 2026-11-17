@@ -46,7 +46,8 @@ const CHIP_IDLE = 'border-border text-muted-foreground hover:text-foreground hov
 const CHIP_ACTIVE = 'border-foreground/60 bg-foreground/10 text-foreground'
 
 export default function BoardPage() {
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
+  const sessionLoading = sessionStatus === 'loading'
   const access = boardAccess(session?.user)
   // Only decides whether the Show hidden toggle is drawn; the server decides who gets hidden ideas.
   const isAdmin = isAdminRole(session?.user?.role)
@@ -108,6 +109,9 @@ export default function BoardPage() {
       await (idea.viewerHasVoted ? unvoteIdea : voteIdea)({ variables: { ideaId: idea.id } })
     } catch (e) {
       setVoteError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
+      // The cached vote state may be stale (for example it was changed in another tab): reload the
+      // list so the button corrects itself. A failing reload must not replace the message above.
+      refetch().catch(() => {})
     }
   }
 
@@ -121,7 +125,7 @@ export default function BoardPage() {
           <h1 className="text-5xl font-graffiti mb-2 text-foreground">Board</h1>
           <p className="text-muted-foreground text-base">Suggest features, report bugs and vote on what the site should do next.</p>
         </div>
-        {access === 'READY' ? (
+        {sessionLoading ? null : access === 'READY' ? (
           !posting && <Button onClick={() => setPosting(true)}>Post an idea</Button>
         ) : (
           <Button asChild>
@@ -226,7 +230,7 @@ export default function BoardPage() {
         <>
           <div className={`flex flex-col gap-4 ${loading ? 'opacity-60' : ''}`} aria-busy={loading}>
             {ideas.rows.map((idea) => (
-              <IdeaCard key={idea.id} idea={idea} access={access} onToggleVote={toggleVote} isAdmin={isAdmin} />
+              <IdeaCard key={idea.id} idea={idea} access={access} onToggleVote={toggleVote} isAdmin={isAdmin} sessionLoading={sessionLoading} />
             ))}
           </div>
 

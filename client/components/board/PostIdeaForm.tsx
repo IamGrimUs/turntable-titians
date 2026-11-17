@@ -16,6 +16,7 @@ import {
 } from '@/lib/board-view'
 import { fieldClass, labelClass } from '@/lib/form-styles'
 import { CREATE_IDEA, GET_IDEAS } from '@/lib/graphql/board'
+import { plural } from '@/lib/plural'
 import { canSubmitIdea, remainingChars } from '@/lib/post-idea-form'
 
 interface PostIdeaFormProps {
@@ -99,13 +100,13 @@ export function PostIdeaForm({ onPosted, onCancel }: PostIdeaFormProps) {
             className={fieldClass}
           />
           <p id="idea-title-hint" className="text-base text-muted-foreground">
-            {remainingChars(title, BOARD_LIMITS.ideaTitle)} characters left
+            {plural(remainingChars(title, BOARD_LIMITS.ideaTitle), 'character')} left
           </p>
         </div>
 
         <div className="space-y-2">
           <label htmlFor="idea-body" className={labelClass}>
-            Details <span aria-hidden="true">*</span>
+            Description <span aria-hidden="true">*</span>
           </label>
           <textarea
             id="idea-body"
@@ -120,7 +121,7 @@ export function PostIdeaForm({ onPosted, onCancel }: PostIdeaFormProps) {
             className={fieldClass}
           />
           <p id="idea-body-hint" className="text-base text-muted-foreground">
-            {remainingChars(body, BOARD_LIMITS.ideaBody)} characters left
+            {plural(remainingChars(body, BOARD_LIMITS.ideaBody), 'character')} left
           </p>
         </div>
 

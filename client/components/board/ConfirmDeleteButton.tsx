@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 interface ConfirmDeleteButtonProps {
@@ -21,6 +21,26 @@ export function ConfirmDeleteButton({ label, question, onConfirm, size = 'sm' }:
   const [confirming, setConfirming] = useState(false)
   const [pending, setPending] = useState(false)
   const runningRef = useRef(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  // Set only by Cancel, so focus goes back to the trigger after a cancel and not after a delete.
+  const cancelledRef = useRef(false)
+
+  // The trigger unmounts while confirming, so focus moves after the render that swaps the buttons:
+  // to Cancel (the safe choice) when the question opens, back to the trigger when it is cancelled.
+  useEffect(() => {
+    if (confirming) {
+      cancelRef.current?.focus()
+    } else if (cancelledRef.current) {
+      cancelledRef.current = false
+      triggerRef.current?.focus()
+    }
+  }, [confirming])
+
+  function cancel() {
+    cancelledRef.current = true
+    setConfirming(false)
+  }
 
   async function confirm() {
     if (runningRef.current) return
@@ -37,7 +57,7 @@ export function ConfirmDeleteButton({ label, question, onConfirm, size = 'sm' }:
 
   if (!confirming) {
     return (
-      <Button type="button" variant="outline" size={size} onClick={() => setConfirming(true)}>
+      <Button ref={triggerRef} type="button" variant="outline" size={size} onClick={() => setConfirming(true)}>
         {label}
       </Button>
     )
@@ -49,7 +69,7 @@ export function ConfirmDeleteButton({ label, question, onConfirm, size = 'sm' }:
       <Button type="button" variant="destructive" size={size} onClick={confirm} disabled={pending}>
         {pending ? 'Deleting…' : 'Yes, delete'}
       </Button>
-      <Button type="button" variant="outline" size={size} onClick={() => setConfirming(false)} disabled={pending}>
+      <Button ref={cancelRef} type="button" variant="outline" size={size} onClick={cancel} disabled={pending}>
         Cancel
       </Button>
     </div>
