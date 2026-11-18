@@ -198,6 +198,17 @@ describe('challenge queries', () => {
     expect(text).toContain('battleId')
   })
 
+  it('GET_CHALLENGE asks for the challenger career wins (the opponent decides from it) within the depth limit', () => {
+    expect(flat(GET_CHALLENGE)).toContain('challenger { battlesWon }')
+    expect(depthOf(GET_CHALLENGE)).toBeLessThanOrEqual(SERVER_MAX_DEPTH)
+  })
+
+  it('career wins are asked for by GET_CHALLENGE only, never by the lists or mutations', () => {
+    for (const doc of [GET_MY_CHALLENGES, ACCEPT_CHALLENGE, DECLINE_CHALLENGE, WITHDRAW_CHALLENGE, CREATE_CHALLENGE]) {
+      expect(print(doc)).not.toContain('battlesWon')
+    }
+  })
+
   it('GET_MY_CHALLENGES is the light list: no message, no video link', () => {
     const text = flat(GET_MY_CHALLENGES)
     expect(text).toContain('myChallenges')

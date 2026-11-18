@@ -94,11 +94,16 @@ export const WITHDRAW_CHALLENGE = gql`
   }
 `
 
-/** The challenge screen. `challengerVideoUrl` is null for everyone but the challenger of a waiting challenge. */
+/**
+ * The challenge screen. `challengerVideoUrl` is null for everyone but the challenger of a waiting
+ * challenge. The second `challenger` selection adds career wins (the opponent decides from the
+ * challenger's record); Apollo and the server merge it with the one in the summary fields.
+ */
 export const GET_CHALLENGE = gql`
   query GetChallenge($id: ID!) {
     challenge(id: $id) {
       ${CHALLENGE_SUMMARY_FIELDS}
+      challenger { battlesWon }
       message
       challengerVideoUrl
     }
