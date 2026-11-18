@@ -84,18 +84,25 @@ export const ME_QUERY = gql`
       name
       image
       externalCrews
+      challengeEmails
     }
   }
 `;
 
 export const UPDATE_PROFILE_MUTATION = gql`
-  mutation UpdateProfile($username: String, $image: String, $externalCrews: [String!]) {
-    updateProfile(username: $username, image: $image, externalCrews: $externalCrews) {
+  mutation UpdateProfile($username: String, $image: String, $externalCrews: [String!], $challengeEmails: Boolean) {
+    updateProfile(
+      username: $username
+      image: $image
+      externalCrews: $externalCrews
+      challengeEmails: $challengeEmails
+    ) {
       id
       username
       name
       image
       externalCrews
+      challengeEmails
     }
   }
 `;

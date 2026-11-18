@@ -7,6 +7,9 @@ import { Home, Swords, Lightbulb, HelpCircle, Shield, User, LogIn, LogOut } from
 import { cn } from '@/lib/utils';
 import { isAdminRole } from '@/lib/admin-access';
 import { NavAvatar } from '@/components/NavAvatar';
+import { WaitingPill } from '@/components/challenges/WaitingPill';
+import { useChallengesWaiting } from '@/lib/use-challenges-waiting';
+import { waitingAriaLabel } from '@/lib/profile-challenges';
 import {
   Tooltip,
   TooltipContent,
@@ -24,6 +27,7 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const waiting = useChallengesWaiting();
   // The session role is only a hint, used here just to show the icon; the /admin layout
   // checks the real role in the database.
   const items = isAdminRole(session?.user?.role)
@@ -75,7 +79,7 @@ export function Sidebar() {
                 <TooltipTrigger asChild>
                   <Link
                     href="/profile"
-                    aria-label="Profile"
+                    aria-label={waitingAriaLabel(waiting)}
                     className={cn(
                       'group flex items-center justify-center rounded-md p-2.5 transition-colors',
                       pathname === '/profile'
@@ -83,11 +87,14 @@ export function Sidebar() {
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                     )}
                   >
-                    {session.user.image ? (
-                      <NavAvatar key={session.user.image} src={session.user.image} />
-                    ) : (
-                      <User className="h-5 w-5" />
-                    )}
+                    <span className="relative flex">
+                      {session.user.image ? (
+                        <NavAvatar key={session.user.image} src={session.user.image} />
+                      ) : (
+                        <User className="h-5 w-5" />
+                      )}
+                      <WaitingPill count={waiting} />
+                    </span>
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent side="right">

@@ -8,6 +8,8 @@ import { useState, useRef } from 'react'
 import { ME_QUERY, UPDATE_PROFILE_MUTATION } from '@/lib/graphql/queries'
 import { isAdminRole } from '@/lib/admin-access'
 import { fieldClass, labelClass } from '@/lib/form-styles'
+import { MyChallenges } from '@/components/challenges/MyChallenges'
+import { challengeEmailsChecked, profileUpdateVariables } from '@/lib/profile-challenges'
 import { uploadAvatar, cleanupOldAvatars, UploadError } from '@/lib/uploadAvatar'
 
 export default function ProfilePage() {
@@ -21,6 +23,7 @@ export default function ProfilePage() {
   const [imageUrl, setImageUrl] = useState<string>('')
   const [crews, setCrews] = useState<string[]>([])
   const [crewInput, setCrewInput] = useState('')
+  const [challengeEmails, setChallengeEmails] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -31,6 +34,7 @@ export default function ProfilePage() {
     setUsername(me.username ?? '')
     setImageUrl(me.image ?? '')
     setCrews(me.externalCrews ?? [])
+    setChallengeEmails(challengeEmailsChecked(me.challengeEmails))
     setInitialized(true)
   }
 
@@ -61,7 +65,9 @@ export default function ProfilePage() {
     setError('')
     setSuccess(false)
     try {
-      await updateProfile({ variables: { username, image: imageUrl, externalCrews: crews } })
+      await updateProfile({
+        variables: profileUpdateVariables({ username, image: imageUrl, crews, challengeEmails }),
+      })
       void cleanupOldAvatars() // tidy up replaced avatars; best effort, never blocks the save
       await update({ username })
       setSuccess(true)
@@ -100,6 +106,8 @@ export default function ProfilePage() {
             Admin portal
           </Link>
         )}
+
+        <MyChallenges />
 
         <div className="rounded-lg border border-border bg-card p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -189,6 +197,23 @@ export default function ProfilePage() {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="challenge-emails" className="flex min-h-11 items-center gap-3 text-base font-semibold text-foreground">
+                <input
+                  id="challenge-emails"
+                  type="checkbox"
+                  checked={challengeEmails}
+                  onChange={(e) => setChallengeEmails(e.target.checked)}
+                  aria-describedby="challenge-emails-hint"
+                  className="h-5 w-5 shrink-0 accent-amber-500"
+                />
+                Email me about challenges
+              </label>
+              <p id="challenge-emails-hint" className="text-base text-muted-foreground">
+                We only email you when someone challenges you or answers your challenge.
+              </p>
             </div>
 
             {error && <p className="text-base font-medium text-red-400">{error}</p>}
