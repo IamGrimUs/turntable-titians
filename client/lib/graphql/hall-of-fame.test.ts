@@ -32,6 +32,12 @@ describe('Hall of Fame documents against the server SDL', () => {
     for (const [, doc] of documents) expect(print(doc)).not.toContain('voteCount')
   })
 
+  it('the home strip reads career wins from hallOfFame and never asks for battlesWon', () => {
+    const text = print(hallOfFame.GET_LATEST_CHAMPIONS)
+    expect(text).toContain('hallOfFame')
+    expect(text).not.toContain('battlesWon')
+  })
+
   it('GET_BATTLES now also selects winners for the battle cards, and is still valid', () => {
     expect(print(GET_BATTLES)).toContain('winners')
     expect(validate(schema, GET_BATTLES).map((e) => e.message)).toEqual([])

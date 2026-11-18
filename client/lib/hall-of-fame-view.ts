@@ -31,12 +31,17 @@ export function isTopThree(rank: number): boolean {
   return rank >= 1 && rank <= 3
 }
 
+/** "ann", "ann and bob", "ann, bob and cy". */
+export function joinNames(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? ''
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
 /** "Won by ann", or "Tied: ann and bob". Null when nobody won (nothing is shown). */
 export function winnerLine(winners: ReadonlyArray<Pick<Person, 'username' | 'name'>>): string | null {
   const names = winners.map(displayName)
   if (names.length === 0) return null
-  if (names.length === 1) return `Won by ${names[0]}`
-  return `Tied: ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  return names.length === 1 ? `Won by ${names[0]}` : `Tied: ${joinNames(names)}`
 }
 
 export function formatShortDate(iso: string): string {
