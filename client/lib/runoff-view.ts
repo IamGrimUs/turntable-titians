@@ -36,11 +36,13 @@ export function runoffCardLine(
     return `Runoff in progress: ${candidates.map((c) => c.name).join(' vs ')}, ends ${formatShortDate(endsAt)}`
   }
 
+  const neutral = 'Runoff completed'
+
   if (status === 'TIED') {
+    if (candidates.length === 0) return neutral
     return `Tied: ${joinNames(topCandidates(candidates).map((c) => c.name))} (runoff level)`
   }
 
-  const neutral = 'Runoff completed'
   if (candidates.length < 2 || candidates.some((c) => c.votes === null)) return neutral
   const winners = topCandidates(candidates)
   if (winners.length !== 1) return neutral

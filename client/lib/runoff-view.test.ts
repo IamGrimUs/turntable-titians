@@ -7,8 +7,9 @@ import {
   runoffVoteControl,
 } from './runoff-view'
 
-// Mid-day UTC so the short date is the same in every timezone.
-const ENDS = '2026-11-20T12:00:00Z'
+// Local midnight of Nov 20 (what the server sends: the start of the last voting day), so
+// formatShortDate, which formats in local time, gives "Nov 20" in every timezone.
+const ENDS = new Date(2026, 10, 20).toISOString()
 
 const c = (name: string, votes: number | null) => ({ name, votes })
 
@@ -72,6 +73,10 @@ describe('runoffCardLine', () => {
     expect(runoffCardLine('TIED', [c('kay', 0), c('nova', 0), c('cy', 0)], ENDS)).toBe(
       'Tied: kay, nova and cy (runoff level)',
     )
+  })
+
+  it('TIED with no candidates falls back to the neutral line', () => {
+    expect(runoffCardLine('TIED', [], ENDS)).toBe('Runoff completed')
   })
 
   it('TIED with unknown votes lists every candidate', () => {
