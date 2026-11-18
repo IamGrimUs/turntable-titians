@@ -7,6 +7,7 @@ import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
 import { boardComment, boardIdea, boardMutation, boardQuery } from './boardResolvers'
 import { boardAdminMutation } from './boardAdminResolvers'
 import { runoffMutation } from './runoffResolvers'
+import { challengeFields, challengeMutation, challengeQuery } from './challengeResolvers'
 import { countBattlesWon } from './userBattlesWon'
 import {
   battleRunoff,
@@ -31,6 +32,7 @@ export const resolvers = {
   Query: {
     ...boardQuery,
     ...standingsQuery,
+    ...challengeQuery,
     battles: () => db.battle.findMany({ orderBy: { createdAt: 'desc' } }),
     battle: (_: unknown, { id }: { id: string }) =>
       db.battle.findUnique({ where: { id } }),
@@ -242,6 +244,7 @@ export const resolvers = {
     },
     ...boardMutation,
     ...runoffMutation,
+    ...challengeMutation,
     ...boardAdminMutation,
     ...adminMutation,
   },
@@ -261,6 +264,8 @@ export const resolvers = {
   },
 
   Runoff: runoffFields,
+
+  Challenge: challengeFields,
 
   RunoffCandidate: runoffCandidateFields,
 

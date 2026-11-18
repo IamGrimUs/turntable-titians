@@ -319,6 +319,12 @@ export const typeDefs = gql`
       pageSize: Int = 20
     ): IdeaPage!
     idea(id: ID!): Idea
+    """A challenge, only for the two DJs in it. Anyone else gets "Challenge not found"."""
+    challenge(id: ID!): Challenge
+    """Challenges the caller sent or received, newest first (at most 50). Empty when logged out."""
+    myChallenges: [Challenge!]!
+    """How many challenges are waiting for the caller's answer. 0 when logged out."""
+    challengesWaiting: Int!
   }
 
   type Mutation {
@@ -370,6 +376,45 @@ export const typeDefs = gql`
     adminHideComment(id: ID!): IdeaComment!
     adminUnhideComment(id: ID!): IdeaComment!
     adminDeleteComment(id: ID!): Boolean!
+    createChallenge(
+      opponentUsername: String!
+      title: String!
+      message: String
+      videoUrl: String!
+      votingDays: Int!
+    ): Challenge!
+    declineChallenge(id: ID!): Challenge!
+    withdrawChallenge(id: ID!): Challenge!
+  }
+
+  enum ChallengeStatus {
+    PENDING
+    ACCEPTED
+    DECLINED
+    WITHDRAWN
+    EXPIRED
+  }
+
+  enum ChallengeRole {
+    CHALLENGER
+    OPPONENT
+  }
+
+  type Challenge {
+    id: ID!
+    title: String!
+    message: String
+    votingDays: Int!
+    status: ChallengeStatus!
+    expiresAt: String!
+    createdAt: String!
+    respondedAt: String
+    challenger: User!
+    opponent: User!
+    viewerRole: ChallengeRole!
+    battleId: ID
+    """Only the challenger sees this, and only while the challenge is waiting. Never the opponent: it stays hidden until they accept."""
+    challengerVideoUrl: String
   }
 
   type HealthStatus {
