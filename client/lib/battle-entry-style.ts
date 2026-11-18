@@ -6,6 +6,10 @@
  * `battle.winners`. While a runoff exists (OPEN, DECIDED or TIED) round-one ranks are not
  * standings any more: a tie for first would otherwise look like two winners, so rank badges and the
  * podium border are switched off and the crown alone says who won (nobody while OPEN).
+ *
+ * A head to head duel has no round-one standings at all: `battle.winners` is empty, so the crown
+ * comes from `duel.winner` (found by user id, never by position: the two entries are created
+ * together), and there are never rank badges or a podium border. A draw crowns nobody.
  */
 import type { BattleStatus } from './vote-visibility'
 
@@ -21,6 +25,8 @@ export interface EntryStyleInput {
   /** 1-based place in the round-one list shown on the page. */
   rank: number
   voteCount: number | null
+  /** Set for a head to head duel: the id of `duel.winner` (null for a draw or before the end). */
+  duel?: { winnerId: string | null } | null
 }
 
 export interface EntryStyle {
@@ -34,6 +40,10 @@ export interface EntryStyle {
 }
 
 export function entryStyle(i: EntryStyleInput): EntryStyle {
+  if (i.duel) {
+    const isWinner = i.battleStatus === 'COMPLETED' && i.duel.winnerId !== null && i.duel.winnerId === i.userId
+    return { isWinner, badge: null, podium: false }
+  }
   const isWinner = i.battleStatus === 'COMPLETED' && i.winnerUserIds.includes(i.userId)
   if (i.hasRunoff) return { isWinner, badge: null, podium: false }
 

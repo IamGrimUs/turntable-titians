@@ -7,7 +7,7 @@ import { GET_BATTLES } from '@/lib/graphql/queries'
 import { groupBattlesByType } from '@/lib/battle-groups'
 import { battleCardView } from '@/lib/battle-card-view'
 import { DuelCard } from '@/components/battles/DuelCard'
-import { battlesListState, splitDuels, type DuelBattle } from '@/lib/duel-view'
+import { battlesListState, orderDuels, splitDuels, type DuelBattle } from '@/lib/duel-view'
 import type { ListRunoff, Person } from '@/lib/hall-of-fame-view'
 import { Crown, Plus } from 'lucide-react'
 import { useQuery } from '@apollo/client'
@@ -223,7 +223,7 @@ export default function BattlesPage() {
             1v1 challenges between two DJs. They are kept separate from the Hall of Fame.
           </p>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {duels.map((battle) => (
+            {orderDuels(duels).map((battle) => (
               <DuelCard key={battle.id} battle={battle} />
             ))}
           </div>

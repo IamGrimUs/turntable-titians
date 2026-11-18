@@ -5,6 +5,7 @@
  */
 import { NO_TYPE_LABEL, groupBattlesByType } from './battle-groups'
 import { formatShortDate, joinNames } from './display-format'
+import { isDuel } from './duel-view'
 import { runoffCardLine, runoffStatusLabel, type RunoffStatus } from './runoff-view'
 
 export { formatShortDate, joinNames }
@@ -110,7 +111,7 @@ export interface ResultRow {
  */
 export function buildResultRows(battles: readonly ResultBattle[], typeFilter: string | null): ResultRow[] {
   return battles
-    .filter((b) => b.status === 'COMPLETED' && !b.duel)
+    .filter((b) => b.status === 'COMPLETED' && !isDuel(b))
     .map((b) => ({ ...b, type: b.type?.trim() || NO_TYPE_LABEL }))
     .filter((b) => typeFilter === null || b.type === typeFilter)
     .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || a.id.localeCompare(b.id))
@@ -140,7 +141,7 @@ export function noWinnerText(entries: number): string {
 
 /** Types that have at least one completed battle, in the order the Battles page lists them. */
 export function resultTypes(battles: readonly ResultBattle[]): string[] {
-  return groupBattlesByType(battles.filter((b) => b.status === 'COMPLETED' && !b.duel)).map((g) => g.type)
+  return groupBattlesByType(battles.filter((b) => b.status === 'COMPLETED' && !isDuel(b))).map((g) => g.type)
 }
 
 export interface ResultMonth {

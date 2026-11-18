@@ -144,7 +144,7 @@ function CandidateCard({
           voteCount={roundOneVotes}
           isVotedHere={false}
           hasVotedElsewhere={false}
-          ownEntryBlocked={false}
+          voteBlockNote={null}
           loading={false}
           battleStatus="COMPLETED"
           currentUserId={null}

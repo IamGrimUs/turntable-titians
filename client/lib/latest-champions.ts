@@ -3,6 +3,7 @@
  * who won (`winners`, only for completed battles) and each person's career wins (`hallOfFame`);
  * this only picks the most recent results and words them.
  */
+import { isDuel } from './duel-view'
 import { displayName, joinNames, type Person } from './hall-of-fame-view'
 
 export interface LatestBattle {
@@ -47,7 +48,7 @@ export function buildLatestChampions(
 ): ChampionCard[] {
   const winsByUser = new Map(hallOfFame.map((row) => [row.user.id, row.wins]))
   return battles
-    .filter((b) => b.status === 'COMPLETED' && !b.duel && b.runoff?.status !== 'OPEN' && b.winners.length > 0)
+    .filter((b) => b.status === 'COMPLETED' && !isDuel(b) && b.runoff?.status !== 'OPEN' && b.winners.length > 0)
     .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || a.id.localeCompare(b.id))
     .slice(0, limit)
     .map((b) => ({

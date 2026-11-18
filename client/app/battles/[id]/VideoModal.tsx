@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { VoteCount } from '@/components/VoteCount'
 import { propsButtonLabel } from '@/lib/props-button'
-import { OWN_ENTRY_NOTE } from '@/lib/own-entry'
 import { createPortal } from 'react-dom'
 
 interface SubmissionUser {
@@ -20,7 +19,8 @@ interface Props {
   voteCount: number | null
   isVotedHere: boolean
   hasVotedElsewhere: boolean
-  ownEntryBlocked: boolean
+  /** The reason the vote button is replaced by a note (see `voteBlockNote`); null when the viewer can vote. */
+  voteBlockNote: string | null
   loading: boolean
   battleStatus: 'UPCOMING' | 'ACTIVE' | 'COMPLETED'
   currentUserId: string | null
@@ -35,7 +35,7 @@ export function VideoModal({
   voteCount,
   isVotedHere,
   hasVotedElsewhere,
-  ownEntryBlocked,
+  voteBlockNote,
   loading,
   battleStatus,
   currentUserId,
@@ -113,10 +113,10 @@ export function VideoModal({
           <VoteCount voteCount={voteCount} className="text-base text-muted-foreground font-mono" />
         </div>
 
-        {currentUserId && battleStatus === 'ACTIVE' && ownEntryBlocked && (
-          <p className="mt-3 text-base text-muted-foreground">{OWN_ENTRY_NOTE}</p>
+        {currentUserId && battleStatus === 'ACTIVE' && voteBlockNote !== null && (
+          <p className="mt-3 text-base text-muted-foreground">{voteBlockNote}</p>
         )}
-        {currentUserId && battleStatus === 'ACTIVE' && !ownEntryBlocked && (
+        {currentUserId && battleStatus === 'ACTIVE' && voteBlockNote === null && (
           <button
             onClick={(e) => { e.stopPropagation(); onVote() }}
             disabled={hasVotedElsewhere || loading}

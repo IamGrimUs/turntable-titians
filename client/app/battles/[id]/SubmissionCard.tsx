@@ -7,7 +7,7 @@ import { useState, useRef, useEffect, type CSSProperties } from 'react'
 import { getEmbedUrl } from './getEmbedUrl'
 import { VoteCount } from '@/components/VoteCount'
 import { propsButtonLabel } from '@/lib/props-button'
-import { OWN_ENTRY_NOTE, ownEntryBlocksVote } from '@/lib/own-entry'
+import { voteBlockNote } from '@/lib/own-entry'
 import { VideoModal } from './VideoModal'
 import type { EntryStyle } from '@/lib/battle-entry-style'
 
@@ -38,6 +38,8 @@ interface Props {
   currentUserId: string | null
   onVoteChange: () => void
   battleStatus: 'UPCOMING' | 'ACTIVE' | 'COMPLETED'
+  /** Set for a head to head duel: its two DJs cannot vote on either entry. */
+  duel?: { challenger: { id: string }; opponent: { id: string } } | null
 }
 
 
@@ -61,7 +63,7 @@ function GraffitiCrown({ hidden }: { hidden: boolean }) {
   )
 }
 
-export function SubmissionCard({ submission, style, userVotedSubmissionId, currentUserId, onVoteChange, battleStatus }: Props) {
+export function SubmissionCard({ submission, style, userVotedSubmissionId, currentUserId, onVoteChange, battleStatus, duel = null }: Props) {
   const [vote, { loading: voting }] = useMutation(VOTE_MUTATION)
   const [deleteVote, { loading: deleting }] = useMutation(DELETE_VOTE_MUTATION)
   const [voteError, setVoteError] = useState('')
@@ -90,10 +92,12 @@ export function SubmissionCard({ submission, style, userVotedSubmissionId, curre
   const { isWinner, badge } = style
   const isVotedHere = userVotedSubmissionId === submission.id
   const hasVotedElsewhere = userVotedSubmissionId !== null && !isVotedHere
-  const ownEntryBlocked = ownEntryBlocksVote({
+  // Why the vote button is replaced by a note: your own entry, or (in a duel) being one of its DJs.
+  const voteNote = voteBlockNote({
     currentUserId,
     entryOwnerId: submission.user.id,
     isVotedHere,
+    duel,
   })
   const displayName = submission.user.username ?? submission.user.name ?? 'DJ'
   const initial = displayName.charAt(0).toUpperCase()
@@ -207,10 +211,10 @@ export function SubmissionCard({ submission, style, userVotedSubmissionId, curre
           </div>
 
           {/* On its own line; the stack's gap keeps the spacing above it equal to the other rows. */}
-          {currentUserId && battleStatus === 'ACTIVE' && ownEntryBlocked && (
-            <p className="text-base text-muted-foreground">{OWN_ENTRY_NOTE}</p>
+          {currentUserId && battleStatus === 'ACTIVE' && voteNote !== null && (
+            <p className="text-base text-muted-foreground">{voteNote}</p>
           )}
-          {currentUserId && battleStatus === 'ACTIVE' && !ownEntryBlocked && (
+          {currentUserId && battleStatus === 'ACTIVE' && voteNote === null && (
             <button
               onClick={handleVote}
               disabled={hasVotedElsewhere || loading}
@@ -233,7 +237,7 @@ export function SubmissionCard({ submission, style, userVotedSubmissionId, curre
           voteCount={submission.voteCount}
           isVotedHere={isVotedHere}
           hasVotedElsewhere={hasVotedElsewhere}
-          ownEntryBlocked={ownEntryBlocked}
+          voteBlockNote={voteNote}
           loading={loading}
           battleStatus={battleStatus}
           currentUserId={currentUserId}

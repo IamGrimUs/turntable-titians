@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { battlesListState, duelCardView, splitDuels, type DuelBattle } from './duel-view'
+import {
+  battlesListState,
+  duelCardView,
+  duelPageView,
+  duelSignInText,
+  isDuel,
+  orderDuels,
+  splitDuels,
+  type DuelBattle,
+} from './duel-view'
 
 const user = (id: string, username: string | null = id, name: string | null = null) => ({ id, username, name, image: null })
 
@@ -167,5 +176,94 @@ describe('battlesListState', () => {
   it('regular battles show as before, with or without duels', () => {
     expect(battlesListState(3, 0)).toBe('REGULAR')
     expect(battlesListState(3, 2)).toBe('REGULAR')
+  })
+})
+
+describe('orderDuels', () => {
+  it('puts ACTIVE first, then UPCOMING, then COMPLETED, keeping the incoming order inside each status', () => {
+    const list = [
+      { id: 'c1', status: 'COMPLETED' },
+      { id: 'a1', status: 'ACTIVE' },
+      { id: 'u1', status: 'UPCOMING' },
+      { id: 'c2', status: 'COMPLETED' },
+      { id: 'a2', status: 'ACTIVE' },
+      { id: 'u2', status: 'UPCOMING' },
+    ]
+    expect(orderDuels(list).map((d) => d.id)).toEqual(['a1', 'a2', 'u1', 'u2', 'c1', 'c2'])
+  })
+
+  it('does not change the list it is given, and puts an unknown status last', () => {
+    const list = [{ id: 'x', status: 'WEIRD' }, { id: 'c', status: 'COMPLETED' }, { id: 'a', status: 'ACTIVE' }]
+    const copy = [...list]
+    expect(orderDuels(list).map((d) => d.id)).toEqual(['a', 'c', 'x'])
+    expect(list).toEqual(copy)
+  })
+
+  it('handles an empty list', () => {
+    expect(orderDuels([])).toEqual([])
+  })
+})
+
+describe('isDuel', () => {
+  it('is true only for a battle with a duel', () => {
+    expect(isDuel({ duel: { outcome: null } })).toBe(true)
+    expect(isDuel({ duel: null })).toBe(false)
+    expect(isDuel({})).toBe(false)
+  })
+})
+
+describe('duelPageView', () => {
+  it('is null for a regular battle', () => {
+    expect(duelPageView({ title: 'Round 1', status: 'ACTIVE', duel: null })).toBeNull()
+  })
+
+  it('reads "A vs B" with the challenge title kept as the subtitle and a Head to head badge', () => {
+    const v = duelPageView(duel({ id: '1' }))!
+    expect(v.headline).toBe('kay vs nova')
+    expect(v.subtitle).toBe('Duel 1')
+    expect(v.badgeLabel).toBe('Head to head')
+  })
+
+  it('has no result line before the duel is COMPLETED, whatever was sent', () => {
+    const v = duelPageView(
+      duel({ id: '1', status: 'ACTIVE', duel: duelOf({ outcome: 'CHALLENGER_WON', challengerVotes: 3, opponentVotes: 1 }) }),
+    )!
+    expect(v.resultLine).toBeNull()
+  })
+
+  it('shows the server result line when COMPLETED, and never prints a null count as a number', () => {
+    const won = duelPageView(
+      duel({ id: '1', status: 'COMPLETED', duel: duelOf({ outcome: 'OPPONENT_WON', challengerVotes: 1, opponentVotes: 4, winner: { id: 'o' } }) }),
+    )!
+    expect(won.resultLine).toBe('nova won, 4 to 1')
+    const draw = duelPageView(duel({ id: '1', status: 'COMPLETED', duel: duelOf({ outcome: 'DRAW', challengerVotes: 2, opponentVotes: 2 }) }))!
+    expect(draw.resultLine).toBe('Draw, 2 to 2')
+    const noCounts = duelPageView(duel({ id: '1', status: 'COMPLETED', duel: duelOf({ outcome: 'DRAW' }) }))!
+    expect(noCounts.resultLine).toBe('Draw')
+    expect(noCounts.resultLine).not.toMatch(/null|undefined|NaN/)
+  })
+
+  it('falls back to a neutral name and keeps long names whole', () => {
+    const long = 'b'.repeat(30)
+    const v = duelPageView(duel({ id: '1', duel: duelOf({ challenger: user('c', null, null), opponent: user('o', long) }) }))!
+    expect(v.headline).toBe(`A DJ vs ${long}`)
+  })
+
+  it('explains the page accurately: a 1v1 between the two DJs, everyone else can vote while it is open', () => {
+    const active = duelPageView(duel({ id: '1', status: 'ACTIVE' }))!
+    expect(active.intro).toBe('A 1v1 between kay and nova. Everyone else can vote.')
+    const done = duelPageView(duel({ id: '1', status: 'COMPLETED', duel: duelOf({ outcome: 'DRAW' }) }))!
+    expect(done.intro).toBe('A 1v1 between kay and nova.')
+  })
+
+  it('never offers a way to add an entry', () => {
+    expect(duelPageView(duel({ id: '1' }))!.canAddEntry).toBe(false)
+  })
+})
+
+describe('duelSignInText', () => {
+  it('asks a signed-out visitor to vote in a duel, and to submit an entry in a regular battle', () => {
+    expect(duelSignInText(true)).toBe('to vote.')
+    expect(duelSignInText(false)).toBe('to submit your entry.')
   })
 })

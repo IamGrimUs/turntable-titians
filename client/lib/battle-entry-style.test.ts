@@ -111,3 +111,52 @@ describe('entryStyle with a runoff', () => {
     expect(entryStyle({ ...tied, voteCount: 9, winnerUserIds: [] }).isWinner).toBe(false)
   })
 })
+
+describe('entryStyle for a head to head duel', () => {
+  const duelBase: EntryStyleInput = { ...base, duel: { winnerId: 'c' }, userId: 'c', rank: 1, voteCount: 6 }
+  const none = { isWinner: false, badge: null, podium: false }
+
+  it('crowns only the entry of duel.winner, found by user id, with no rank badge or podium', () => {
+    expect(entryStyle(duelBase)).toEqual({ isWinner: true, badge: null, podium: false })
+    // The loser is the first entry in the list here: order is not meaningful.
+    expect(entryStyle({ ...duelBase, userId: 'o', rank: 2, voteCount: 3 })).toEqual(none)
+    expect(entryStyle({ ...duelBase, userId: 'o', rank: 1, voteCount: 3, duel: { winnerId: 'c' } })).toEqual(none)
+  })
+
+  it('crowns the winner whichever position the entry is in', () => {
+    expect(entryStyle({ ...duelBase, rank: 2 }).isWinner).toBe(true)
+  })
+
+  it('never uses the round-one rank badges or the gold podium border, on either entry', () => {
+    for (const rank of [1, 2, 3]) {
+      for (const userId of ['c', 'o']) {
+        const s = entryStyle({ ...duelBase, userId, rank, voteCount: 4 })
+        expect(s.badge).toBeNull()
+        expect(s.podium).toBe(false)
+      }
+    }
+  })
+
+  it('crowns nobody on a draw (no winner) and keeps no podium on a level duel', () => {
+    for (const userId of ['c', 'o']) {
+      expect(entryStyle({ ...duelBase, duel: { winnerId: null }, userId, rank: userId === 'c' ? 1 : 2, voteCount: 5 })).toEqual(none)
+    }
+  })
+
+  it('crowns nobody while the duel is ACTIVE or UPCOMING, even if a winner id were sent', () => {
+    for (const battleStatus of ['ACTIVE', 'UPCOMING'] as const) {
+      expect(entryStyle({ ...duelBase, battleStatus, voteCount: null })).toEqual(none)
+    }
+  })
+
+  it('ignores winnerUserIds for a duel (the winners list is empty by design)', () => {
+    expect(entryStyle({ ...duelBase, winnerUserIds: ['o'] }).isWinner).toBe(true)
+    expect(entryStyle({ ...duelBase, userId: 'o', winnerUserIds: ['o'], rank: 2 }).isWinner).toBe(false)
+  })
+
+  it('a regular battle is unchanged when duel is null or missing', () => {
+    const regular = { ...base, winnerUserIds: ['u1'] }
+    expect(entryStyle({ ...regular, duel: null })).toEqual(entryStyle(regular))
+    expect(entryStyle({ ...regular, duel: null })).toEqual({ isWinner: true, badge: null, podium: true })
+  })
+})
