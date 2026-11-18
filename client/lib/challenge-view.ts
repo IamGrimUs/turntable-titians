@@ -251,3 +251,11 @@ export function duelResultLine(
 export function headToHeadText(r: { wins: number; losses: number; draws: number }): string {
   return `${r.wins} - ${r.losses} - ${r.draws}`
 }
+
+/** A DJ's display name: username, then name, then a neutral word. */
+export function challengeUserName(user: { username: string | null; name: string | null } | null | undefined): string {
+  const username = user?.username?.trim()
+  if (username) return username
+  const name = user?.name?.trim()
+  return name || 'A DJ'
+}

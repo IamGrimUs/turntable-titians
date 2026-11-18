@@ -1,4 +1,4 @@
-import { challengeUserName } from './challenge-screen'
+import { challengeUserName } from './challenge-view'
 import { headToHeadText } from './challenge-view'
 import { plural } from './plural'
 

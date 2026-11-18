@@ -191,25 +191,36 @@ describe('challengeEmailsChecked', () => {
 })
 
 describe('profileUpdateVariables', () => {
-  it('sends the existing fields unchanged plus the checkbox as a real boolean', () => {
-    expect(
-      profileUpdateVariables({
-        username: 'kay',
-        image: 'https://img.example/a.png',
-        crews: ['The Allies'],
-        challengeEmails: false,
-      }),
-    ).toEqual({
-      username: 'kay',
-      image: 'https://img.example/a.png',
-      externalCrews: ['The Allies'],
+  const base = { username: 'kay', image: 'https://img.example/a.png', crews: ['The Allies'] }
+  const fixed = { username: 'kay', image: 'https://img.example/a.png', externalCrews: ['The Allies'] }
+
+  it('leaves challengeEmails out when the checkbox was not changed', () => {
+    const vars = profileUpdateVariables({ ...base, challengeEmails: true, loadedChallengeEmails: true })
+    expect(vars).toEqual(fixed)
+    expect('challengeEmails' in vars).toBe(false)
+    expect(profileUpdateVariables({ ...base, challengeEmails: false, loadedChallengeEmails: false })).toEqual(fixed)
+  })
+
+  it('sends a real false when the user unticked it', () => {
+    expect(profileUpdateVariables({ ...base, challengeEmails: false, loadedChallengeEmails: true })).toEqual({
+      ...fixed,
       challengeEmails: false,
     })
-    expect(profileUpdateVariables({ username: 'kay', image: '', crews: [], challengeEmails: true })).toEqual({
-      username: 'kay',
-      image: '',
-      externalCrews: [],
+  })
+
+  it('sends a real true when the user ticked it again', () => {
+    expect(profileUpdateVariables({ ...base, challengeEmails: true, loadedChallengeEmails: false })).toEqual({
+      ...fixed,
       challengeEmails: true,
+    })
+  })
+
+  it('counts a null or missing loaded value as on', () => {
+    expect(profileUpdateVariables({ ...base, challengeEmails: true, loadedChallengeEmails: null })).toEqual(fixed)
+    expect(profileUpdateVariables({ ...base, challengeEmails: true, loadedChallengeEmails: undefined })).toEqual(fixed)
+    expect(profileUpdateVariables({ ...base, challengeEmails: false, loadedChallengeEmails: null })).toEqual({
+      ...fixed,
+      challengeEmails: false,
     })
   })
 })

@@ -1,8 +1,8 @@
-import { challengeUserName } from './challenge-screen'
 import {
   challengeActions,
   challengeBadgeVariant,
   challengeStatusFor,
+  challengeUserName,
   effectiveChallengeStatus,
   groupMyChallenges,
   timeLeftLabel,
@@ -118,17 +118,21 @@ export interface ProfileFormValues {
   image: string
   crews: string[]
   challengeEmails: boolean
+  /** The value `me` had when the form loaded (null or absent means on). */
+  loadedChallengeEmails: boolean | null | undefined
 }
 
 /**
- * The `updateProfile` variables: the three fields the form always sent, unchanged, plus the checkbox
- * as a real boolean (the server ignores a null, and never blanks anything it is not sent).
+ * The `updateProfile` variables: username, image and crews as the form always sent them. The checkbox
+ * is sent only when it differs from the value loaded from `me`, as a real boolean, so a stale second
+ * tab that was never touched cannot switch emails back on (the server ignores what it is not sent).
  */
 export function profileUpdateVariables(v: ProfileFormValues) {
-  return {
+  const vars: { username: string; image: string; externalCrews: string[]; challengeEmails?: boolean } = {
     username: v.username,
     image: v.image,
     externalCrews: v.crews,
-    challengeEmails: v.challengeEmails,
   }
+  if (v.challengeEmails !== challengeEmailsChecked(v.loadedChallengeEmails)) vars.challengeEmails = v.challengeEmails
+  return vars
 }

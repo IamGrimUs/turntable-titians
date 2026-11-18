@@ -8,7 +8,6 @@ import {
   challengeHeadline,
   challengeRuleBullets,
   challengeScreenView,
-  challengeUserName,
   clearChallengerVideo,
   isChallengeUnavailable,
   ownEntryLink,
@@ -97,14 +96,7 @@ describe('ownEntryLink', () => {
   })
 })
 
-describe('challengeUserName and careerWinsText', () => {
-  it('prefers the username, then the name, then a neutral word', () => {
-    expect(challengeUserName({ username: 'kay', name: 'Kay Lee' })).toBe('kay')
-    expect(challengeUserName({ username: null, name: 'Kay Lee' })).toBe('Kay Lee')
-    expect(challengeUserName({ username: '  ', name: null })).toBe('A DJ')
-    expect(challengeUserName(null)).toBe('A DJ')
-  })
-
+describe('careerWinsText', () => {
   it('says career wins in the singular and plural', () => {
     expect(careerWinsText(0)).toBe('0 career wins')
     expect(careerWinsText(1)).toBe('1 career win')

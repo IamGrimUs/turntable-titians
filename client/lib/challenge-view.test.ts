@@ -5,6 +5,7 @@ import {
   challengeBadgeVariant,
   challengeStatusFor,
   challengeStatusLabel,
+  challengeUserName,
   duelResultLine,
   effectiveChallengeStatus,
   groupMyChallenges,
@@ -98,7 +99,7 @@ describe('timeLeftLabel', () => {
   })
 
   it('does not stretch the last day: under a day is still "Expires today"', () => {
-    expect(timeLeftLabel(at(DAY - 1), NOW)).toBe('Expires today')
+    expect(timeLeftLabel(at(DAY - 30_000), NOW)).toBe('Expires today')
   })
 
   it('says "Expires today" for the last day', () => {
@@ -347,5 +348,14 @@ describe('headToHeadText', () => {
   it('writes wins - losses - draws', () => {
     expect(headToHeadText({ wins: 3, losses: 1, draws: 1 })).toBe('3 - 1 - 1')
     expect(headToHeadText({ wins: 0, losses: 0, draws: 0 })).toBe('0 - 0 - 0')
+  })
+})
+
+describe('challengeUserName', () => {
+  it('prefers the username, then the name, then a neutral word', () => {
+    expect(challengeUserName({ username: 'kay', name: 'Kay Lee' })).toBe('kay')
+    expect(challengeUserName({ username: null, name: 'Kay Lee' })).toBe('Kay Lee')
+    expect(challengeUserName({ username: '  ', name: null })).toBe('A DJ')
+    expect(challengeUserName(null)).toBe('A DJ')
   })
 })

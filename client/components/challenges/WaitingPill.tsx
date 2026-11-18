@@ -1,4 +1,5 @@
-import { Badge } from '@/components/ui/badge'
+import { badgeVariants } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { waitingCountText } from '@/lib/profile-challenges'
 
 /**
@@ -10,12 +11,14 @@ import { waitingCountText } from '@/lib/profile-challenges'
 export function WaitingPill({ count }: { count: number }) {
   if (count <= 0) return null
   return (
-    <Badge
-      variant="upcoming"
+    <span
       aria-hidden="true"
-      className="pointer-events-none absolute -top-2 -right-3 min-w-5 justify-center border-transparent bg-amber-500 px-1.5 py-0 text-black"
+      className={cn(
+        badgeVariants({ variant: 'upcoming' }),
+        'pointer-events-none absolute -top-2 -right-3 min-w-5 justify-center border-transparent bg-amber-500 px-1.5 py-0 text-black',
+      )}
     >
       {waitingCountText(count)}
-    </Badge>
+    </span>
   )
 }

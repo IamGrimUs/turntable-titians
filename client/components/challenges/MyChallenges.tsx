@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useQuery } from '@apollo/client'
 import { ChevronRight } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { badgeVariants } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { GET_MY_CHALLENGES } from '@/lib/graphql/challenges'
 import { myChallengesSections, type MyChallengeInput } from '@/lib/profile-challenges'
@@ -49,7 +49,7 @@ export function MyChallenges() {
                       <span className="block break-words text-base font-semibold text-foreground">{row.title}</span>
                       <span className="block break-words text-base text-muted-foreground">with {row.otherName}</span>
                       <span className="mt-1 flex flex-wrap items-center gap-2">
-                        <Badge variant={row.badgeVariant}>{row.statusLabel}</Badge>
+                        <span className={badgeVariants({ variant: row.badgeVariant })}>{row.statusLabel}</span>
                         {row.timeLeft && <span className="text-base text-muted-foreground">{row.timeLeft}</span>}
                       </span>
                     </span>

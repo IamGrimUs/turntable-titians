@@ -18,7 +18,6 @@ import {
   challengeHeadline,
   challengeRuleBullets,
   challengeScreenView,
-  challengeUserName,
   clearChallengerVideo,
   isChallengeUnavailable,
   ownEntryLink,
@@ -27,6 +26,7 @@ import {
 import {
   CHALLENGE_LIMITS,
   challengeBadgeVariant,
+  challengeUserName,
   timeLeftLabel,
   videoUrlError,
   type ChallengeRole,
@@ -187,6 +187,17 @@ function ChallengeDetails({
     document.getElementById(ACCEPT_VIDEO_FIELD_ID)?.focus()
   }, [focusRequest, busyAction])
 
+  // Set when the person's own click is about to close the challenge (declined, withdrawn, or expired
+  // under their click): the confirm group unmounts, so focus would fall to <body>. The effect moves
+  // it to the closed card's heading. Never set on first load or when the clock alone expires it.
+  const ownActionRef = useRef(false)
+  const closedHeadingRef = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    if (view.kind !== 'CLOSED' || !ownActionRef.current) return
+    ownActionRef.current = false
+    closedHeadingRef.current?.focus()
+  }, [view.kind])
+
   /** Runs one action at a time; a refusal shows the server's safe message and reloads the challenge. */
   async function run(action: ActionName, task: () => Promise<void>) {
     if (busyRef.current) return
@@ -195,15 +206,19 @@ function ChallengeDetails({
     setNow(current)
     const latest = challengeScreenView(challenge, current)
     if (latest.kind !== 'RESPOND' && latest.kind !== 'WAITING') {
-      setActionError(challengeClosedStatement(latest.status, role, otherName))
+      // The view turns CLOSED and already says why; a second alert would repeat the same sentence.
+      // The person acted, so focus moves to the closed card (see the effect below).
+      ownActionRef.current = true
       return
     }
+    ownActionRef.current = true
     busyRef.current = true
     setBusyAction(action)
     setActionError(null)
     try {
       await task()
     } catch (err) {
+      ownActionRef.current = false
       setActionError(challengeErrorMessage(err))
       if (action === 'accept') setFocusRequest((n) => n + 1)
       // The challenge may have changed under us (answered elsewhere, withdrawn): show what is true now.
@@ -435,8 +450,7 @@ function ChallengeDetails({
           <Card className="p-4 sm:p-6">
             <h2 className="text-2xl font-graffiti text-foreground mb-2">The battle is on</h2>
             <p className="text-base text-muted-foreground">
-              {role === 'OPPONENT' ? 'You' : opponentName} accepted. Both entries are on the battle page and the
-              community is voting.
+              {role === 'OPPONENT' ? 'You' : opponentName} accepted. Both entries are on the battle page.
             </p>
             <Link href={battlePath(view.battleId)} className={`${buttonVariants({ size: 'lg' })} mt-4 w-full sm:w-auto`}>
               Open the battle
@@ -446,6 +460,13 @@ function ChallengeDetails({
 
         {view.kind === 'CLOSED' && (
           <Card className="p-4 sm:p-6">
+            <h2
+              ref={closedHeadingRef}
+              tabIndex={-1}
+              className="text-2xl font-graffiti text-foreground mb-2 focus:outline-none"
+            >
+              Challenge closed
+            </h2>
             <p className="text-base text-foreground">{challengeClosedStatement(view.status, role, otherName)}</p>
             {actionError && (
               <p role="alert" className="mt-3 text-base font-medium text-destructive">

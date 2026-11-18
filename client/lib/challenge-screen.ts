@@ -80,13 +80,6 @@ export function ownEntryLink(
   }
 }
 
-export function challengeUserName(user: { username: string | null; name: string | null } | null | undefined): string {
-  const username = user?.username?.trim()
-  if (username) return username
-  const name = user?.name?.trim()
-  return name || 'A DJ'
-}
-
 /** "12 career wins"; null when the number is not known. */
 export function careerWinsText(wins: number | null | undefined): string | null {
   return typeof wins === 'number' ? plural(wins, 'career win') : null

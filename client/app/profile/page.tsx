@@ -66,7 +66,13 @@ export default function ProfilePage() {
     setSuccess(false)
     try {
       await updateProfile({
-        variables: profileUpdateVariables({ username, image: imageUrl, crews, challengeEmails }),
+        variables: profileUpdateVariables({
+          username,
+          image: imageUrl,
+          crews,
+          challengeEmails,
+          loadedChallengeEmails: me?.challengeEmails,
+        }),
       })
       void cleanupOldAvatars() // tidy up replaced avatars; best effort, never blocks the save
       await update({ username })

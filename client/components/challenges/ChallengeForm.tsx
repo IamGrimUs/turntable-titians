@@ -274,14 +274,17 @@ export function ChallengeForm({ initialUsername }: ChallengeFormProps) {
             </div>
           </fieldset>
 
-          {showSentLink && sentId && (
-            <p role="status" className="text-base text-foreground">
-              Your challenge was sent.{' '}
-              <Link href={challengePath(sentId)} className="text-amber-500 underline underline-offset-2">
-                Open it
-              </Link>
-            </p>
-          )}
+          {/* The status container is always mounted (empty) and filled later, so screen readers announce it. */}
+          <div role="status" className="text-base text-foreground empty:!mt-0">
+            {showSentLink && sentId && (
+              <p>
+                Your challenge was sent.{' '}
+                <Link href={challengePath(sentId)} className="text-amber-500 underline underline-offset-2">
+                  Open it
+                </Link>
+              </p>
+            )}
+          </div>
 
           {formError && (
             <p role="alert" className="text-base font-medium text-destructive">
