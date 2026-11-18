@@ -4,6 +4,11 @@ import { useQuery } from '@apollo/client'
 import { VoteCount } from '@/components/VoteCount'
 import { buildProfileStats } from '@/lib/user-profile-stats'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+import { Button } from '@/components/ui/button'
+import { challengeButtonView } from '@/lib/profile-head-to-head'
+import { HeadToHeadCard } from '@/components/profile/HeadToHeadCard'
 import { GET_USER } from '@/lib/graphql/user-profile'
 import { TrophyShelf } from '@/components/profile/TrophyShelf'
 
@@ -19,6 +24,7 @@ function StatCard({ label, value, accent = false }: { label: string; value: numb
 export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>()
   const { data, loading, error } = useQuery(GET_USER, { variables: { id } })
+  const { data: session } = useSession()
 
   if (loading) {
     return (
@@ -38,6 +44,8 @@ export default function UserProfilePage() {
 
   const user = data.user
   const stats = buildProfileStats(user)
+  // Signed-in viewers with a username only; nothing while the session is still loading.
+  const challengeButton = challengeButtonView(session?.user, user)
 
   return (
     <div className="p-8 max-w-2xl mx-auto">
@@ -53,10 +61,15 @@ export default function UserProfilePage() {
             {(user.username ?? user.name ?? '?')[0].toUpperCase()}
           </div>
         )}
-        <div>
-          <h1 className="text-2xl font-graffiti text-foreground">
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-graffiti text-foreground">
             {user.username ?? user.name ?? 'Anonymous'}
           </h1>
+          {challengeButton && (
+            <Button asChild className="mt-3 h-auto min-h-10 whitespace-normal break-words text-left">
+              <Link href={challengeButton.href}>{challengeButton.label}</Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -67,6 +80,8 @@ export default function UserProfilePage() {
       </div>
 
       <TrophyShelf record={user.record} />
+
+      <HeadToHeadCard record={user.headToHead} />
 
       <div>
         <h2 className="text-base font-bold tracking-widest uppercase text-muted-foreground mb-4">
