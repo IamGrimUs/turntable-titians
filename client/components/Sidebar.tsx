@@ -18,7 +18,7 @@ const navigation = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Battles', href: '/battles', icon: Swords },
   { name: 'Create Battle', href: '/battles/create', icon: Plus },
-  { name: 'Board', href: '/board', icon: Lightbulb },
+  { name: 'Ideas', href: '/board', icon: Lightbulb },
   { name: 'How It Works', href: '/how-it-works', icon: HelpCircle },
 ];
 
