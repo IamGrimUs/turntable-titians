@@ -9,7 +9,7 @@ const fieldClass =
 
 /**
  * The two ways to sign in: Google, or a magic link sent to your email. Used on the
- * sign-in page and on the home page, so both always behave the same.
+ * sign-in page.
  * `errorSlot` is where a page can show its own message (e.g. the ?error= from Auth.js).
  */
 export function SignInForm({ errorSlot }: { errorSlot?: ReactNode }) {
