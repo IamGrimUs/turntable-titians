@@ -2,6 +2,25 @@
 // history, so it must never be accepted as a real secret.
 const FORMER_DEFAULT_SECRET = 'dev-secret-change-me'
 
+export interface EmailConfig {
+  apiKey: string
+  from: string
+  siteUrl: string
+}
+
+/**
+ * The settings for the emails the server sends itself (challenge updates, through Resend).
+ * Returns null unless RESEND_API_KEY, EMAIL_FROM and SITE_URL are all set and non-blank, which
+ * means "do not send": an unconfigured server simply skips emails. The key is never logged.
+ */
+export function getEmailConfig(env: Record<string, string | undefined> = process.env): EmailConfig | null {
+  const apiKey = env.RESEND_API_KEY?.trim()
+  const from = env.EMAIL_FROM?.trim()
+  const siteUrl = env.SITE_URL?.trim()
+  if (!apiKey || !from || !siteUrl) return null
+  return { apiKey, from, siteUrl }
+}
+
 /**
  * Returns the key used to verify the client's API tokens.
  *

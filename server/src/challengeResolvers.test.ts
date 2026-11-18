@@ -32,7 +32,10 @@ vi.mock('./db', () => ({
   },
 }))
 
+vi.mock('./challengeEmail', () => ({ notifyChallenge: vi.fn() }))
+
 import { db } from './db'
+import { notifyChallenge } from './challengeEmail'
 import {
   challengeFields,
   challengeMutation,
@@ -875,5 +878,106 @@ describe('Challenge fields', () => {
     dbUserFind.mockImplementation(async ({ where }: { where: { id: string } }) => ({ id: where.id }))
     expect(await f.challenger(row())).toEqual({ id: 'me' })
     expect(await f.opponent(row())).toEqual({ id: 'opp' })
+  })
+})
+
+describe('challenge emails (fire-and-forget after the commit)', () => {
+  const notify = fn(notifyChallenge)
+  const NEW_URL = 'https://youtube.com/watch?v=my-new-entry'
+  let events: string[]
+
+  beforeEach(() => {
+    events = []
+    notify.mockImplementation(async () => {
+      events.push('notify')
+    })
+    transaction.mockImplementation(async (cb: (t: typeof tx) => unknown) => {
+      events.push('tx-start')
+      const result = await cb(tx)
+      events.push('tx-end')
+      return result
+    })
+    // accept
+    txChFindUnique.mockResolvedValue({
+      challengerId: 'me',
+      title: 'Scratch showdown',
+      message: 'Let us settle it',
+      votingDays: 7,
+      challengerVideoUrl: SECRET_URL,
+    })
+    txUserFind.mockResolvedValue({ suspendedAt: null, suspendedUntil: null })
+    txUpdateMany.mockResolvedValue({ count: 1 })
+    txBattleCreate.mockResolvedValue({ id: 'b1' })
+    txChUpdate.mockResolvedValue(row({ status: 'ACCEPTED', respondedAt: NOW, battleId: 'b1' }))
+    chFindUnique.mockResolvedValue(row())
+  })
+
+  const create = () => m.createChallenge({}, validArgs, asMe)
+  const accept = () => m.acceptChallenge({}, { id: 'c1', videoUrl: NEW_URL }, asOpponent)
+  const decline = () => m.declineChallenge({}, { id: 'c1' }, asOpponent)
+  const withdraw = () => m.withdrawChallenge({}, { id: 'c1' }, asMe)
+
+  it('createChallenge sends CHALLENGED for the new challenge, after the transaction has finished', async () => {
+    await create()
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(notify).toHaveBeenCalledWith('CHALLENGED', 'c1')
+    expect(events).toEqual(['tx-start', 'tx-end', 'notify'])
+  })
+
+  it('acceptChallenge sends ACCEPTED, after the transaction has finished', async () => {
+    await accept()
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(notify).toHaveBeenCalledWith('ACCEPTED', 'c1')
+    expect(events).toEqual(['tx-start', 'tx-end', 'notify'])
+  })
+
+  it('declineChallenge sends DECLINED once the decline is stored', async () => {
+    chFindUnique.mockResolvedValueOnce(row()).mockResolvedValueOnce(row({ status: 'DECLINED', respondedAt: NOW }))
+    await decline()
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(notify).toHaveBeenCalledWith('DECLINED', 'c1')
+  })
+
+  it('withdrawChallenge sends nothing', async () => {
+    chFindUnique.mockResolvedValueOnce(row()).mockResolvedValueOnce(row({ status: 'WITHDRAWN', respondedAt: NOW }))
+    await withdraw()
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('sends nothing when the mutation itself fails', async () => {
+    txCount.mockResolvedValue(3)
+    expect(await msg(create())).not.toBeNull()
+
+    txUpdateMany.mockResolvedValue({ count: 0 })
+    expect(await msg(accept())).not.toBeNull()
+
+    chUpdateMany.mockResolvedValue({ count: 0 })
+    expect(await msg(decline())).not.toBeNull()
+
+    expect(await msg(m.createChallenge({}, validArgs, anonymous))).not.toBeNull()
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('a notifier that rejects never changes the mutation result', async () => {
+    notify.mockRejectedValue(new Error('resend is down'))
+    expect(await create()).toEqual(row())
+    expect(await accept()).toEqual(row({ status: 'ACCEPTED', respondedAt: NOW, battleId: 'b1' }))
+    chFindUnique.mockResolvedValueOnce(row()).mockResolvedValueOnce(row({ status: 'DECLINED', respondedAt: NOW }))
+    expect(await decline()).toEqual(row({ status: 'DECLINED', respondedAt: NOW }))
+  })
+
+  it('a notifier that throws synchronously never changes the mutation result', async () => {
+    notify.mockImplementation(() => {
+      throw new Error('sync boom')
+    })
+    expect(await create()).toEqual(row())
+    expect(await accept()).toEqual(row({ status: 'ACCEPTED', respondedAt: NOW, battleId: 'b1' }))
+    chFindUnique.mockResolvedValueOnce(row()).mockResolvedValueOnce(row({ status: 'DECLINED', respondedAt: NOW }))
+    expect(await decline()).toEqual(row({ status: 'DECLINED', respondedAt: NOW }))
+  })
+
+  it('does not wait for a slow notifier', async () => {
+    notify.mockImplementation(() => new Promise(() => {})) // never settles
+    expect(await create()).toEqual(row())
   })
 })

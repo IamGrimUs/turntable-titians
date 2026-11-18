@@ -230,7 +230,7 @@ describe('createBattle', () => {
     expect(m.battleCreate).not.toHaveBeenCalled()
   })
 
-  it.each(['Head to Head', 'head to head', ' Head to Head ', 'HEAD TO HEAD', 'Head  to  Head', 'head   to head', 'HeadtoHead'])(
+  it.each(['Head to Head', 'head to head', ' Head to Head ', 'HEAD TO HEAD', 'Head  to  Head', 'head   to head', 'HeadtoHead', 'Head to Head'])(
     'refuses the reserved battle type %j before any write',
     async (type) => {
       const e = await rejection(mutation('createBattle')({}, { ...args, type }, asUser))
@@ -307,6 +307,19 @@ describe('updateProfile', () => {
     expect(m.userUpdate).not.toHaveBeenCalled()
   })
 
+  it('stores challengeEmails when it is provided (true or false)', async () => {
+    await update({ challengeEmails: false })
+    expect(m.userUpdate.mock.calls[0][0].data.challengeEmails).toBe(false)
+    await update({ challengeEmails: true })
+    expect(m.userUpdate.mock.calls[1][0].data.challengeEmails).toBe(true)
+  })
+
+  it('leaves challengeEmails alone when it is not provided or null', async () => {
+    await update({ externalCrews: ['Crew A'] })
+    await update({ challengeEmails: null })
+    for (const call of m.userUpdate.mock.calls) expect('challengeEmails' in call[0].data).toBe(false)
+  })
+
   it('stores an empty image as null (no avatar)', async () => {
     await update({ image: '' })
     expect(m.userUpdate.mock.calls[0][0].data.image).toBeNull()
@@ -346,6 +359,24 @@ describe('updateProfile', () => {
   it('only ever updates the caller\'s own record', async () => {
     await update({ username: 'new_handle' })
     expect(m.userUpdate.mock.calls[0][0].where).toEqual({ id: 'user-1' })
+  })
+})
+
+describe('User.challengeEmails (private setting)', () => {
+  const field = (resolvers.User as unknown as Record<string, AnyFn>).challengeEmails
+
+  it('is the stored value for the user themselves', () => {
+    expect(field({ id: 'user-1', challengeEmails: false }, {}, asUser)).toBe(false)
+    expect(field({ id: 'user-1', challengeEmails: true }, {}, asUser)).toBe(true)
+  })
+
+  it('is null for anyone else and for anonymous callers', () => {
+    expect(field({ id: 'user-2', challengeEmails: false }, {}, asUser)).toBeNull()
+    expect(field({ id: 'user-2', challengeEmails: true }, {}, anonymous)).toBeNull()
+  })
+
+  it('is null when the parent row has no value loaded', () => {
+    expect(field({ id: 'user-1' }, {}, asUser)).toBeNull()
   })
 })
 

@@ -58,6 +58,24 @@ describe('public GraphQL schema privacy', () => {
     }
   })
 
+  it('only the admin types (AdminUser, the owner-only AuditLogEntry) have an email field: no other type, challenge types included, returns an address', () => {
+    const withEmail: string[] = []
+    for (const [name, type] of Object.entries(schema.getTypeMap())) {
+      if (name.startsWith('__') || !isObjectType(type)) continue
+      if (Object.keys(type.getFields()).some((f) => /email/i.test(f) && f !== 'challengeEmails')) withEmail.push(name)
+    }
+    expect(withEmail.sort()).toEqual(['AdminUser', 'AuditLogEntry'])
+  })
+
+  it('User.challengeEmails is a nullable Boolean (the user\'s own setting) and updateProfile takes it', () => {
+    const userType = schema.getType('User')
+    const field = userType && 'getFields' in userType ? userType.getFields().challengeEmails : undefined
+    expect(String(field?.type)).toBe('Boolean')
+    const arg = schema.getMutationType()!.getFields().updateProfile.args.find((a) => a.name === 'challengeEmails')
+    expect(String(arg?.type)).toBe('Boolean')
+    expect(errorsFor('mutation { updateProfile(challengeEmails: false) { id challengeEmails } }')).toEqual([])
+  })
+
   it('exposes the admin fields only on AdminUser, reachable only through adminUsers', () => {
     expect(errorsFor('{ adminUsers { rows { email role status suspensionReason lastSignInAt } } }')).toEqual([])
     expect(errorsFor('{ me { role } }').length).toBeGreaterThan(0)
@@ -134,6 +152,9 @@ describe('pinned public types', () => {
       // Added on purpose: wins, losses and draws of finished head to head duels. Duels are
       // public battles; this reveals nothing about voters and nothing before a duel is over.
       headToHead: 'HeadToHeadRecord!',
+      // Added on purpose: the user's own "email me about challenges" setting. The resolver returns
+      // it only to the user themselves and null to everyone else. It is a flag, never an address.
+      challengeEmails: 'Boolean',
       createdAt: 'String!',
     })
   })

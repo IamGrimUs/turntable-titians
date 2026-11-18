@@ -164,7 +164,13 @@ export const resolvers = {
         username,
         image,
         externalCrews,
-      }: { username?: string | null; image?: string | null; externalCrews?: string[] | null },
+        challengeEmails,
+      }: {
+        username?: string | null
+        image?: string | null
+        externalCrews?: string[] | null
+        challengeEmails?: boolean | null
+      },
       ctx: Context
     ) => {
       const userId = requireAuth(ctx)
@@ -200,6 +206,8 @@ export const resolvers = {
           ...(nextUsername !== undefined && { username: nextUsername }),
           ...(nextImage !== undefined && { image: nextImage }),
           ...(nextCrews !== undefined && { externalCrews: nextCrews }),
+          // Only changes when sent; null (the column is not nullable) means "leave it".
+          ...(typeof challengeEmails === 'boolean' && { challengeEmails }),
         },
       })
     },
@@ -341,6 +349,9 @@ export const resolvers = {
     battlesWon: (parent: { id: string }) => countBattlesWon(parent.id),
     record: userRecord,
     headToHead: userHeadToHead,
+    // A private setting: the stored value for the user themselves, null for everyone else.
+    challengeEmails: (parent: { id: string; challengeEmails?: boolean }, _args: unknown, ctx: Context) =>
+      ctx.userId && ctx.userId === parent.id ? (parent.challengeEmails ?? null) : null,
     createdAt: (parent: { createdAt: Date }) => parent.createdAt.toISOString(),
   },
 

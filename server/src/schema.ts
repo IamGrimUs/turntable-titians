@@ -134,6 +134,8 @@ export const typeDefs = gql`
     record: UserRecord!
     """Wins, losses and draws in COMPLETED head to head duels. Duels are not part of battlesWon or record."""
     headToHead: HeadToHeadRecord!
+    """The user's own "email me about challenges" setting. Null for everyone except the user themselves. Never an address."""
+    challengeEmails: Boolean
     createdAt: String!
   }
 
@@ -394,6 +396,7 @@ export const typeDefs = gql`
       username: String
       image: String
       externalCrews: [String!]
+      challengeEmails: Boolean
     ): User!
     adminUpdateUser(
       userId: ID!

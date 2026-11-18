@@ -3,6 +3,7 @@ import { GraphQLError } from 'graphql'
 import { db } from './db'
 import { requireAuth, type Context } from './context'
 import { isSuspended } from './suspension'
+import { notifyChallenge, type ChallengeEvent } from './challengeEmail'
 import { HEAD_TO_HEAD_TYPE } from './battleKind'
 import {
   cleanChallengeInput,
@@ -75,6 +76,19 @@ export const challengeQuery = {
   },
 }
 
+/**
+ * Emails are best effort and only ever sent after the change is committed: fire and forget, so a
+ * slow or failing email can neither delay nor fail the mutation (notifyChallenge never rejects;
+ * the guards below keep even a misbehaving notifier from changing the result).
+ */
+function sendEmail(event: ChallengeEvent, challengeId: string): void {
+  try {
+    void Promise.resolve(notifyChallenge(event, challengeId)).catch(() => {})
+  } catch {
+    // never let an email problem reach the caller
+  }
+}
+
 type Answer = 'DECLINED' | 'WITHDRAWN'
 
 /**
@@ -86,7 +100,8 @@ async function answerChallenge(
   ctx: Context,
   to: Answer,
   allowed: 'CHALLENGER' | 'OPPONENT',
-  wrongSide: string
+  wrongSide: string,
+  email: ChallengeEvent | null
 ): Promise<ChallengeParent> {
   const userId = requireAuth(ctx)
   const found = await db.challenge.findUnique({ where: { id }, select: SAFE_SELECT })
@@ -100,6 +115,7 @@ async function answerChallenge(
     data: { status: to, respondedAt: now },
   })
   if (count === 0) throw badInput('This challenge is no longer waiting for an answer.')
+  if (email) sendEmail(email, id)
 
   const updated = await db.challenge.findUnique({ where: { id }, select: SAFE_SELECT })
   if (!updated) throw notFound()
@@ -123,10 +139,11 @@ export const challengeMutation = {
     if (!ctx.username) throw badInput('Choose a username before challenging someone.')
 
     const now = new Date()
+    let created: ChallengeParent
     try {
       // The checks and the create share one Serializable transaction, so two simultaneous
       // requests cannot both pass the "one waiting per pair" and rate checks.
-      return await db.$transaction(
+      created = await db.$transaction(
         async (tx) => {
           // Usernames are unique ignoring case, so "djopp" must find "DJOpp".
           const opponent = await tx.user.findFirst({
@@ -191,6 +208,8 @@ export const challengeMutation = {
       if (isSerializationFailure(err)) throw badInput('Something went wrong, please try again.')
       throw err
     }
+    sendEmail('CHALLENGED', created.id)
+    return created
   },
 
   /**
@@ -216,8 +235,9 @@ export const challengeMutation = {
     if (role === 'CHALLENGER') throw badInput("You can't accept your own challenge.")
 
     const now = new Date()
+    let accepted: ChallengeParent
     try {
-      return await db.$transaction(async (tx) => {
+      accepted = await db.$transaction(async (tx) => {
         const { count } = await tx.challenge.updateMany({
           where: { id, opponentId: userId, status: 'PENDING', expiresAt: { gt: now } },
           data: { status: 'ACCEPTED', respondedAt: now },
@@ -269,13 +289,16 @@ export const challengeMutation = {
       console.error('[challenge] accept failed:', e?.name, e?.code)
       throw new Error('Could not open the duel.')
     }
+    sendEmail('ACCEPTED', id)
+    return accepted
   },
 
   declineChallenge: (_: unknown, { id }: { id: string }, ctx: Context) =>
-    answerChallenge(id, ctx, 'DECLINED', 'OPPONENT', 'Only the DJ who was challenged can decline.'),
+    answerChallenge(id, ctx, 'DECLINED', 'OPPONENT', 'Only the DJ who was challenged can decline.', 'DECLINED'),
 
+  // A withdrawal sends no email.
   withdrawChallenge: (_: unknown, { id }: { id: string }, ctx: Context) =>
-    answerChallenge(id, ctx, 'WITHDRAWN', 'CHALLENGER', 'Only the DJ who sent the challenge can withdraw it.'),
+    answerChallenge(id, ctx, 'WITHDRAWN', 'CHALLENGER', 'Only the DJ who sent the challenge can withdraw it.', null),
 }
 
 export const challengeFields = {
