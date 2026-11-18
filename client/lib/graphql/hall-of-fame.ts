@@ -27,6 +27,7 @@ export const GET_BATTLE_RESULTS = gql`
       winners { id username name image }
       runoff { ${RUNOFF_FIELDS} }
       submissions { id }
+      duel { outcome }
     }
   }
 `
@@ -44,6 +45,7 @@ export const GET_LATEST_CHAMPIONS = gql`
       title
       endDate
       status
+      duel { outcome }
       winningVotes
       winners { id username name image }
       runoff { status }

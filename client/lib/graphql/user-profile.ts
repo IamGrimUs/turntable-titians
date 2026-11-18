@@ -1,4 +1,5 @@
 import { gql } from '@apollo/client'
+import { HEAD_TO_HEAD_FIELDS } from './challenges'
 
 /** The public profile. `record` feeds the trophy shelf (completed battles only). */
 export const GET_USER = gql`
@@ -18,6 +19,7 @@ export const GET_USER = gql`
         bestStreak
         battlesEntered
       }
+      headToHead { ${HEAD_TO_HEAD_FIELDS} }
       submissions {
         id
         title

@@ -1,4 +1,5 @@
 import { gql } from '@apollo/client';
+import { DUEL_FIELDS } from './challenges';
 import { RUNOFF_FIELDS, RUNOFF_DETAIL_FIELDS } from './runoff';
 
 export const GET_BATTLES = gql`
@@ -18,6 +19,7 @@ export const GET_BATTLES = gql`
         user { id username name image }
       }
       createdAt
+      duel { ${DUEL_FIELDS} }
     }
   }
 `;
@@ -47,6 +49,7 @@ export const GET_BATTLE = gql`
       }
       createdAt
       updatedAt
+      duel { ${DUEL_FIELDS} }
     }
   }
 `;
@@ -85,18 +88,25 @@ export const ME_QUERY = gql`
       name
       image
       externalCrews
+      challengeEmails
     }
   }
 `;
 
 export const UPDATE_PROFILE_MUTATION = gql`
-  mutation UpdateProfile($username: String, $image: String, $externalCrews: [String!]) {
-    updateProfile(username: $username, image: $image, externalCrews: $externalCrews) {
+  mutation UpdateProfile($username: String, $image: String, $externalCrews: [String!], $challengeEmails: Boolean) {
+    updateProfile(
+      username: $username
+      image: $image
+      externalCrews: $externalCrews
+      challengeEmails: $challengeEmails
+    ) {
       id
       username
       name
       image
       externalCrews
+      challengeEmails
     }
   }
 `;

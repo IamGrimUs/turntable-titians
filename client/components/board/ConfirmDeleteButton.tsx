@@ -11,13 +11,27 @@ interface ConfirmDeleteButtonProps {
   /** Does the delete. It must handle its own errors; the button only guards double clicks. */
   onConfirm: () => Promise<void>
   size?: 'default' | 'sm'
+  /** Text of the confirming button; defaults to "Yes, delete". */
+  confirmLabel?: string
+  /** Its text while the request runs; defaults to "Deleting…". */
+  pendingLabel?: string
+  /** Disables both steps, e.g. while another action on the same page is running. */
+  disabled?: boolean
 }
 
 /**
  * Two-step delete: the first click only asks, the second one deletes. A ref (set synchronously)
  * stops a fast double click from sending two requests.
  */
-export function ConfirmDeleteButton({ label, question, onConfirm, size = 'sm' }: ConfirmDeleteButtonProps) {
+export function ConfirmDeleteButton({
+  label,
+  question,
+  onConfirm,
+  size = 'sm',
+  confirmLabel = 'Yes, delete',
+  pendingLabel = 'Deleting…',
+  disabled = false,
+}: ConfirmDeleteButtonProps) {
   const [confirming, setConfirming] = useState(false)
   const [pending, setPending] = useState(false)
   const runningRef = useRef(false)
@@ -57,7 +71,14 @@ export function ConfirmDeleteButton({ label, question, onConfirm, size = 'sm' }:
 
   if (!confirming) {
     return (
-      <Button ref={triggerRef} type="button" variant="outline" size={size} onClick={() => setConfirming(true)}>
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="outline"
+        size={size}
+        onClick={() => setConfirming(true)}
+        disabled={disabled}
+      >
         {label}
       </Button>
     )
@@ -66,8 +87,8 @@ export function ConfirmDeleteButton({ label, question, onConfirm, size = 'sm' }:
   return (
     <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
       <span className="text-base text-foreground">{question}</span>
-      <Button type="button" variant="destructive" size={size} onClick={confirm} disabled={pending}>
-        {pending ? 'Deleting…' : 'Yes, delete'}
+      <Button type="button" variant="destructive" size={size} onClick={confirm} disabled={pending || disabled}>
+        {pending ? pendingLabel : confirmLabel}
       </Button>
       <Button ref={cancelRef} type="button" variant="outline" size={size} onClick={cancel} disabled={pending}>
         Cancel
