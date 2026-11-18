@@ -11,7 +11,7 @@ const navigation = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Battles', href: '/battles', icon: Swords },
   { name: 'Create', href: '/battles/create', icon: Plus },
-  { name: 'Board', href: '/board', icon: Lightbulb },
+  { name: 'Ideas', href: '/board', icon: Lightbulb },
 ]
 
 export function BottomNav() {

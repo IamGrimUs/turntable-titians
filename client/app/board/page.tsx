@@ -122,7 +122,7 @@ export default function BoardPage() {
     <div className="p-4 sm:p-8">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-5xl font-graffiti mb-2 text-foreground">Board</h1>
+          <h1 className="text-5xl font-graffiti mb-2 text-foreground">Idea Board</h1>
           <p className="text-muted-foreground text-base">Suggest features, report bugs and vote on what the site should do next.</p>
         </div>
         {sessionLoading ? null : access === 'READY' ? (
