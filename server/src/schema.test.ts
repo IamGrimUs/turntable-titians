@@ -128,7 +128,28 @@ describe('pinned public types', () => {
       // Added on purpose: a win count is public once battles complete, like Submission.voteCount.
       // It never counts open battles, and reveals no voter.
       battlesWon: 'Int!',
+      // Added on purpose: wins, podiums, streaks and entries, from COMPLETED battles only (the
+      // same public facts as battlesWon, broken down). No voter identity, no open-battle votes.
+      record: 'UserRecord!',
       createdAt: 'String!',
+    })
+  })
+
+  it('UserRecord and Champion expose only results, never a voter or a private field', () => {
+    expect(fieldTypes('UserRecord')).toEqual({
+      wins: 'Int!',
+      podiums: 'Int!',
+      bestFinish: 'Int',
+      currentStreak: 'Int!',
+      bestStreak: 'Int!',
+      battlesEntered: 'Int!',
+    })
+    expect(fieldTypes('Champion')).toEqual({
+      rank: 'Int!',
+      user: 'User!',
+      wins: 'Int!',
+      battlesEntered: 'Int!',
+      lastWinAt: 'String!',
     })
   })
 
@@ -278,3 +299,29 @@ describe('suggestions board schema privacy', () => {
   })
 })
 
+
+describe('winners and Hall of Fame schema', () => {
+  it('validates the documents the client will send', () => {
+    expect(errorsFor('{ battles { id status winners { id username name image } } }')).toEqual([])
+    expect(errorsFor('{ hallOfFame { rank wins battlesEntered lastWinAt user { id username name image } } }')).toEqual([])
+    expect(
+      errorsFor('{ user(id: "x") { battlesWon record { wins podiums bestFinish currentStreak bestStreak battlesEntered } } }'),
+    ).toEqual([])
+  })
+
+  it('keeps winners and champions free of private fields and of voter identities', () => {
+    expect(errorsFor('{ battles { winners { email } } }').length).toBeGreaterThan(0)
+    expect(errorsFor('{ hallOfFame { user { email } } }').length).toBeGreaterThan(0)
+    expect(errorsFor('{ hallOfFame { votes { userId } } }').length).toBeGreaterThan(0)
+    expect(errorsFor('{ user(id: "x") { record { votes } } }').length).toBeGreaterThan(0)
+  })
+
+  it('types the new fields as documented', () => {
+    const q = schema.getQueryType()!.getFields()
+    expect(String(q.hallOfFame.type)).toBe('[Champion!]!')
+    const record = schema.getType('UserRecord')
+    const fields = record && 'getFields' in record ? record.getFields() : {}
+    expect(String(fields.bestFinish.type)).toBe('Int') // null when the user never placed
+    expect(String(fields.wins.type)).toBe('Int!')
+  })
+})

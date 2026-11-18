@@ -10,6 +10,8 @@ export const typeDefs = gql`
     endDate: String!
     status: BattleStatus!
     submissions: [Submission!]!
+    """Who won. Empty while the battle is open and when nobody got a vote. A tie lists everyone tied."""
+    winners: [User!]!
     createdAt: String!
     updatedAt: String!
   }
@@ -46,7 +48,33 @@ export const typeDefs = gql`
     submissions: [Submission!]!
     """COMPLETED battles where this user's entry had the most votes (ties count for everyone tied). Open battles never count."""
     battlesWon: Int!
+    """Results across COMPLETED battles only. Open battles never count."""
+    record: UserRecord!
     createdAt: String!
+  }
+
+  """A user's results across completed battles."""
+  type UserRecord {
+    wins: Int!
+    """Finished first, second or third."""
+    podiums: Int!
+    """Lowest place reached (1 is best). Null if the user never placed."""
+    bestFinish: Int
+    """Wins in a row, counting only battles the user entered, ending at the most recent one."""
+    currentStreak: Int!
+    bestStreak: Int!
+    """Completed battles the user entered."""
+    battlesEntered: Int!
+  }
+
+  """One row of the Hall of Fame: a user with at least one win."""
+  type Champion {
+    """Ranked by wins. Equal wins share a rank (1, 2, 2, 4)."""
+    rank: Int!
+    user: User!
+    wins: Int!
+    battlesEntered: Int!
+    lastWinAt: String!
   }
 
   type Crew {
@@ -234,6 +262,8 @@ export const typeDefs = gql`
     submissions(battleId: ID!): [Submission!]!
     user(id: ID!): User
     me: User
+    """Everyone with at least one win in a completed battle, most wins first."""
+    hallOfFame: [Champion!]!
     health: HealthStatus!
     adminUsers(
       search: String
