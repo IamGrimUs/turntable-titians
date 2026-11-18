@@ -14,6 +14,7 @@ import { Lock } from 'lucide-react'
 import { rankSubmissions, VOTES_HIDDEN_HINT } from '@/lib/vote-visibility'
 import { entryStyle } from '@/lib/battle-entry-style'
 import { boardAccess } from '@/lib/board-view'
+import { battleCardView } from '@/lib/battle-card-view'
 import { RunoffPanel, type RunoffData } from '@/components/battles/RunoffPanel'
 
 interface SubmissionUser {
@@ -48,12 +49,6 @@ interface Battle {
   /** Set when the battle ended tied for first: voting reopens on the tied entries. */
   runoff: RunoffData | null
   submissions: Submission[]
-}
-
-const statusVariantMap: Record<string, 'upcoming' | 'active' | 'completed'> = {
-  UPCOMING: 'upcoming',
-  ACTIVE: 'active',
-  COMPLETED: 'completed',
 }
 
 export default function BattleDetailPage() {
@@ -119,6 +114,9 @@ export default function BattleDetailPage() {
 
   const showForm = battle.status === 'ACTIVE' && !!currentUserId && !hasSubmitted
 
+  // Same pill as the battle cards: an open runoff reads RUNOFF, not COMPLETED.
+  const headerView = battleCardView({ status: battle.status, runoff: battle.runoff })
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Battle Header */}
@@ -130,9 +128,7 @@ export default function BattleDetailPage() {
           <h1 className="text-5xl font-graffiti text-foreground">
             {battle.title}
           </h1>
-          <Badge variant={statusVariantMap[battle.status] ?? 'upcoming'}>
-            {battle.status}
-          </Badge>
+          <Badge variant={headerView.statusVariant}>{headerView.statusLabel}</Badge>
           <Badge variant="outline" className="text-muted-foreground">
             {battle.type}
           </Badge>

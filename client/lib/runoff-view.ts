@@ -3,7 +3,7 @@
  * so they are unit-tested. "Who won" is never decided here: the server sends the status and, once
  * the runoff is over, the vote counts. While it is OPEN the counts are null and no winner is named.
  */
-import { formatShortDate, joinNames } from './display-format'
+import { formatUtcShortDate, joinNames } from './display-format'
 
 export type RunoffStatus = 'OPEN' | 'DECIDED' | 'TIED'
 
@@ -13,7 +13,7 @@ export interface RunoffCandidateView {
 }
 
 export function runoffStatusLabel(status: RunoffStatus): string {
-  return status === 'OPEN' ? 'Runoff' : 'Completed'
+  return status === 'OPEN' ? 'RUNOFF' : 'COMPLETED'
 }
 
 /** The candidates at the top vote count, or all of them when any count is unknown. */
@@ -33,7 +33,7 @@ export function runoffCardLine(
   endsAt: string,
 ): string {
   if (status === 'OPEN') {
-    return `Runoff in progress: ${candidates.map((c) => c.name).join(' vs ')}, ends ${formatShortDate(endsAt)}`
+    return `Runoff in progress: ${candidates.map((c) => c.name).join(' vs ')}, ends ${formatUtcShortDate(endsAt)}`
   }
 
   const neutral = 'Runoff completed'
@@ -62,9 +62,11 @@ export function runoffVoteControl(i: {
   return i.viewerVoteSubmissionId === i.submissionId ? 'VOTED' : 'VOTE'
 }
 
-export function runoffLockedReason(i: { signedIn: boolean; isCandidateOwner: boolean }): string {
+export function runoffLockedReason(i: { signedIn: boolean; isCandidateOwner: boolean; isOpen: boolean }): string {
   if (!i.signedIn) return 'Sign in to vote'
   if (i.isCandidateOwner) return 'You are in this runoff, so you cannot vote'
+  // Open but locked for a signed-in non-candidate: the server refuses this viewer (e.g. suspended).
+  if (i.isOpen) return 'You cannot vote in this runoff'
   return 'Voting is closed'
 }
 
@@ -73,7 +75,7 @@ export function runoffRules(endsAt: string): string[] {
   return [
     'Anyone signed in can vote, including people who voted in round one.',
     'The tied DJs cannot vote.',
-    `One vote each. You can change it until ${formatShortDate(endsAt)}.`,
+    `One vote each. You can change it until ${formatUtcShortDate(endsAt)}.`,
     'If it is level again, they share the win.',
   ]
 }

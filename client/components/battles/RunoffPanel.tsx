@@ -10,7 +10,8 @@ import { getEmbedUrl } from '@/app/battles/[id]/getEmbedUrl'
 import { CAST_RUNOFF_VOTE, REMOVE_RUNOFF_VOTE } from '@/lib/graphql/runoff'
 import { adminErrorMessage } from '@/lib/admin-user-dialogs'
 import type { BoardAccess } from '@/lib/board-view'
-import { displayName, formatShortDate, type Person } from '@/lib/hall-of-fame-view'
+import { displayName, type Person } from '@/lib/hall-of-fame-view'
+import { formatUtcShortDate } from '@/lib/display-format'
 import { plural } from '@/lib/plural'
 import {
   runoffCardLine,
@@ -196,7 +197,7 @@ export function RunoffPanel({
     }
   }
 
-  function controlFor(submissionId: string): React.ReactNode {
+  function controlFor(submissionId: string, candidateName: string): React.ReactNode {
     if (!isOpen) return null
     if (sessionLoading) return null
     if (access === 'ANONYMOUS') {
@@ -220,7 +221,7 @@ export function RunoffPanel({
       submissionId,
     })
     if (control === 'LOCKED') {
-      return <p className="text-base text-muted-foreground">{runoffLockedReason({ signedIn: true, isCandidateOwner })}</p>
+      return <p className="text-base text-muted-foreground">{runoffLockedReason({ signedIn: true, isCandidateOwner, isOpen })}</p>
     }
     if (control === 'VOTED') {
       return (
@@ -232,9 +233,11 @@ export function RunoffPanel({
             type="button"
             className={secondaryButton}
             disabled={busy}
+            aria-busy={removing}
+            aria-label={`Remove your vote for ${candidateName}`}
             onClick={() => run(() => remove({ variables: { battleId } }))}
           >
-            {removing ? '…' : 'Remove vote'}
+            {removing ? 'Removing…' : 'Remove vote'}
           </button>
         </div>
       )
@@ -244,9 +247,15 @@ export function RunoffPanel({
         type="button"
         className={primaryButton}
         disabled={busy}
+        aria-busy={casting}
+        aria-label={
+          runoff.viewerVoteSubmissionId
+            ? `Switch your vote to ${candidateName} in the runoff`
+            : `Vote for ${candidateName} in the runoff`
+        }
         onClick={() => run(() => cast({ variables: { submissionId } }))}
       >
-        {casting ? '…' : runoff.viewerVoteSubmissionId ? 'Switch my vote to this entry' : 'Vote in the runoff'}
+        {casting ? 'Voting…' : runoff.viewerVoteSubmissionId ? 'Switch my vote to this entry' : 'Vote in the runoff'}
       </button>
     )
   }
@@ -261,7 +270,7 @@ export function RunoffPanel({
     <section aria-label="Runoff" className="mt-8 space-y-6">
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Badge variant={isOpen ? 'upcoming' : 'completed'}>{isOpen ? 'Runoff open' : runoffStatusLabel(runoff.status)}</Badge>
+          <Badge variant={isOpen ? 'runoff' : 'completed'}>{isOpen ? 'RUNOFF OPEN' : runoffStatusLabel(runoff.status)}</Badge>
           <h2 className="text-xl font-bold text-foreground">
             {isOpen ? 'Tied for first: vote for who should win' : resultLine}
           </h2>
@@ -269,8 +278,8 @@ export function RunoffPanel({
         <p className="mt-2 text-base text-muted-foreground">
           {runoff.candidates.length} entries finished level{topVotes !== null ? ` at ${plural(topVotes, 'vote')}` : ''}.{' '}
           {isOpen
-            ? `Voting reopens on just these until ${formatShortDate(runoff.endsAt)}. The runoff count stays hidden until it ends.`
-            : `Voting reopened on just these and ended ${formatShortDate(runoff.endsAt)}.`}
+            ? `Voting reopens on just these until ${formatUtcShortDate(runoff.endsAt)}. The runoff count stays hidden until it ends.`
+            : `Voting reopened on just these and ended ${formatUtcShortDate(runoff.endsAt)}.`}
         </p>
       </div>
 
@@ -288,7 +297,7 @@ export function RunoffPanel({
             roundOneVotes={roundOneOf(candidate.submission.id)}
             isWinner={!isOpen && winnerUserIds.includes(candidate.submission.user.id)}
             runoffClosed={!isOpen}
-            control={controlFor(candidate.submission.id)}
+            control={controlFor(candidate.submission.id, displayName(candidate.submission.user))}
           />
         ))}
       </div>

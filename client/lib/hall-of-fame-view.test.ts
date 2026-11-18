@@ -128,8 +128,8 @@ describe('buildResultRows', () => {
   })
 })
 
-// Local-day dates, so the "ends Nov 20" text is the same in every timezone.
-const nov20 = new Date(2026, 10, 20).toISOString()
+// What the server sends (midnight UTC); "ends Nov 20" must read the same in every timezone.
+const nov20 = '2026-11-20T00:00:00.000Z'
 
 const runoffOf = (status: 'OPEN' | 'DECIDED' | 'TIED', votes: [number | null, number | null]) => ({
   status,
@@ -150,7 +150,7 @@ describe('buildResultRows with a runoff', () => {
     expect(row.winners).toEqual([])
     expect(row.tie).toBe(false)
     expect(row.runoff?.status).toBe('OPEN')
-    expect(row.runoff?.label).toBe('Runoff')
+    expect(row.runoff?.label).toBe('RUNOFF')
     expect(row.runoff?.line).toBe('Runoff in progress: nova vs kay, ends Nov 20')
   })
 
@@ -174,7 +174,7 @@ describe('buildResultRows with a runoff', () => {
     expect(row.winners[0].votes).toBeNull()
     expect(row.tie).toBe(false)
     expect(row.runoff?.status).toBe('DECIDED')
-    expect(row.runoff?.label).toBe('Completed')
+    expect(row.runoff?.label).toBe('COMPLETED')
     expect(row.runoff?.line).toBe('Won by kay (runoff, 31 to 24)')
   })
 

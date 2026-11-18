@@ -7,17 +7,17 @@ import {
   runoffVoteControl,
 } from './runoff-view'
 
-// Local midnight of Nov 20 (what the server sends: the start of the last voting day), so
-// formatShortDate, which formats in local time, gives "Nov 20" in every timezone.
-const ENDS = new Date(2026, 10, 20).toISOString()
+// What the server sends: midnight UTC at the start of the last voting day. The date shown must be
+// "Nov 20" in every viewer timezone (run this file with TZ=America/Los_Angeles to check).
+const ENDS = '2026-11-20T00:00:00.000Z'
 
 const c = (name: string, votes: number | null) => ({ name, votes })
 
 describe('runoffStatusLabel', () => {
-  it('says Runoff while open and Completed once finished either way', () => {
-    expect(runoffStatusLabel('OPEN')).toBe('Runoff')
-    expect(runoffStatusLabel('DECIDED')).toBe('Completed')
-    expect(runoffStatusLabel('TIED')).toBe('Completed')
+  it('says RUNOFF while open and COMPLETED once finished either way', () => {
+    expect(runoffStatusLabel('OPEN')).toBe('RUNOFF')
+    expect(runoffStatusLabel('DECIDED')).toBe('COMPLETED')
+    expect(runoffStatusLabel('TIED')).toBe('COMPLETED')
   })
 })
 
@@ -85,6 +85,12 @@ describe('runoffCardLine', () => {
     )
   })
 
+  it('OPEN shows the UTC date the server sent, never the viewer-local day before it', () => {
+    // 00:00 UTC is still Nov 19 in New York and Los Angeles.
+    expect(runoffCardLine('OPEN', [c('a', null), c('b', null)], '2026-11-20T00:00:00.000Z')).toContain('ends Nov 20')
+    expect(runoffCardLine('OPEN', [c('a', null), c('b', null)], '2026-11-20T00:00:00.000Z')).not.toContain('Nov 19')
+  })
+
   it('does not modify its input', () => {
     const input = [c('nova', 24), c('kay', 31)]
     const copy = JSON.parse(JSON.stringify(input))
@@ -110,18 +116,24 @@ describe('runoffVoteControl', () => {
 })
 
 describe('runoffLockedReason', () => {
-  it('asks signed-out viewers to sign in', () => {
-    expect(runoffLockedReason({ signedIn: false, isCandidateOwner: false })).toBe('Sign in to vote')
+  it.each([true, false])('asks signed-out viewers to sign in (open: %s)', (isOpen) => {
+    expect(runoffLockedReason({ signedIn: false, isCandidateOwner: false, isOpen })).toBe('Sign in to vote')
   })
 
-  it('tells a tied DJ they cannot vote', () => {
-    expect(runoffLockedReason({ signedIn: true, isCandidateOwner: true })).toBe(
+  it.each([true, false])('tells a tied DJ they cannot vote (open: %s)', (isOpen) => {
+    expect(runoffLockedReason({ signedIn: true, isCandidateOwner: true, isOpen })).toBe(
       'You are in this runoff, so you cannot vote',
     )
   })
 
-  it('otherwise says voting is closed', () => {
-    expect(runoffLockedReason({ signedIn: true, isCandidateOwner: false })).toBe('Voting is closed')
+  it('says voting is closed when the runoff is not open', () => {
+    expect(runoffLockedReason({ signedIn: true, isCandidateOwner: false, isOpen: false })).toBe('Voting is closed')
+  })
+
+  it('says you cannot vote when the runoff is open but the server refuses this viewer (e.g. suspended)', () => {
+    expect(runoffLockedReason({ signedIn: true, isCandidateOwner: false, isOpen: true })).toBe(
+      'You cannot vote in this runoff',
+    )
   })
 })
 
@@ -133,5 +145,9 @@ describe('runoffRules', () => {
       'One vote each. You can change it until Nov 20.',
       'If it is level again, they share the win.',
     ])
+  })
+
+  it('shows the UTC date of endsAt in the third bullet', () => {
+    expect(runoffRules('2026-11-20T00:00:00.000Z')[2]).toBe('One vote each. You can change it until Nov 20.')
   })
 })

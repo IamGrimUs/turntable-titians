@@ -200,7 +200,7 @@ export default function HowItWorksPage() {
           </li>
           <li>
             <span className={strong}>Battle results</span> is the second tab there: every completed battle,
-            newest first, with who won and how many votes they got.
+            newest first, with who won and the result.
           </li>
           <li>
             <span className={strong}>Your trophy shelf</span> is on your profile. It shows your wins, podium

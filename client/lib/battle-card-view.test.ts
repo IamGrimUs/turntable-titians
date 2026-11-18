@@ -3,8 +3,8 @@ import { battleCardView, type CardBattle } from './battle-card-view'
 
 const person = (id: string, username: string | null = id) => ({ id, username, name: null, image: null })
 
-// Local-day date, so "ends Nov 20" is the same in every timezone.
-const nov20 = new Date(2026, 10, 20).toISOString()
+// What the server sends (midnight UTC); "ends Nov 20" must read the same in every timezone.
+const nov20 = '2026-11-20T00:00:00.000Z'
 
 const runoffOf = (status: 'OPEN' | 'DECIDED' | 'TIED', votes: [number | null, number | null]) => ({
   status,
@@ -43,7 +43,7 @@ describe('battleCardView', () => {
 
   it('an open runoff shows an amber Runoff pill and the in-progress line, with no winner line', () => {
     const view = battleCardView(battle({ runoff: runoffOf('OPEN', [null, null]) }))
-    expect(view.statusLabel).toBe('Runoff')
+    expect(view.statusLabel).toBe('RUNOFF')
     expect(view.statusVariant).toBe('runoff')
     expect(view.runoffLine).toEqual({ text: 'Runoff in progress: nova vs kay, ends Nov 20', crown: false })
     expect(view.winnerLine).toBeNull()
@@ -51,7 +51,7 @@ describe('battleCardView', () => {
 
   it('a decided runoff reads Completed with the crown line, not the round-one winner line', () => {
     const view = battleCardView(battle({ winners: [person('k', 'kay')], runoff: runoffOf('DECIDED', [24, 31]) }))
-    expect(view.statusLabel).toBe('Completed')
+    expect(view.statusLabel).toBe('COMPLETED')
     expect(view.statusVariant).toBe('completed')
     expect(view.runoffLine).toEqual({ text: 'Won by kay (runoff, 31 to 24)', crown: true })
     expect(view.winnerLine).toBeNull()
@@ -61,7 +61,7 @@ describe('battleCardView', () => {
     const view = battleCardView(
       battle({ winners: [person('n', 'nova'), person('k', 'kay')], runoff: runoffOf('TIED', [5, 5]) }),
     )
-    expect(view.statusLabel).toBe('Completed')
+    expect(view.statusLabel).toBe('COMPLETED')
     expect(view.runoffLine).toEqual({ text: 'Tied: nova and kay (runoff level)', crown: true })
   })
 
