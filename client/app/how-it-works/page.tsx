@@ -171,10 +171,36 @@ export default function HowItWorksPage() {
             <p className={strong}>How the winner is decided</p>
             <p>
               When the end date passes, the counts are revealed and the entries are ranked by votes received.
-              The entry with the most votes wins. If entries tie for the top spot, they share the win.
+              The entry with the most votes wins. If entries tie for the top spot, they share the win. A
+              battle that finished with no votes has no winner.
             </p>
           </div>
         </div>
+      </Section>
+
+      <Section title="Wins and the Hall of Fame">
+        <p>
+          Every completed battle with a winner goes on the record. Wins are counted only from finished
+          battles, so the numbers never move while a battle is still running.
+        </p>
+        <ul className="list-disc space-y-2 pl-6">
+          <li>
+            <span className={strong}>The Hall of Fame</span> ranks everyone with at least one win by their
+            career wins. DJs with the same number of wins share a rank. Open it from the Battles page.
+          </li>
+          <li>
+            <span className={strong}>Battle results</span> is the second tab there: every completed battle,
+            newest first, with who won and how many votes they got.
+          </li>
+          <li>
+            <span className={strong}>Your trophy shelf</span> is on your profile. It shows your wins, podium
+            finishes (top three), best finish and winning streaks, plus badges for milestones.
+          </li>
+          <li>
+            <span className={strong}>Shared wins count in full.</span> If you tie for first, the win is on your
+            record just like everyone else who tied.
+          </li>
+        </ul>
       </Section>
 
       <Section title="Hosting your own battle">
@@ -198,6 +224,9 @@ export default function HowItWorksPage() {
       <div className="mt-12 flex flex-wrap gap-3">
         <Button asChild size="lg">
           <Link href="/battles">View Battles</Link>
+        </Button>
+        <Button asChild size="lg" variant="outline">
+          <Link href="/hall-of-fame">Hall of Fame</Link>
         </Button>
         <Button asChild size="lg" variant="outline">
           <Link href="/battles/create">Create Battle</Link>
