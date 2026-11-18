@@ -29,7 +29,11 @@ export const GET_BATTLE_RESULTS = gql`
   }
 `
 
-/** The home page "Latest champions" strip. Winners are only ever filled in for completed battles. */
+/**
+ * The home page "Latest champions" strip. Winners are only ever filled in for completed battles.
+ * Career wins come from `hallOfFame` (one pass for everyone), not `User.battlesWon`, which would
+ * run four queries per winner of every battle just to fill three cards.
+ */
 export const GET_LATEST_CHAMPIONS = gql`
   query GetLatestChampions {
     battles {
@@ -38,7 +42,11 @@ export const GET_LATEST_CHAMPIONS = gql`
       endDate
       status
       winningVotes
-      winners { id username name image battlesWon }
+      winners { id username name image }
+    }
+    hallOfFame {
+      wins
+      user { id }
     }
   }
 `
