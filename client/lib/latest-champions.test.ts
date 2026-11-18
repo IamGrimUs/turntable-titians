@@ -28,6 +28,48 @@ describe('joinNames', () => {
   })
 })
 
+describe('buildLatestChampions and runoffs', () => {
+  it('leaves out a battle whose runoff is open (it has no winner yet)', () => {
+    const cards = buildLatestChampions(
+      [
+        battle({ id: 'open-runoff', winners: [], winningVotes: null, runoff: { status: 'OPEN' } }),
+        battle({ id: 'done', endDate: '2026-11-01T12:00:00Z' }),
+      ],
+      hall(['u1', 4]),
+    )
+    expect(cards.map((c) => c.battleId)).toEqual(['done'])
+  })
+
+  it('leaves out an open-runoff battle even if winners were somehow sent for it', () => {
+    const cards = buildLatestChampions([battle({ id: 'x', runoff: { status: 'OPEN' } })], hall(['u1', 4]))
+    expect(cards).toEqual([])
+  })
+
+  it('shows a decided runoff winner without the round-one vote total', () => {
+    const [card] = buildLatestChampions(
+      [battle({ id: 'd', winners: [person('k')], winningVotes: 12, runoff: { status: 'DECIDED' } })],
+      hall(['k', 3]),
+    )
+    expect(card.winners.map((w) => w.id)).toEqual(['k'])
+    expect(card.winningVotes).toBeNull()
+    expect(card.careerWins).toBe(3)
+  })
+
+  it('shows shared winners after a level runoff as a tie, without a vote total', () => {
+    const [card] = buildLatestChampions(
+      [battle({ id: 't', winners: [person('n'), person('k')], winningVotes: 12, runoff: { status: 'TIED' } })],
+      hall(),
+    )
+    expect(championHeadline(card).action).toBe('tied for Battle t')
+    expect(card.winningVotes).toBeNull()
+  })
+
+  it('keeps the vote total for a battle with no runoff', () => {
+    const [card] = buildLatestChampions([battle({ id: 'n', runoff: null })], hall())
+    expect(card.winningVotes).toBe(10)
+  })
+})
+
 describe('buildLatestChampions', () => {
   it('takes the most recent completed battles that have a winner, newest first, three by default', () => {
     const cards = buildLatestChampions(

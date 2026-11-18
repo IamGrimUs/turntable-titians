@@ -3,7 +3,7 @@
  * so they are unit-tested. "Who won" is never decided here: the server sends the status and, once
  * the runoff is over, the vote counts. While it is OPEN the counts are null and no winner is named.
  */
-import { formatShortDate, joinNames } from './hall-of-fame-view'
+import { formatShortDate, joinNames } from './display-format'
 
 export type RunoffStatus = 'OPEN' | 'DECIDED' | 'TIED'
 

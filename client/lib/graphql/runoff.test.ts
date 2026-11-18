@@ -61,7 +61,7 @@ describe('runoff documents against the server SDL', () => {
   it.each(listDocuments)('%s selects only the light runoff shape', (_name, doc) => {
     const text = flat(doc)
     expect(text).toContain(
-      'runoff { status endsAt candidates { submission { user { id username name } } votes } }',
+      'runoff { status endsAt candidates { submission { id user { id username name } } votes } }',
     )
   })
 

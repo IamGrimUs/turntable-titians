@@ -12,6 +12,8 @@ export interface LatestBattle {
   status: string
   winningVotes: number | null
   winners: Person[]
+  /** Only the status is needed: a battle with an open runoff has no winner yet. */
+  runoff?: { status: 'OPEN' | 'DECIDED' | 'TIED' } | null
 }
 
 export interface HallOfFameWins {
@@ -31,7 +33,11 @@ export interface ChampionCard {
 
 export const LATEST_CHAMPIONS_COUNT = 3
 
-/** The most recent completed battles that have a winner, newest first. */
+/**
+ * The most recent completed battles that have a winner, newest first. A battle whose runoff is still
+ * open is left out (it has no winner yet). After a runoff the vote total is dropped: `winningVotes`
+ * is the round-one total, which says nothing about how the runoff went.
+ */
 export function buildLatestChampions(
   battles: readonly LatestBattle[],
   hallOfFame: readonly HallOfFameWins[],
@@ -39,7 +45,7 @@ export function buildLatestChampions(
 ): ChampionCard[] {
   const winsByUser = new Map(hallOfFame.map((row) => [row.user.id, row.wins]))
   return battles
-    .filter((b) => b.status === 'COMPLETED' && b.winners.length > 0)
+    .filter((b) => b.status === 'COMPLETED' && b.runoff?.status !== 'OPEN' && b.winners.length > 0)
     .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || a.id.localeCompare(b.id))
     .slice(0, limit)
     .map((b) => ({
@@ -47,7 +53,7 @@ export function buildLatestChampions(
       battleTitle: b.title,
       endDate: b.endDate,
       winners: b.winners,
-      winningVotes: b.winningVotes,
+      winningVotes: b.runoff ? null : b.winningVotes,
       careerWins: b.winners.length === 1 ? (winsByUser.get(b.winners[0].id) ?? null) : null,
     }))
 }

@@ -32,7 +32,8 @@ export const GET_BATTLE_RESULTS = gql`
 `
 
 /**
- * The home page "Latest champions" strip. Winners are only ever filled in for completed battles.
+ * The home page "Latest champions" strip. Winners are only ever filled in for completed battles;
+ * `runoff { status }` is only there to skip a battle whose runoff is still open.
  * Career wins come from `hallOfFame` (one pass for everyone), not `User.battlesWon`, which would
  * run four queries per winner of every battle just to fill three cards.
  */
@@ -45,6 +46,7 @@ export const GET_LATEST_CHAMPIONS = gql`
       status
       winningVotes
       winners { id username name image }
+      runoff { status }
     }
     hallOfFame {
       wins

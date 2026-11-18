@@ -38,6 +38,10 @@ describe('Hall of Fame documents against the server SDL', () => {
     expect(text).not.toContain('battlesWon')
   })
 
+  it('the home strip asks only for the runoff status, to skip a battle whose runoff is open', () => {
+    expect(print(hallOfFame.GET_LATEST_CHAMPIONS).replace(/\s+/g, ' ')).toContain('runoff { status }')
+  })
+
   it('GET_BATTLES now also selects winners for the battle cards, and is still valid', () => {
     expect(print(GET_BATTLES)).toContain('winners')
     expect(validate(schema, GET_BATTLES).map((e) => e.message)).toEqual([])
