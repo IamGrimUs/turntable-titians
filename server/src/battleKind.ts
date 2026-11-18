@@ -8,5 +8,8 @@ import type { Prisma } from '@prisma/client'
  */
 export const regularBattleWhere = { challenge: { is: null } } satisfies Prisma.BattleWhereInput
 
+/** The opposite of `regularBattleWhere`: a battle that has a Challenge row is a head to head duel. */
+export const duelBattleWhere = { challenge: { isNot: null } } satisfies Prisma.BattleWhereInput
+
 /** The display label of a duel's `Battle.type`. Reserved: `createBattle` refuses it, so it is never a regular battle's type. */
 export const HEAD_TO_HEAD_TYPE = 'Head to Head'

@@ -131,6 +131,9 @@ describe('pinned public types', () => {
       // Added on purpose: wins, podiums, streaks and entries, from COMPLETED battles only (the
       // same public facts as battlesWon, broken down). No voter identity, no open-battle votes.
       record: 'UserRecord!',
+      // Added on purpose: wins, losses and draws of finished head to head duels. Duels are
+      // public battles; this reveals nothing about voters and nothing before a duel is over.
+      headToHead: 'HeadToHeadRecord!',
       createdAt: 'String!',
     })
   })
@@ -364,5 +367,66 @@ describe('winners and Hall of Fame schema', () => {
     expect(m.castRunoffVote.args.map((a) => `${a.name}: ${a.type}`)).toEqual(['submissionId: ID!'])
     expect(String(m.removeRunoffVote.type)).toBe('Boolean!')
     expect(m.removeRunoffVote.args.map((a) => `${a.name}: ${a.type}`)).toEqual(['battleId: ID!'])
+  })
+})
+
+describe('duel and head to head schema', () => {
+  const fieldsOf = (name: string) => {
+    const t = schema.getType(name)
+    return t && 'getFields' in t
+      ? Object.fromEntries(Object.entries(t.getFields()).map(([k, f]) => [k, String(f.type)]))
+      : {}
+  }
+
+  it('pins the duel types', () => {
+    expect(fieldsOf('Battle').duel).toBe('Duel')
+    expect(fieldsOf('Duel')).toEqual({
+      challenger: 'User!',
+      opponent: 'User!',
+      outcome: 'DuelOutcome',
+      winner: 'User',
+      challengerVotes: 'Int',
+      opponentVotes: 'Int',
+    })
+    expect(fieldsOf('HeadToHeadResult')).toEqual({
+      battleId: 'ID!',
+      opponent: 'User!',
+      result: 'HeadToHeadResultKind!',
+      endedAt: 'String!',
+    })
+    expect(fieldsOf('HeadToHeadRecord')).toEqual({
+      wins: 'Int!',
+      losses: 'Int!',
+      draws: 'Int!',
+      results: '[HeadToHeadResult!]!',
+    })
+    const values = (name: string) => {
+      const t = schema.getType(name)
+      return t && 'getValues' in t ? t.getValues().map((v) => v.name) : []
+    }
+    expect(values('DuelOutcome')).toEqual(['CHALLENGER_WON', 'OPPONENT_WON', 'DRAW'])
+    expect(values('HeadToHeadResultKind')).toEqual(['WON', 'LOST', 'DRAW'])
+  })
+
+  it('results takes limit with a default of 5', () => {
+    const t = schema.getType('HeadToHeadRecord')
+    if (!isObjectType(t)) throw new Error('HeadToHeadRecord is not an object type')
+    expect(t.getFields().results.args.map((a) => `${a.name}: ${a.type} = ${a.defaultValue}`)).toEqual(['limit: Int = 5'])
+  })
+
+  it('validates the documents the client will send and exposes no email or voter', () => {
+    expect(
+      errorsFor(
+        '{ battles { id duel { outcome challengerVotes opponentVotes challenger { id username name image } opponent { id username } winner { id } } } }',
+      ),
+    ).toEqual([])
+    expect(
+      errorsFor(
+        '{ user(id: "x") { headToHead { wins losses draws results(limit: 3) { battleId result endedAt opponent { id username image } } } } }',
+      ),
+    ).toEqual([])
+    expect(errorsFor('{ battles { duel { challenger { email } } } }').length).toBeGreaterThan(0)
+    expect(errorsFor('{ user(id: "x") { headToHead { results { opponent { email } } } } }').length).toBeGreaterThan(0)
+    expect(errorsFor('{ battles { duel { voters { id } } } }').length).toBeGreaterThan(0)
   })
 })

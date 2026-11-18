@@ -230,7 +230,7 @@ describe('createBattle', () => {
     expect(m.battleCreate).not.toHaveBeenCalled()
   })
 
-  it.each(['Head to Head', 'head to head', ' Head to Head ', 'HEAD TO HEAD'])(
+  it.each(['Head to Head', 'head to head', ' Head to Head ', 'HEAD TO HEAD', 'Head  to  Head', 'head   to head', 'HeadtoHead'])(
     'refuses the reserved battle type %j before any write',
     async (type) => {
       const e = await rejection(mutation('createBattle')({}, { ...args, type }, asUser))
@@ -541,5 +541,16 @@ describe('requireAdmin', () => {
       return
     }
     throw new Error('expected requireAdmin to throw')
+  })
+})
+
+describe('duel wiring', () => {
+  it('mounts the duel resolvers on Battle, Duel, User and the head to head types', () => {
+    const r = resolvers as unknown as Record<string, Record<string, unknown>>
+    expect(r.Battle.duel).toBeTypeOf('function')
+    expect(Object.keys(r.Duel).sort()).toEqual(['challenger', 'opponent', 'winner'])
+    expect(r.User.headToHead).toBeTypeOf('function')
+    expect(r.HeadToHeadRecord.results).toBeTypeOf('function')
+    expect(Object.keys(r.HeadToHeadResult).sort()).toEqual(['endedAt', 'opponent'])
   })
 })

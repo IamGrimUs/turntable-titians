@@ -11,6 +11,13 @@ import { runoffMutation } from './runoffResolvers'
 import { challengeFields, challengeMutation, challengeQuery } from './challengeResolvers'
 import { countBattlesWon } from './userBattlesWon'
 import {
+  duelBattleField,
+  duelFields,
+  headToHeadRecordFields,
+  headToHeadResultFields,
+  userHeadToHead,
+} from './duelResults'
+import {
   battleRunoff,
   battleWinners,
   battleWinningVotes,
@@ -73,8 +80,10 @@ export const resolvers = {
       requireAuth(ctx)
       const cleanTitle = cleanSingleLine(title, 'Title', { max: LIMITS.title, required: true })!
       const cleanType = cleanSingleLine(type, 'Battle type', { max: LIMITS.battleType, required: true })!
-      // "Head to Head" is the label of a duel; a regular battle must not pose as one.
-      if (cleanType.toLowerCase() === HEAD_TO_HEAD_TYPE.toLowerCase()) {
+      // "Head to Head" is the label of a duel; a regular battle must not pose as one. Case and
+      // interior spacing are ignored, so "Head  to  Head" is refused too ("Head to Head 2" is fine).
+      const squash = (s: string) => s.toLowerCase().replace(/\s+/g, '')
+      if (squash(cleanType) === squash(HEAD_TO_HEAD_TYPE)) {
         throw new GraphQLError('That battle type is reserved.', { extensions: { code: 'BAD_USER_INPUT' } })
       }
       const cleanDescription = cleanMultiLine(description, 'Description', { max: LIMITS.description })
@@ -279,6 +288,7 @@ export const resolvers = {
     winners: battleWinners,
     winningVotes: battleWinningVotes,
     runoff: battleRunoff,
+    duel: duelBattleField,
     status: (parent: Battle) => computeBattleStatus(parent.startDate, parent.endDate),
     startDate: (parent: Battle) => parent.startDate.toISOString(),
     endDate: (parent: Battle) => parent.endDate.toISOString(),
@@ -287,6 +297,12 @@ export const resolvers = {
   },
 
   Runoff: runoffFields,
+
+  Duel: duelFields,
+
+  HeadToHeadRecord: headToHeadRecordFields,
+
+  HeadToHeadResult: headToHeadResultFields,
 
   Challenge: challengeFields,
 
@@ -324,6 +340,7 @@ export const resolvers = {
     externalCrews: (parent: { externalCrews: string[] }) => parent.externalCrews,
     battlesWon: (parent: { id: string }) => countBattlesWon(parent.id),
     record: userRecord,
+    headToHead: userHeadToHead,
     createdAt: (parent: { createdAt: Date }) => parent.createdAt.toISOString(),
   },
 
