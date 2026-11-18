@@ -4,27 +4,8 @@ import { useQuery } from '@apollo/client'
 import { VoteCount } from '@/components/VoteCount'
 import { buildProfileStats } from '@/lib/user-profile-stats'
 import { useParams } from 'next/navigation'
-import { gql } from '@apollo/client'
-
-const GET_USER = gql`
-  query GetUser($id: ID!) {
-    user(id: $id) {
-      id
-      username
-      name
-      image
-      externalCrews
-      battlesWon
-      submissions {
-        id
-        title
-        battleId
-        voteCount
-        createdAt
-      }
-    }
-  }
-`
+import { GET_USER } from '@/lib/graphql/user-profile'
+import { TrophyShelf } from '@/components/profile/TrophyShelf'
 
 function StatCard({ label, value, accent = false }: { label: string; value: number | string; accent?: boolean }) {
   return (
@@ -84,6 +65,8 @@ export default function UserProfilePage() {
         <StatCard label="Battles entered" value={stats.battlesEntered} />
         {stats.crew && <StatCard label={stats.crew.label} value={stats.crew.names} accent />}
       </div>
+
+      <TrophyShelf record={user.record} />
 
       <div>
         <h2 className="text-base font-bold tracking-widest uppercase text-muted-foreground mb-4">
