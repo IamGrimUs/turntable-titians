@@ -58,7 +58,11 @@ export function challengeStatusLabel(status: string): string {
   return Object.prototype.hasOwnProperty.call(STATUS_LABELS, status) ? STATUS_LABELS[status as ChallengeStatus] : status
 }
 
-/** The label from the viewer's side: only the opponent of a waiting challenge is "waited for". */
+/**
+ * The label from the viewer's side: only the opponent of a waiting challenge is "waited for".
+ * Pass the status from `effectiveChallengeStatus(c, now)`, not the stored one: a challenge that
+ * expires while the page is open must stop saying "Waiting for you".
+ */
 export function challengeStatusFor(role: ChallengeRole, status: string): string {
   if (status === 'PENDING' && role === 'OPPONENT') return 'Waiting for you'
   return challengeStatusLabel(status)
@@ -90,13 +94,19 @@ export function effectiveChallengeStatus(c: { status: string; expiresAt: string 
   return c.status
 }
 
-/** Whole days left, never rounded up: '8 days left', '1 day left', 'Expires today', 'Expired'. */
+// A challenge opened a few seconds after it was sent should still read the full 10 days.
+const GRACE_MS = 60_000
+
+/**
+ * Whole days left, never rounded up: '8 days left', '1 day left', 'Expires today', 'Expired'.
+ * One minute of grace is added before counting days, so '10 days left' survives the first minute.
+ */
 export function timeLeftLabel(expiresAt: string, now: Date = new Date()): string {
   const left = Date.parse(expiresAt) - now.getTime()
   if (Number.isNaN(left)) return ''
   if (left <= 0) return 'Expired'
   if (left < DAY_MS) return 'Expires today'
-  const days = Math.floor(left / DAY_MS)
+  const days = Math.floor((left + GRACE_MS) / DAY_MS)
   return `${days} ${days === 1 ? 'day' : 'days'} left`
 }
 
@@ -130,6 +140,7 @@ export function groupMyChallenges<C extends { status: string; viewerRole: Challe
     else if (c.viewerRole === 'OPPONENT') waitingForMe.push(c)
     else sent.push(c)
   }
+  // The "recent" bucket is ordered by when the challenge was sent (createdAt), not when it ended.
   recent.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
   return { waitingForMe, sent, recent: recent.slice(0, RECENT_MAX) }
 }
@@ -148,7 +159,8 @@ export interface ChallengeFormValues {
   votingDays: number
 }
 
-function videoUrlError(value: string): string | null {
+/** The rule for a video link field (shared by the challenge form and the accept form): a message, or null when fine. */
+export function videoUrlError(value: string): string | null {
   const url = value.trim()
   if (url === '') return 'Video link is required.'
   if (url.length > CHALLENGE_LIMITS.urlMax) return `Video link must be ${CHALLENGE_LIMITS.urlMax} characters or fewer.`

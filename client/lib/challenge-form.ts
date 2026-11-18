@@ -93,3 +93,14 @@ export function serverErrorField(message: string): 'username' | null {
 export function challengePath(id: string): string {
   return `/challenges/${encodeURIComponent(id)}`
 }
+
+/** The id of the element a field puts focus on (the input, or the group for the voting length). */
+export function fieldDomId(field: ChallengeField): string {
+  return `challenge-${field}`
+}
+
+/**
+ * How long the form waits for the route change after a successful send before it shows a plain
+ * link to the new challenge, so it never stays on "Sending…" with nothing else to do.
+ */
+export const SENT_FALLBACK_DELAY_MS = 5000

@@ -86,7 +86,19 @@ describe('timeLeftLabel', () => {
 
   it('says "1 day left" from exactly one day up to just under two', () => {
     expect(timeLeftLabel(at(DAY), NOW)).toBe('1 day left')
-    expect(timeLeftLabel(at(2 * DAY - 1), NOW)).toBe('1 day left')
+    expect(timeLeftLabel(at(2 * DAY - 61_000), NOW)).toBe('1 day left')
+  })
+
+  it('gives a one-minute grace so a challenge sent a moment ago reads the full 10 days', () => {
+    // The form promises 10 days; the page opens a few seconds after the server stamped `expiresAt`.
+    expect(timeLeftLabel(at(10 * DAY - 5_000), NOW)).toBe('10 days left')
+    expect(timeLeftLabel(at(10 * DAY - 60_000), NOW)).toBe('10 days left')
+    expect(timeLeftLabel(at(10 * DAY - 60_001), NOW)).toBe('9 days left')
+    expect(timeLeftLabel(at(2 * DAY - 60_000), NOW)).toBe('2 days left')
+  })
+
+  it('does not stretch the last day: under a day is still "Expires today"', () => {
+    expect(timeLeftLabel(at(DAY - 1), NOW)).toBe('Expires today')
   })
 
   it('says "Expires today" for the last day', () => {

@@ -1,7 +1,8 @@
 'use client'
 
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useMutation } from '@apollo/client'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,8 +10,10 @@ import {
   buildChallengeVariables,
   challengeErrorMessage,
   challengePath,
+  fieldDomId,
   firstErrorField,
   initialChallengeValues,
+  SENT_FALLBACK_DELAY_MS,
   serverErrorField,
   type ChallengeField,
 } from '@/lib/challenge-form'
@@ -38,12 +41,34 @@ export function ChallengeForm({ initialUsername }: ChallengeFormProps) {
   const [formError, setFormError] = useState<string | null>(null)
   // Stays true after a successful send so the form cannot be sent twice while the page navigates.
   const [sent, setSent] = useState(false)
+  // The new challenge's id once sent: if the route change has not happened after a few seconds,
+  // a plain link to it appears instead of leaving the form on "Sending…" with nothing else to do.
+  const [sentId, setSentId] = useState<string | null>(null)
+  const [showSentLink, setShowSentLink] = useState(false)
+  // The field to focus after a server error. Focus has to wait until the fieldset is enabled again
+  // (a disabled input cannot take focus), so the handler sets this and an effect does the focusing.
+  // A fresh object per error, so the same field can be asked for twice; `focusedRef` remembers which
+  // request already got its focus.
+  const [focusTarget, setFocusTarget] = useState<{ field: ChallengeField } | null>(null)
+  const focusedRef = useRef<{ field: ChallengeField } | null>(null)
 
   // `loading` only updates after a render, so a fast double click could slip a second request
   // through; the ref closes that gap.
   const sendingRef = useRef(false)
   const [createChallenge, { loading }] = useMutation<{ createChallenge: { id: string } }>(CREATE_CHALLENGE)
   const busy = loading || sent
+
+  useEffect(() => {
+    if (!focusTarget || busy || focusedRef.current === focusTarget) return
+    focusedRef.current = focusTarget
+    document.getElementById(fieldDomId(focusTarget.field))?.focus()
+  }, [focusTarget, busy])
+
+  useEffect(() => {
+    if (!sentId) return
+    const timer = setTimeout(() => setShowSentLink(true), SENT_FALLBACK_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [sentId])
 
   function setField<K extends keyof ChallengeFormValues>(field: K, value: ChallengeFormValues[K]) {
     setValues((current) => ({ ...current, [field]: value }))
@@ -65,7 +90,7 @@ export function ChallengeForm({ initialUsername }: ChallengeFormProps) {
     if (first) {
       setFieldErrors(errors)
       setFormError(null)
-      document.getElementById(`challenge-${first}`)?.focus()
+      document.getElementById(fieldDomId(first))?.focus()
       return
     }
 
@@ -80,6 +105,7 @@ export function ChallengeForm({ initialUsername }: ChallengeFormProps) {
         return
       }
       setSent(true)
+      setSentId(id)
       router.push(challengePath(id))
     } catch (err) {
       // Keep what was typed so the person can fix it (another DJ, a shorter title).
@@ -87,7 +113,7 @@ export function ChallengeForm({ initialUsername }: ChallengeFormProps) {
       const field = serverErrorField(message)
       if (field) {
         setFieldErrors({ [field]: message })
-        document.getElementById(`challenge-${field}`)?.focus()
+        setFocusTarget({ field })
       } else {
         setFormError(message)
       }
@@ -247,6 +273,15 @@ export function ChallengeForm({ initialUsername }: ChallengeFormProps) {
               {fieldError('votingDays')}
             </div>
           </fieldset>
+
+          {showSentLink && sentId && (
+            <p role="status" className="text-base text-foreground">
+              Your challenge was sent.{' '}
+              <Link href={challengePath(sentId)} className="text-amber-500 underline underline-offset-2">
+                Open it
+              </Link>
+            </p>
+          )}
 
           {formError && (
             <p role="alert" className="text-base font-medium text-destructive">

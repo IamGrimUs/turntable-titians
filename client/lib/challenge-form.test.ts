@@ -4,6 +4,8 @@ import {
   buildChallengeVariables,
   challengeErrorMessage,
   challengePath,
+  fieldDomId,
+  SENT_FALLBACK_DELAY_MS,
   firstErrorField,
   initialChallengeValues,
   prefillUsername,
@@ -174,5 +176,19 @@ describe('challengePath', () => {
 
   it('encodes the id so it can never break out of the path', () => {
     expect(challengePath('a/b?c')).toBe('/challenges/a%2Fb%3Fc')
+  })
+})
+
+describe('fieldDomId', () => {
+  it('names the element a field focuses (the id the form puts on the input)', () => {
+    expect(fieldDomId('username')).toBe('challenge-username')
+    expect(fieldDomId('votingDays')).toBe('challenge-votingDays')
+  })
+})
+
+describe('SENT_FALLBACK_DELAY_MS', () => {
+  it('waits long enough for a normal route change, but not forever', () => {
+    expect(SENT_FALLBACK_DELAY_MS).toBeGreaterThanOrEqual(2000)
+    expect(SENT_FALLBACK_DELAY_MS).toBeLessThanOrEqual(10000)
   })
 })
