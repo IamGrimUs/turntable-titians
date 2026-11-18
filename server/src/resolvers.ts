@@ -6,6 +6,7 @@ import { requireAuth, type Context } from './context'
 import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
 import { boardComment, boardIdea, boardMutation, boardQuery } from './boardResolvers'
 import { boardAdminMutation } from './boardAdminResolvers'
+import { runoffMutation } from './runoffResolvers'
 import { countBattlesWon } from './userBattlesWon'
 import { battleWinners, battleWinningVotes, standingsQuery, userRecord } from './standingsResolvers'
 import { prepareCrews, prepareUsername } from './profileRules'
@@ -232,6 +233,7 @@ export const resolvers = {
       return true
     },
     ...boardMutation,
+    ...runoffMutation,
     ...boardAdminMutation,
     ...adminMutation,
   },

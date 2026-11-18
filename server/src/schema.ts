@@ -320,6 +320,8 @@ export const typeDefs = gql`
     adminSetUserRole(userId: ID!, role: UserRole!): AdminUser!
     vote(submissionId: ID!): Vote!
     deleteVote(submissionId: ID!): Boolean!
+    castRunoffVote(submissionId: ID!): Boolean!
+    removeRunoffVote(battleId: ID!): Boolean!
     createIdea(title: String!, body: String!, category: IdeaCategory!, topic: IdeaTopic): Idea!
     deleteIdea(id: ID!): Boolean!
     voteIdea(ideaId: ID!): Idea!

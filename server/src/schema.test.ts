@@ -324,4 +324,12 @@ describe('winners and Hall of Fame schema', () => {
     expect(String(fields.bestFinish.type)).toBe('Int') // null when the user never placed
     expect(String(fields.wins.type)).toBe('Int!')
   })
+
+  it('defines the runoff mutations with the documented arguments and return types', () => {
+    const m = schema.getMutationType()!.getFields()
+    expect(String(m.castRunoffVote.type)).toBe('Boolean!')
+    expect(m.castRunoffVote.args.map((a) => `${a.name}: ${a.type}`)).toEqual(['submissionId: ID!'])
+    expect(String(m.removeRunoffVote.type)).toBe('Boolean!')
+    expect(m.removeRunoffVote.args.map((a) => `${a.name}: ${a.type}`)).toEqual(['battleId: ID!'])
+  })
 })
