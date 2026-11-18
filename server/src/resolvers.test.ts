@@ -6,6 +6,7 @@ vi.mock('./db', () => ({
     battle: { findUnique: vi.fn(), create: vi.fn() },
     submission: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     user: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+    challenge: { findUnique: vi.fn() },
   },
 }))
 
@@ -27,6 +28,7 @@ const m = {
   userFindUnique: db.user.findUnique as unknown as ReturnType<typeof vi.fn>,
   userFindFirst: db.user.findFirst as unknown as ReturnType<typeof vi.fn>,
   userUpdate: db.user.update as unknown as ReturnType<typeof vi.fn>,
+  challengeFindUnique: db.challenge.findUnique as unknown as ReturnType<typeof vi.fn>,
 }
 
 beforeEach(() => Object.values(m).forEach((fn) => fn.mockReset()))
@@ -135,6 +137,23 @@ describe('createSubmission', () => {
     expect(m.submissionCreate).not.toHaveBeenCalled()
   })
 
+  it('refuses an entry to a head to head battle: its entries come from the challenge', async () => {
+    m.battleFindUnique.mockResolvedValue(battleDates.active)
+    m.challengeFindUnique.mockResolvedValue({ id: 'c1' })
+    const e = await rejection(mutation('createSubmission')({}, args, asUser))
+    expect(e.extensions.code).toBe('BAD_USER_INPUT')
+    expect(e.message).toBe('Entries to a head-to-head battle come from the challenge.')
+    expect(m.challengeFindUnique).toHaveBeenCalledWith({ where: { battleId: 'battle-1' }, select: { id: true } })
+    expect(m.submissionFindFirst).not.toHaveBeenCalled()
+    expect(m.submissionCreate).not.toHaveBeenCalled()
+  })
+
+  it('does not look for a challenge when the battle does not exist', async () => {
+    m.battleFindUnique.mockResolvedValue(null)
+    await rejection(mutation('createSubmission')({}, args, asUser))
+    expect(m.challengeFindUnique).not.toHaveBeenCalled()
+  })
+
   it('blocks a second entry from the same user in the same battle', async () => {
     m.battleFindUnique.mockResolvedValue(battleDates.active)
     m.submissionFindFirst.mockResolvedValue({ id: 'existing' })
@@ -209,6 +228,22 @@ describe('createBattle', () => {
       expect(e.extensions.code).toBe('BAD_USER_INPUT')
     }
     expect(m.battleCreate).not.toHaveBeenCalled()
+  })
+
+  it.each(['Head to Head', 'head to head', ' Head to Head ', 'HEAD TO HEAD'])(
+    'refuses the reserved battle type %j before any write',
+    async (type) => {
+      const e = await rejection(mutation('createBattle')({}, { ...args, type }, asUser))
+      expect(e.extensions.code).toBe('BAD_USER_INPUT')
+      expect(e.message).toBe('That battle type is reserved.')
+      expect(m.battleCreate).not.toHaveBeenCalled()
+    },
+  )
+
+  it('still allows a type that only resembles the reserved one', async () => {
+    m.battleCreate.mockResolvedValue({ id: 'b' })
+    await mutation('createBattle')({}, { ...args, type: 'Head to Head 2' }, asUser)
+    expect(m.battleCreate).toHaveBeenCalledTimes(1)
   })
 
   it('creates the battle with cleaned values and real Date objects', async () => {
@@ -384,6 +419,52 @@ describe('vote', () => {
     expect(m.voteCreate).toHaveBeenCalledWith({
       data: { submissionId: 'sub-1', battleId: 'battle-1', userId: 'user-1' },
     })
+  })
+
+  describe('in a head to head battle', () => {
+    const duel = { challengerId: 'user-1', opponentId: 'user-9' }
+
+    it.each([
+      ['the challenger', { challengerId: 'user-1', opponentId: 'user-9' }],
+      ['the opponent', { challengerId: 'user-9', opponentId: 'user-1' }],
+    ])('does not let %s vote for the other entry', async (_who, challenge) => {
+      m.submissionFindUnique.mockResolvedValue(entry('user-9'))
+      m.challengeFindUnique.mockResolvedValue(challenge)
+      const e = await rejection(mutation('vote')({}, { submissionId: 'sub-1' }, asUser))
+      expect(e.extensions.code).toBe('BAD_USER_INPUT')
+      expect(e.message).toBe("You can't vote in your own head-to-head battle.")
+      expect(m.challengeFindUnique).toHaveBeenCalledWith({
+        where: { battleId: 'battle-1' },
+        select: { challengerId: true, opponentId: true },
+      })
+      expect(m.voteFindUnique).not.toHaveBeenCalled()
+      expect(m.voteCreate).not.toHaveBeenCalled()
+    })
+
+    it('keeps the own-entry message for a duelist voting for their own entry', async () => {
+      m.submissionFindUnique.mockResolvedValue(entry('user-1'))
+      m.challengeFindUnique.mockResolvedValue(duel)
+      const e = await rejection(mutation('vote')({}, { submissionId: 'sub-1' }, asUser))
+      expect(e.message).toMatch(/own entry/i)
+    })
+
+    it('lets a third party vote for either entry', async () => {
+      m.submissionFindUnique.mockResolvedValue(entry('user-9'))
+      m.challengeFindUnique.mockResolvedValue({ challengerId: 'user-8', opponentId: 'user-9' })
+      m.voteFindUnique.mockResolvedValue(null)
+      m.voteCreate.mockResolvedValue({ id: 'vote-1' })
+      await mutation('vote')({}, { submissionId: 'sub-1' }, asUser)
+      expect(m.voteCreate).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('treats a battle with no challenge as a regular battle', async () => {
+    m.submissionFindUnique.mockResolvedValue(entry('user-2'))
+    m.challengeFindUnique.mockResolvedValue(null)
+    m.voteFindUnique.mockResolvedValue(null)
+    m.voteCreate.mockResolvedValue({ id: 'vote-1' })
+    await mutation('vote')({}, { submissionId: 'sub-1' }, asUser)
+    expect(m.voteCreate).toHaveBeenCalledTimes(1)
   })
 
   it('still blocks votes once the battle has ended', async () => {

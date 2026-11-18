@@ -6,6 +6,7 @@ import { requireAuth, type Context } from './context'
 import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
 import { boardComment, boardIdea, boardMutation, boardQuery } from './boardResolvers'
 import { boardAdminMutation } from './boardAdminResolvers'
+import { HEAD_TO_HEAD_TYPE } from './battleKind'
 import { runoffMutation } from './runoffResolvers'
 import { challengeFields, challengeMutation, challengeQuery } from './challengeResolvers'
 import { countBattlesWon } from './userBattlesWon'
@@ -72,6 +73,10 @@ export const resolvers = {
       requireAuth(ctx)
       const cleanTitle = cleanSingleLine(title, 'Title', { max: LIMITS.title, required: true })!
       const cleanType = cleanSingleLine(type, 'Battle type', { max: LIMITS.battleType, required: true })!
+      // "Head to Head" is the label of a duel; a regular battle must not pose as one.
+      if (cleanType.toLowerCase() === HEAD_TO_HEAD_TYPE.toLowerCase()) {
+        throw new GraphQLError('That battle type is reserved.', { extensions: { code: 'BAD_USER_INPUT' } })
+      }
       const cleanDescription = cleanMultiLine(description, 'Description', { max: LIMITS.description })
       const { start, end } = parseBattleDates(startDate, endDate)
       return db.battle.create({
@@ -99,6 +104,14 @@ export const resolvers = {
         select: { startDate: true, endDate: true },
       })
       if (!battle) throw new GraphQLError('Battle not found', { extensions: { code: 'NOT_FOUND' } })
+
+      // A head to head battle gets exactly its two entries when the challenge is accepted.
+      const duel = await db.challenge.findUnique({ where: { battleId }, select: { id: true } })
+      if (duel) {
+        throw new GraphQLError('Entries to a head-to-head battle come from the challenge.', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        })
+      }
 
       // Entries are only open while the battle is running, same rule as voting.
       const status = computeBattleStatus(battle.startDate, battle.endDate)
@@ -201,6 +214,16 @@ export const resolvers = {
         extensions: { code: 'BAD_USER_INPUT' },
       })
       const { battleId } = submission
+      // The two DJs of a duel never vote in it, for either entry (a third party votes normally).
+      const duel = await db.challenge.findUnique({
+        where: { battleId },
+        select: { challengerId: true, opponentId: true },
+      })
+      if (duel && (duel.challengerId === userId || duel.opponentId === userId)) {
+        throw new GraphQLError("You can't vote in your own head-to-head battle.", {
+          extensions: { code: 'BAD_USER_INPUT' },
+        })
+      }
       const battleStatus = computeBattleStatus(submission.battle.startDate, submission.battle.endDate)
       if (battleStatus !== 'ACTIVE') throw new GraphQLError(
         battleStatus === 'COMPLETED' ? 'Battle has ended' : 'Battle has not started yet',

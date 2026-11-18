@@ -152,7 +152,13 @@ describe('countBattlesWon', () => {
     setup({
       mine: [{ battleId: 'b1' }, { battleId: 'duel1' }],
       battles: [],
-      entries: [],
+      // The duel has two entries and votes, and the user is ahead: dropping regularBattleWhere
+      // would count it as a win (1 instead of 0).
+      entries: [
+        { id: 'd1', userId: 'u1', battleId: 'duel1' },
+        { id: 'd2', userId: 'u2', battleId: 'duel1' },
+      ],
+      counts: [{ submissionId: 'd1', _count: 5 }, { submissionId: 'd2', _count: 3 }],
     })
     battleFindMany.mockImplementation(async (args: { where: { id: { in: string[] }; challenge?: unknown } }) =>
       args.where.challenge ? [] : [past('duel1')]

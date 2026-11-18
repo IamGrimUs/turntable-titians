@@ -254,10 +254,13 @@ export const adminMutation = {
     const blockEmail = args.blockEmail === true
 
     // Counted before the delete, for the audit entry: afterwards the rows are gone.
-    const [entries, votesCast, votesReceived] = await Promise.all([
+    // Head to head battles the user was in: those are deleted with them (see below).
+    const duelsWhere = { challenge: { is: { OR: [{ challengerId: user.id }, { opponentId: user.id }] } } }
+    const [entries, votesCast, votesReceived, duelsDeleted] = await Promise.all([
       db.submission.count({ where: { userId: user.id } }),
       db.vote.count({ where: { userId: user.id } }),
       db.vote.count({ where: { submission: { userId: user.id } } }),
+      db.battle.count({ where: duelsWhere }),
     ])
 
     // Audit rows are built first: they throw if the actor's email is missing, before any write is queued.
@@ -271,12 +274,15 @@ export const adminMutation = {
       actor: actorSnapshot,
       action: 'USER_DELETE',
       target: targetParty,
-      details: { entries, votesCast, votesReceived, emailBlocked: blockEmail },
+      details: { entries, votesCast, votesReceived, duelsDeleted, emailBlocked: blockEmail },
     })
 
     // One transaction. The database cascades the user's entries, the votes they cast and the votes on
-    // their entries (and their accounts, sessions and crew memberships), so there are no manual deletes.
-    // The audit rows come before the delete; the delete is last.
+    // their entries (and their accounts, sessions and crew memberships), so there are no manual deletes
+    // for those. The one exception is duels: Challenge.battle is SetNull and the challenge cascades with
+    // the user, so a surviving duel would lose its challenge row and turn into a "regular" battle whose
+    // lone remaining entry counts as a win. Deleting the battle first removes its entries and votes too.
+    // The audit rows come first, then the duels, and the user delete is last.
     const lowerEmail = user.email.toLowerCase()
     await db.$transaction([
       ...(blockAudit
@@ -291,6 +297,7 @@ export const adminMutation = {
           ]
         : []),
       db.adminAuditLog.create({ data: deleteAudit }),
+      db.battle.deleteMany({ where: duelsWhere }),
       db.user.delete({ where: { id: user.id } }),
     ])
 

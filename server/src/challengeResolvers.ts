@@ -3,6 +3,7 @@ import { GraphQLError } from 'graphql'
 import { db } from './db'
 import { requireAuth, type Context } from './context'
 import { isSuspended } from './suspension'
+import { HEAD_TO_HEAD_TYPE } from './battleKind'
 import {
   cleanChallengeInput,
   createBlockReason,
@@ -243,7 +244,7 @@ export const challengeMutation = {
         const battle = await tx.battle.create({
           data: {
             title: challenge.title,
-            type: 'Head to Head',
+            type: HEAD_TO_HEAD_TYPE,
             description: challenge.message,
             startDate: start,
             endDate: end,
