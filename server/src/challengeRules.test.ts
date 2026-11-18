@@ -233,6 +233,14 @@ describe('battleDatesForAccept', () => {
     const { end } = battleDatesForAccept(new Date(2026, 10, 28, 8, 0), 14)
     expect([end.getFullYear(), end.getMonth(), end.getDate()]).toEqual([2026, 11, 12])
   })
+
+  it('counts calendar days across a daylight-saving change (not 24-hour blocks)', () => {
+    // Under TZ=America/Los_Angeles the clocks go forward on Mar 8 2026, so start + 7 * 86400000
+    // would land at 1 a.m. on Mar 12 and this would fail. The local date and hour must hold.
+    const { end } = battleDatesForAccept(new Date(2026, 2, 5, 23, 59), 7)
+    expect([end.getFullYear(), end.getMonth(), end.getDate()]).toEqual([2026, 2, 12])
+    expect(end.getHours()).toBe(0)
+  })
 })
 
 describe('duelOutcome', () => {

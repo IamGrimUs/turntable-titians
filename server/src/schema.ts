@@ -383,6 +383,7 @@ export const typeDefs = gql`
       videoUrl: String!
       votingDays: Int!
     ): Challenge!
+    acceptChallenge(id: ID!, videoUrl: String!): Challenge!
     declineChallenge(id: ID!): Challenge!
     withdrawChallenge(id: ID!): Challenge!
   }

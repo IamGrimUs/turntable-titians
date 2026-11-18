@@ -8,9 +8,10 @@ import {
   createBlockReason,
   effectiveStatus,
   expiryFrom,
+  battleDatesForAccept,
   viewerRole,
 } from './challengeRules'
-import { badInput } from './validation'
+import { badInput, cleanHttpsUrl, LIMITS } from './validation'
 
 /**
  * The challenger's video link is deliberately NOT part of the parent row: every read below
@@ -20,7 +21,7 @@ import { badInput } from './validation'
  */
 export type ChallengeParent = Omit<Challenge, 'challengerVideoUrl'>
 
-const SAFE_SELECT = {
+export const SAFE_SELECT = {
   id: true,
   challengerId: true,
   opponentId: true,
@@ -37,11 +38,11 @@ const SAFE_SELECT = {
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // One message for a missing id, a stranger and an anonymous caller: no signal about which it was.
-function notFound(): GraphQLError {
+export function notFound(): GraphQLError {
   return new GraphQLError('Challenge not found', { extensions: { code: 'NOT_FOUND' } })
 }
 
-function isSerializationFailure(err: unknown): boolean {
+export function isSerializationFailure(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'P2034'
 }
 
@@ -126,8 +127,9 @@ export const challengeMutation = {
       // requests cannot both pass the "one waiting per pair" and rate checks.
       return await db.$transaction(
         async (tx) => {
-          const opponent = await tx.user.findUnique({
-            where: { username: input.opponentUsername },
+          // Usernames are unique ignoring case, so "djopp" must find "DJOpp".
+          const opponent = await tx.user.findFirst({
+            where: { username: { equals: input.opponentUsername, mode: 'insensitive' } },
             select: { id: true, suspendedAt: true, suspendedUntil: true },
           })
           if (!opponent) throw badInput('No DJ with that username.')
@@ -152,7 +154,9 @@ export const challengeMutation = {
               select: { id: true },
             }),
             tx.challenge.findFirst({
-              where: { challengerId: userId, opponentId: opponent.id, status: 'DECLINED' },
+              // respondedAt is set on every decline; excluding NULLs keeps Postgres NULL ordering
+              // (NULLs sort first when descending) from hiding the real latest decline.
+              where: { challengerId: userId, opponentId: opponent.id, status: 'DECLINED', respondedAt: { not: null } },
               orderBy: { respondedAt: 'desc' },
               select: { respondedAt: true },
             }),
@@ -185,6 +189,84 @@ export const challengeMutation = {
     } catch (err) {
       if (isSerializationFailure(err)) throw badInput('Something went wrong, please try again.')
       throw err
+    }
+  },
+
+  /**
+   * The opponent accepts with their own entry, which opens a public Head to Head battle with
+   * exactly two entries. Everything after the pre-checks is ONE transaction that starts with a
+   * compare-and-set on the status, so of two simultaneous accepts (or an accept racing a withdraw,
+   * a decline or the expiry) exactly one gets past it and the other writes nothing.
+   */
+  acceptChallenge: async (
+    _: unknown,
+    args: { id: string; videoUrl: string },
+    ctx: Context
+  ): Promise<ChallengeParent> => {
+    const userId = requireAuth(ctx)
+    const videoUrl = cleanHttpsUrl(args.videoUrl, 'Video link', { max: LIMITS.url })
+    const { id } = args
+
+    // A stranger and a missing id get the same NOT_FOUND, before anything is written. The challenger's
+    // video link is not selected here (SAFE_SELECT).
+    const found = await db.challenge.findUnique({ where: { id }, select: SAFE_SELECT })
+    const role = found ? viewerRole(found, userId) : null
+    if (!found || role === null) throw notFound()
+    if (role === 'CHALLENGER') throw badInput("You can't accept your own challenge.")
+
+    const now = new Date()
+    try {
+      return await db.$transaction(async (tx) => {
+        const { count } = await tx.challenge.updateMany({
+          where: { id, opponentId: userId, status: 'PENDING', expiresAt: { gt: now } },
+          data: { status: 'ACCEPTED', respondedAt: now },
+        })
+        if (count === 0) throw badInput('This challenge is no longer waiting for an answer.')
+
+        // The stored link is read here only to become the challenger's entry; it is never returned.
+        const challenge = await tx.challenge.findUnique({
+          where: { id },
+          select: { challengerId: true, title: true, message: true, votingDays: true, challengerVideoUrl: true },
+        })
+        const challenger = challenge
+          ? await tx.user.findUnique({
+              where: { id: challenge.challengerId },
+              select: { suspendedAt: true, suspendedUntil: true },
+            })
+          : null
+        // Throwing here rolls the compare-and-set back, so a refused accept leaves the challenge waiting.
+        if (!challenge || !challenger || isSuspended(challenger, now)) {
+          throw badInput('This challenge is no longer available.')
+        }
+
+        const { start, end } = battleDatesForAccept(now, challenge.votingDays)
+        const battle = await tx.battle.create({
+          data: {
+            title: challenge.title,
+            type: 'Head to Head',
+            description: challenge.message,
+            startDate: start,
+            endDate: end,
+            submissions: {
+              create: [
+                { userId: challenge.challengerId, videoUrl: challenge.challengerVideoUrl },
+                { userId, videoUrl },
+              ],
+            },
+          },
+          select: { id: true },
+        })
+
+        return tx.challenge.update({ where: { id }, data: { battleId: battle.id }, select: SAFE_SELECT })
+      })
+    } catch (err) {
+      if (err instanceof GraphQLError) throw err
+      // Unexpected failure (the transaction has rolled back). Prisma error messages echo the query
+      // arguments, which include the challenger's hidden video link, so neither the caller nor the
+      // log gets the original: only its name and code.
+      const e = err as { name?: unknown; code?: unknown }
+      console.error('[challenge] accept failed:', e?.name, e?.code)
+      throw new Error('Could not open the duel.')
     }
   },
 

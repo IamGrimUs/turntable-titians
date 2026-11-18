@@ -4,8 +4,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // object from `db`, so the tests prove the checks and the create share one transaction.
 const { tx } = vi.hoisted(() => ({
   tx: {
-    user: { findUnique: vi.fn() },
-    challenge: { count: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+    user: { findUnique: vi.fn(), findFirst: vi.fn() },
+    challenge: {
+      count: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      updateMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
+    battle: { create: vi.fn() },
   },
 }))
 
@@ -25,7 +33,14 @@ vi.mock('./db', () => ({
 }))
 
 import { db } from './db'
-import { challengeFields, challengeMutation, challengeQuery } from './challengeResolvers'
+import {
+  challengeFields,
+  challengeMutation,
+  challengeQuery,
+  SAFE_SELECT,
+  notFound,
+  isSerializationFailure,
+} from './challengeResolvers'
 
 const fn = (f: unknown) => f as ReturnType<typeof vi.fn>
 const transaction = fn(db.$transaction)
@@ -37,6 +52,11 @@ const chFindMany = fn(db.challenge.findMany)
 const chFindUnique = fn(db.challenge.findUnique)
 const chUpdateMany = fn(db.challenge.updateMany)
 const txUserFind = fn(tx.user.findUnique)
+const txUserFindFirst = fn(tx.user.findFirst)
+const txUpdateMany = fn(tx.challenge.updateMany)
+const txChFindUnique = fn(tx.challenge.findUnique)
+const txChUpdate = fn(tx.challenge.update)
+const txBattleCreate = fn(tx.battle.create)
 const txCount = fn(tx.challenge.count)
 const txFindFirst = fn(tx.challenge.findFirst)
 const txCreate = fn(tx.challenge.create)
@@ -92,7 +112,8 @@ const msg = (p: Promise<unknown>) =>
 function expectNoDbUse() {
   for (const x of [
     transaction, dbUserFind, chCreate, chCount, chFindFirst, chFindMany, chFindUnique, chUpdateMany,
-    txUserFind, txCount, txFindFirst, txCreate,
+    txUserFind, txUserFindFirst, txCount, txFindFirst, txCreate,
+    txUpdateMany, txChFindUnique, txChUpdate, txBattleCreate,
   ]) {
     expect(x).not.toHaveBeenCalled()
   }
@@ -103,7 +124,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(NOW)
   transaction.mockImplementation(async (cb: (t: typeof tx) => unknown) => cb(tx))
-  txUserFind.mockResolvedValue({ id: 'opp', suspendedAt: null, suspendedUntil: null })
+  txUserFindFirst.mockResolvedValue({ id: 'opp', suspendedAt: null, suspendedUntil: null })
   txCount.mockResolvedValue(0)
   txFindFirst.mockResolvedValue(null)
   txCreate.mockResolvedValue(row())
@@ -145,7 +166,7 @@ describe('createChallenge', () => {
   })
 
   it('refuses an unknown username', async () => {
-    txUserFind.mockResolvedValue(null)
+    txUserFindFirst.mockResolvedValue(null)
     expect(await msg(m.createChallenge({}, validArgs, asMe))).toEqual({
       message: 'No DJ with that username.',
       code: 'BAD_USER_INPUT',
@@ -154,7 +175,7 @@ describe('createChallenge', () => {
   })
 
   it('refuses challenging yourself', async () => {
-    txUserFind.mockResolvedValue({ id: 'me', suspendedAt: null, suspendedUntil: null })
+    txUserFindFirst.mockResolvedValue({ id: 'me', suspendedAt: null, suspendedUntil: null })
     expect(await msg(m.createChallenge({}, { ...validArgs, opponentUsername: 'djme' }, asMe))).toEqual({
       message: "You can't challenge yourself.",
       code: 'BAD_USER_INPUT',
@@ -162,8 +183,25 @@ describe('createChallenge', () => {
     expect(txCreate).not.toHaveBeenCalled()
   })
 
+  it('finds the opponent ignoring case, so typing "djopp" finds "DJOpp"', async () => {
+    txUserFindFirst.mockResolvedValue({ id: 'opp', suspendedAt: null, suspendedUntil: null })
+    await m.createChallenge({}, { ...validArgs, opponentUsername: 'djopp' }, asMe)
+    expect(txUserFindFirst.mock.calls[0][0].where).toEqual({ username: { equals: 'djopp', mode: 'insensitive' } })
+    expect(txUserFind).not.toHaveBeenCalled()
+    expect(txCreate).toHaveBeenCalled()
+  })
+
+  it('refuses challenging yourself typed in different case (compares ids, not strings)', async () => {
+    txUserFindFirst.mockResolvedValue({ id: 'me', suspendedAt: null, suspendedUntil: null })
+    expect(await msg(m.createChallenge({}, { ...validArgs, opponentUsername: 'DJME' }, asMe))).toEqual({
+      message: "You can't challenge yourself.",
+      code: 'BAD_USER_INPUT',
+    })
+    expect(txCreate).not.toHaveBeenCalled()
+  })
+
   it('refuses an opponent who is suspended now', async () => {
-    txUserFind.mockResolvedValue({ id: 'opp', suspendedAt: new Date(NOW.getTime() - DAY), suspendedUntil: null })
+    txUserFindFirst.mockResolvedValue({ id: 'opp', suspendedAt: new Date(NOW.getTime() - DAY), suspendedUntil: null })
     expect(await msg(m.createChallenge({}, validArgs, asMe))).toEqual({
       message: "That DJ can't be challenged right now.",
       code: 'BAD_USER_INPUT',
@@ -172,7 +210,7 @@ describe('createChallenge', () => {
   })
 
   it('allows an opponent whose suspension has ended', async () => {
-    txUserFind.mockResolvedValue({
+    txUserFindFirst.mockResolvedValue({
       id: 'opp',
       suspendedAt: new Date(NOW.getTime() - 5 * DAY),
       suspendedUntil: new Date(NOW.getTime() - DAY),
@@ -231,6 +269,12 @@ describe('createChallenge', () => {
       expect(call.orderBy).toEqual({ respondedAt: 'desc' })
     })
 
+    it('ignores declines with no respondedAt, so NULL ordering cannot skip the cooldown', async () => {
+      await m.createChallenge({}, validArgs, asMe)
+      const call = txFindFirst.mock.calls.map((c) => c[0]).find((a) => a.where.status === 'DECLINED')
+      expect(call.where.respondedAt).toEqual({ not: null })
+    })
+
     it('allows a challenge once the cooldown is over', async () => {
       finds({ declined: { respondedAt: new Date(NOW.getTime() - 8 * DAY) } })
       await m.createChallenge({}, validArgs, asMe)
@@ -262,7 +306,9 @@ describe('createChallenge', () => {
 
   it('creates the challenge with the expiry, the stored video url and the cleaned fields', async () => {
     const result = await m.createChallenge({}, { ...validArgs, opponentUsername: '  djopp ' }, asMe)
-    expect(txUserFind).toHaveBeenCalledWith(expect.objectContaining({ where: { username: 'djopp' } }))
+    expect(txUserFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { username: { equals: 'djopp', mode: 'insensitive' } } })
+    )
     expect(txCreate).toHaveBeenCalledTimes(1)
     expect(txCreate.mock.calls[0][0].data).toEqual({
       challengerId: 'me',
@@ -286,7 +332,7 @@ describe('createChallenge', () => {
     await m.createChallenge({}, validArgs, asMe)
     expect(transaction).toHaveBeenCalledTimes(1)
     expect(transaction.mock.calls[0][1]).toEqual({ isolationLevel: 'Serializable' })
-    expect(txUserFind).toHaveBeenCalled()
+    expect(txUserFindFirst).toHaveBeenCalled()
     expect(txCount).toHaveBeenCalled()
     expect(txFindFirst).toHaveBeenCalled()
     expect(txCreate).toHaveBeenCalled()
@@ -310,7 +356,7 @@ describe('createChallenge', () => {
   })
 
   it('never puts the video url in an error message', async () => {
-    txUserFind.mockResolvedValue(null)
+    txUserFindFirst.mockResolvedValue(null)
     const r = await msg(m.createChallenge({}, validArgs, asMe))
     expect(r?.message).not.toContain('secret-entry')
   })
@@ -440,6 +486,248 @@ describe('withdrawChallenge', () => {
     chFindUnique.mockResolvedValue(row({ expiresAt: new Date(NOW.getTime() - 1000) }))
     chUpdateMany.mockResolvedValue({ count: 0 })
     expect((await msg(m.withdrawChallenge({}, { id: 'c1' }, asMe)))?.code).toBe('BAD_USER_INPUT')
+  })
+})
+
+describe('exports shared with acceptChallenge', () => {
+  it('SAFE_SELECT omits the challenger video url', () => {
+    expect((SAFE_SELECT as Record<string, unknown>).challengerVideoUrl).toBeUndefined()
+    expect(SAFE_SELECT.id).toBe(true)
+  })
+
+  it('notFound is the one NOT_FOUND "Challenge not found"', () => {
+    const e = notFound()
+    expect(e.message).toBe('Challenge not found')
+    expect(e.extensions.code).toBe('NOT_FOUND')
+  })
+
+  it('isSerializationFailure recognises P2034 only', () => {
+    expect(isSerializationFailure({ code: 'P2034' })).toBe(true)
+    expect(isSerializationFailure({ code: 'P2002' })).toBe(false)
+    expect(isSerializationFailure(null)).toBe(false)
+  })
+})
+
+describe('acceptChallenge', () => {
+  const NEW_URL = 'https://youtube.com/watch?v=my-new-entry'
+  const accepted = row({ status: 'ACCEPTED', respondedAt: NOW, battleId: 'b1' })
+
+  beforeEach(() => {
+    chFindUnique.mockResolvedValue(row())
+    txChFindUnique.mockResolvedValue({
+      challengerId: 'me',
+      title: 'Scratch showdown',
+      message: 'Let us settle it',
+      votingDays: 7,
+      challengerVideoUrl: SECRET_URL,
+    })
+    txUserFind.mockResolvedValue({ suspendedAt: null, suspendedUntil: null })
+    txUpdateMany.mockResolvedValue({ count: 1 })
+    txBattleCreate.mockResolvedValue({ id: 'b1' })
+    txChUpdate.mockResolvedValue(accepted)
+  })
+
+  const accept = (ctx: unknown = asOpponent, args: Record<string, unknown> = {}) =>
+    m.acceptChallenge({}, { id: 'c1', videoUrl: NEW_URL, ...args }, ctx)
+
+  it('refuses anonymous and suspended callers before any database call', async () => {
+    expect((await msg(accept(anonymous)))?.code).toBe('UNAUTHENTICATED')
+    expect((await msg(accept(suspended)))?.code).toBe('FORBIDDEN')
+    expectNoDbUse()
+  })
+
+  it.each([
+    ['http link', 'http://youtube.com/watch?v=x'],
+    ['empty', ''],
+    ['blank', '   '],
+    ['not a link', 'nope'],
+  ])('rejects a bad video url (%s) before any database call', async (_name, url) => {
+    expect((await msg(accept(asOpponent, { videoUrl: url })))?.code).toBe('BAD_USER_INPUT')
+    expectNoDbUse()
+  })
+
+  it('rejects a video url over the length limit before any database call', async () => {
+    const r = await msg(accept(asOpponent, { videoUrl: 'https://example.com/' + 'a'.repeat(600) }))
+    expect(r?.code).toBe('BAD_USER_INPUT')
+    expectNoDbUse()
+  })
+
+  it('answers NOT_FOUND "Challenge not found" for a missing id', async () => {
+    chFindUnique.mockResolvedValue(null)
+    expect(await msg(accept(asOpponent))).toEqual({ message: 'Challenge not found', code: 'NOT_FOUND' })
+    expect(transaction).not.toHaveBeenCalled()
+  })
+
+  it('answers the identical NOT_FOUND to a stranger, and nothing is written', async () => {
+    const stranger = await msg(accept(asStranger))
+    chFindUnique.mockResolvedValue(null)
+    const missing = await msg(accept(asStranger))
+    expect(stranger).toEqual({ message: 'Challenge not found', code: 'NOT_FOUND' })
+    expect(missing).toEqual(stranger)
+    expect(transaction).not.toHaveBeenCalled()
+  })
+
+  it('tells the challenger they cannot accept their own challenge', async () => {
+    expect(await msg(accept(asMe))).toEqual({
+      message: "You can't accept your own challenge.",
+      code: 'BAD_USER_INPUT',
+    })
+    expect(transaction).not.toHaveBeenCalled()
+  })
+
+  it('never selects the video url in the pre-read', async () => {
+    await accept()
+    const sel = chFindUnique.mock.calls[0][0].select
+    expect(sel).toBeDefined()
+    expect(sel.challengerVideoUrl).toBeUndefined()
+  })
+
+  it.each([
+    ['suspended now', { suspendedAt: new Date(NOW.getTime() - DAY), suspendedUntil: null }],
+    ['gone', null],
+  ])('refuses when the challenger is %s, and opens no battle', async (_name, challenger) => {
+    txUserFind.mockResolvedValue(challenger)
+    expect(await msg(accept())).toEqual({
+      message: 'This challenge is no longer available.',
+      code: 'BAD_USER_INPUT',
+    })
+    expect(txBattleCreate).not.toHaveBeenCalled()
+    expect(txChUpdate).not.toHaveBeenCalled()
+  })
+
+  it('still accepts when the challenger suspension has ended', async () => {
+    txUserFind.mockResolvedValue({
+      suspendedAt: new Date(NOW.getTime() - 5 * DAY),
+      suspendedUntil: new Date(NOW.getTime() - DAY),
+    })
+    await accept()
+    expect(txBattleCreate).toHaveBeenCalledTimes(1)
+  })
+
+  it('does the compare-and-set first, inside the transaction, on PENDING, not expired and addressed to me', async () => {
+    await accept()
+    expect(transaction).toHaveBeenCalledTimes(1)
+    expect(txUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'c1', opponentId: 'opp', status: 'PENDING', expiresAt: { gt: NOW } },
+      data: { status: 'ACCEPTED', respondedAt: NOW },
+    })
+    const order = (x: ReturnType<typeof vi.fn>) => x.mock.invocationCallOrder[0]
+    expect(order(txUpdateMany)).toBeLessThan(order(txChFindUnique))
+    expect(order(txChFindUnique)).toBeLessThan(order(txBattleCreate))
+    expect(order(txBattleCreate)).toBeLessThan(order(txChUpdate))
+    expect(chUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it.each(['expired', 'declined', 'withdrawn', 'already accepted'])(
+    'reports "no longer waiting" and writes nothing else when the compare-and-set matches nothing (%s)',
+    async () => {
+      txUpdateMany.mockResolvedValue({ count: 0 })
+      expect(await msg(accept())).toEqual({
+        message: 'This challenge is no longer waiting for an answer.',
+        code: 'BAD_USER_INPUT',
+      })
+      expect(txBattleCreate).not.toHaveBeenCalled()
+      expect(txChUpdate).not.toHaveBeenCalled()
+      expect(txChFindUnique).not.toHaveBeenCalled()
+    }
+  )
+
+  it('double accept: the second accept loses the compare-and-set and creates no battle', async () => {
+    txUpdateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 })
+    await accept()
+    expect(txBattleCreate).toHaveBeenCalledTimes(1)
+    const second = await msg(accept())
+    expect(second?.message).toBe('This challenge is no longer waiting for an answer.')
+    expect(txBattleCreate).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates one Head to Head battle with the challenge title, message and the dates for the chosen length', async () => {
+    await accept()
+    expect(txBattleCreate).toHaveBeenCalledTimes(1)
+    const data = txBattleCreate.mock.calls[0][0].data
+    expect(data.title).toBe('Scratch showdown')
+    expect(data.type).toBe('Head to Head')
+    expect(data.description).toBe('Let us settle it')
+    expect(data.startDate).toEqual(new Date(2026, 5, 10))
+    expect(data.endDate).toEqual(new Date(2026, 5, 17))
+  })
+
+  it('uses the stored voting length (14 days) for the end date', async () => {
+    txChFindUnique.mockResolvedValue({
+      challengerId: 'me',
+      title: 't',
+      message: null,
+      votingDays: 14,
+      challengerVideoUrl: SECRET_URL,
+    })
+    await accept()
+    const data = txBattleCreate.mock.calls[0][0].data
+    expect(data.endDate).toEqual(new Date(2026, 5, 24))
+    expect(data.description).toBeNull()
+  })
+
+  it('creates exactly two entries: the challenger with the stored url first, then me with the new url', async () => {
+    await accept()
+    const subs = txBattleCreate.mock.calls[0][0].data.submissions.create
+    expect(subs).toHaveLength(2)
+    expect(subs[0]).toEqual({ userId: 'me', videoUrl: SECRET_URL })
+    expect(subs[1]).toEqual({ userId: 'opp', videoUrl: NEW_URL })
+  })
+
+  it('stores the cleaned (trimmed) new url', async () => {
+    await accept(asOpponent, { videoUrl: `  ${NEW_URL}  ` })
+    expect(txBattleCreate.mock.calls[0][0].data.submissions.create[1].videoUrl).toBe(NEW_URL)
+  })
+
+  it('reads the stored challenger url inside the transaction only', async () => {
+    await accept()
+    expect(txChFindUnique).toHaveBeenCalledTimes(1)
+    expect(txChFindUnique.mock.calls[0][0].where).toEqual({ id: 'c1' })
+    expect(txChFindUnique.mock.calls[0][0].select.challengerVideoUrl).toBe(true)
+    for (const call of chFindUnique.mock.calls) expect(call[0].select.challengerVideoUrl).toBeUndefined()
+  })
+
+  it('links the battle to the challenge and returns the challenge with its battleId, without the video url', async () => {
+    const result = await accept()
+    expect(txChUpdate).toHaveBeenCalledTimes(1)
+    expect(txChUpdate.mock.calls[0][0].where).toEqual({ id: 'c1' })
+    expect(txChUpdate.mock.calls[0][0].data).toEqual({ battleId: 'b1' })
+    expect(txChUpdate.mock.calls[0][0].select).toEqual(SAFE_SELECT)
+    expect(result).toEqual(accepted)
+    expect(f.battleId(result)).toBe('b1')
+    expect(f.status(result)).toBe('ACCEPTED')
+    expect(await f.challengerVideoUrl(result, {}, asOpponent)).toBeNull()
+  })
+
+  it('uses tx for every read and write, never db', async () => {
+    await accept()
+    expect(chUpdateMany).not.toHaveBeenCalled()
+    expect(dbUserFind).not.toHaveBeenCalled()
+    expect(chCreate).not.toHaveBeenCalled()
+  })
+
+  it('a failure creating the battle rejects with a generic error that holds neither video url', async () => {
+    txBattleCreate.mockRejectedValue(
+      new Error(`Invalid prisma.battle.create() invocation: videoUrl: "${SECRET_URL}" unique constraint`)
+    )
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const r = await msg(accept())
+    expect(r).not.toBeNull()
+    expect(r?.message).not.toContain('secret-entry')
+    expect(r?.message).not.toContain('my-new-entry')
+    expect(r?.code).toBeUndefined()
+    expect(txChUpdate).not.toHaveBeenCalled()
+    expect(JSON.stringify(spy.mock.calls)).not.toContain('secret-entry')
+    spy.mockRestore()
+  })
+
+  it('never puts the stored url in a deliberate error message', async () => {
+    txUpdateMany.mockResolvedValue({ count: 0 })
+    const a = await msg(accept())
+    txUserFind.mockResolvedValue(null)
+    txUpdateMany.mockResolvedValue({ count: 1 })
+    const b = await msg(accept())
+    for (const r of [a, b]) expect(r?.message).not.toContain('secret-entry')
   })
 })
 
