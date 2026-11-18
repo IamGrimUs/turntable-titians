@@ -1,4 +1,5 @@
 import { gql } from '@apollo/client'
+import { RUNOFF_FIELDS } from './runoff'
 
 /** The Champions tab: everyone with a win, already ranked by the server. */
 export const GET_HALL_OF_FAME = gql`
@@ -24,6 +25,7 @@ export const GET_BATTLE_RESULTS = gql`
       status
       winningVotes
       winners { id username name image }
+      runoff { ${RUNOFF_FIELDS} }
       submissions { id }
     }
   }
