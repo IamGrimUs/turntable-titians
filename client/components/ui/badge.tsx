@@ -18,6 +18,7 @@ const badgeVariants = cva(
         upcoming: "border-amber-500/30 bg-amber-500/15 text-amber-400",
         active: "border-green-500/30 bg-green-500/15 text-green-400",
         completed: "border-slate-500/30 bg-slate-500/15 text-slate-400",
+        runoff: "border-amber-500/30 bg-amber-500/15 text-amber-400",
       },
     },
     defaultVariants: {

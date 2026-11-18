@@ -25,6 +25,7 @@ const battle = (over: Partial<ResultBattle> & { id: string }): ResultBattle => (
   winners: [],
   winningVotes: null,
   submissions: [{ id: 's1' }, { id: 's2' }],
+  runoff: null,
   ...over,
 })
 
@@ -124,6 +125,92 @@ describe('buildResultRows', () => {
     const copy = JSON.parse(JSON.stringify(input))
     buildResultRows(input, null)
     expect(input).toEqual(copy)
+  })
+})
+
+// What the server sends (midnight UTC); "ends Nov 20" must read the same in every timezone.
+const nov20 = '2026-11-20T00:00:00.000Z'
+
+const runoffOf = (status: 'OPEN' | 'DECIDED' | 'TIED', votes: [number | null, number | null]) => ({
+  status,
+  endsAt: nov20,
+  candidates: [
+    { submission: { user: person('n', 'nova') }, votes: votes[0] },
+    { submission: { user: person('k', 'kay') }, votes: votes[1] },
+  ],
+})
+
+describe('buildResultRows with a runoff', () => {
+  it('an open runoff is not "no winner": no winner row, a runoff status and the in-progress line', () => {
+    const [row] = buildResultRows(
+      [battle({ id: 'r', winners: [], winningVotes: null, runoff: runoffOf('OPEN', [null, null]) })],
+      null,
+    )
+    expect(row.noWinner).toBe(false)
+    expect(row.winners).toEqual([])
+    expect(row.tie).toBe(false)
+    expect(row.runoff?.status).toBe('OPEN')
+    expect(row.runoff?.label).toBe('RUNOFF')
+    expect(row.runoff?.line).toBe('Runoff in progress: nova vs kay, ends Nov 20')
+  })
+
+  it('an open runoff shows no winners even if some were sent for it', () => {
+    const [row] = buildResultRows(
+      [battle({ id: 'r', winners: [person('n', 'nova'), person('k', 'kay')], winningVotes: 12, runoff: runoffOf('OPEN', [null, null]) })],
+      null,
+    )
+    expect(row.winners).toEqual([])
+    expect(row.tie).toBe(false)
+    expect(row.noWinner).toBe(false)
+  })
+
+  it('a decided runoff shows the one winner and the runoff result, not the round-one total', () => {
+    const [row] = buildResultRows(
+      [battle({ id: 'r', winners: [person('k', 'kay')], winningVotes: 12, runoff: runoffOf('DECIDED', [24, 31]) })],
+      null,
+    )
+    expect(row.noWinner).toBe(false)
+    expect(row.winners.map((w) => displayName(w.user))).toEqual(['kay'])
+    expect(row.winners[0].votes).toBeNull()
+    expect(row.tie).toBe(false)
+    expect(row.runoff?.status).toBe('DECIDED')
+    expect(row.runoff?.label).toBe('COMPLETED')
+    expect(row.runoff?.line).toBe('Won by kay (runoff, 31 to 24)')
+  })
+
+  it('a runoff that also ended level shares the win', () => {
+    const [row] = buildResultRows(
+      [battle({ id: 'r', winners: [person('n', 'nova'), person('k', 'kay')], winningVotes: 12, runoff: runoffOf('TIED', [5, 5]) })],
+      null,
+    )
+    expect(row.noWinner).toBe(false)
+    expect(row.tie).toBe(true)
+    expect(row.winners.map((w) => displayName(w.user))).toEqual(['nova', 'kay'])
+    expect(row.runoff?.line).toBe('Tied: nova and kay (runoff level)')
+  })
+
+  it('a battle with no runoff keeps its round-one votes and has no runoff field', () => {
+    const [row] = buildResultRows([battle({ id: 'a', winners: [person('a', 'ann')], winningVotes: 9, runoff: null })], null)
+    expect(row.runoff).toBeNull()
+    expect(row.winners[0].votes).toBe(9)
+  })
+
+  it('a battle that really had no votes (no runoff) is still "no winner"', () => {
+    const [row] = buildResultRows([battle({ id: 'a', winners: [], runoff: null })], null)
+    expect(row.noWinner).toBe(true)
+    expect(row.runoff).toBeNull()
+    expect(noWinnerText(row.entries)).toBe('No winner: nobody voted')
+  })
+
+  it('a missing runoff field (older response) counts as no runoff', () => {
+    const [row] = buildResultRows([battle({ id: 'a', winners: [] })], null)
+    expect(row.runoff).toBeNull()
+    expect(row.noWinner).toBe(true)
+  })
+
+  it('an open runoff never shows candidate votes in its line, even if some were sent', () => {
+    const [row] = buildResultRows([battle({ id: 'r', runoff: runoffOf('OPEN', [3, 1]) })], null)
+    expect(row.runoff?.line).toBe('Runoff in progress: nova vs kay, ends Nov 20')
   })
 })
 

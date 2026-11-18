@@ -1,5 +1,14 @@
 import { ApolloClient, InMemoryCache, HttpLink, ApolloLink, fromPromise } from '@apollo/client';
 
+/**
+ * `Runoff` has no id, so Apollo would replace `Battle:<id>.runoff` wholesale. The battle lists write a
+ * light selection and the battle page the full one; `merge: true` makes them add up instead of
+ * one erasing the other's fields.
+ */
+export const cacheTypePolicies = {
+  Battle: { fields: { runoff: { merge: true } } },
+} as const;
+
 let cachedToken: string | null = null;
 let tokenExpiry = 0;
 
@@ -51,7 +60,7 @@ const httpLink = new HttpLink({
 
 export const client = new ApolloClient({
   link: authLink.concat(httpLink),
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({ typePolicies: cacheTypePolicies }),
   defaultOptions: {
     watchQuery: {
       fetchPolicy: 'cache-and-network',
