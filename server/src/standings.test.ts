@@ -10,7 +10,7 @@ vi.mock('./db', () => ({
 }))
 
 import { db } from './db'
-import { loadCompletedBattles, loadWinnersByBattle, loadHallOfFame, loadUserRecord } from './standings'
+import { loadCompletedBattles, loadOutcomesByBattle, loadHallOfFame, loadUserRecord } from './standings'
 
 const battleFindMany = db.battle.findMany as unknown as ReturnType<typeof vi.fn>
 const submissionFindMany = db.submission.findMany as unknown as ReturnType<typeof vi.fn>
@@ -77,16 +77,18 @@ function setupBattle() {
   ])
 }
 
-describe('loadWinnersByBattle', () => {
-  it('maps each battle to its winners with one user lookup for all of them', async () => {
+describe('loadOutcomesByBattle', () => {
+  it('maps each battle to its winners and winning vote total with one user lookup for all of them', async () => {
     setupBattle()
     userFindMany.mockResolvedValue([
       { id: 'u1', username: 'ann' },
       { id: 'u2', username: 'bob' },
     ])
-    const winners = await loadWinnersByBattle(['b1', 'b2'], NOW)
-    expect(winners.get('b1')!.map((u) => u.id)).toEqual(['u1'])
-    expect(winners.get('b2')!.map((u) => u.id)).toEqual(['u1', 'u2']) // tie: everyone tied wins
+    const outcomes = await loadOutcomesByBattle(['b1', 'b2'], NOW)
+    expect(outcomes.get('b1')!.winners.map((u) => u.id)).toEqual(['u1'])
+    expect(outcomes.get('b1')!.winningVotes).toBe(5)
+    expect(outcomes.get('b2')!.winners.map((u) => u.id)).toEqual(['u1', 'u2']) // tie: everyone tied wins
+    expect(outcomes.get('b2')!.winningVotes).toBe(1) // the tied top total
     expect(userFindMany).toHaveBeenCalledTimes(1)
   })
 
@@ -94,8 +96,8 @@ describe('loadWinnersByBattle', () => {
     battleFindMany.mockResolvedValue([done('b1')])
     submissionFindMany.mockResolvedValue([{ id: 's1', userId: 'u1', battleId: 'b1' }])
     voteGroupBy.mockResolvedValue([])
-    const winners = await loadWinnersByBattle(['b1'], NOW)
-    expect(winners.get('b1')).toEqual([])
+    const outcomes = await loadOutcomesByBattle(['b1'], NOW)
+    expect(outcomes.get('b1')).toEqual({ winners: [], winningVotes: null })
     expect(userFindMany).not.toHaveBeenCalled()
   })
 })

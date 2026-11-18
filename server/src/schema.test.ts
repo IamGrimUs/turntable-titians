@@ -302,7 +302,7 @@ describe('suggestions board schema privacy', () => {
 
 describe('winners and Hall of Fame schema', () => {
   it('validates the documents the client will send', () => {
-    expect(errorsFor('{ battles { id status winners { id username name image } } }')).toEqual([])
+    expect(errorsFor('{ battles { id status winningVotes winners { id username name image } } }')).toEqual([])
     expect(errorsFor('{ hallOfFame { rank wins battlesEntered lastWinAt user { id username name image } } }')).toEqual([])
     expect(
       errorsFor('{ user(id: "x") { battlesWon record { wins podiums bestFinish currentStreak bestStreak battlesEntered } } }'),

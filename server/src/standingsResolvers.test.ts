@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('./standings', () => ({
-  loadWinnersByBattle: vi.fn(),
+  loadOutcomesByBattle: vi.fn(),
   loadHallOfFame: vi.fn(),
   loadUserRecord: vi.fn(),
 }))
 
-import { loadWinnersByBattle, loadHallOfFame, loadUserRecord } from './standings'
-import { battleWinners, standingsQuery, userRecord } from './standingsResolvers'
+import { loadOutcomesByBattle, loadHallOfFame, loadUserRecord } from './standings'
+import { battleWinners, battleWinningVotes, standingsQuery, userRecord } from './standingsResolvers'
 
-const winnersLoad = loadWinnersByBattle as unknown as ReturnType<typeof vi.fn>
+const winnersLoad = loadOutcomesByBattle as unknown as ReturnType<typeof vi.fn>
 const hallLoad = loadHallOfFame as unknown as ReturnType<typeof vi.fn>
 const recordLoad = loadUserRecord as unknown as ReturnType<typeof vi.fn>
 
@@ -28,7 +28,7 @@ describe('Battle.winners', () => {
   })
 
   it('returns the winners of a completed battle', async () => {
-    winnersLoad.mockResolvedValue(new Map([['b1', [{ id: 'u1' }]]]))
+    winnersLoad.mockResolvedValue(new Map([['b1', { winners: [{ id: 'u1' }], winningVotes: 4 }]]))
     expect(await battleWinners(ended('b1'), {}, { userId: null })).toEqual([{ id: 'u1' }])
   })
 
@@ -38,7 +38,7 @@ describe('Battle.winners', () => {
   })
 
   it('loads every battle of one request together, in a single batch', async () => {
-    winnersLoad.mockImplementation(async (ids: string[]) => new Map(ids.map((id) => [id, [{ id: `w-${id}` }]])))
+    winnersLoad.mockImplementation(async (ids: string[]) => new Map(ids.map((id) => [id, { winners: [{ id: `w-${id}` }], winningVotes: 1 }])))
     const ctx = { userId: null }
     const lists = await Promise.all([ended('b1'), ended('b2'), ended('b3')].map((b) => battleWinners(b, {}, ctx)))
     expect(lists).toEqual([[{ id: 'w-b1' }], [{ id: 'w-b2' }], [{ id: 'w-b3' }]])
@@ -47,15 +47,40 @@ describe('Battle.winners', () => {
   })
 
   it('does not share results between two requests', async () => {
-    winnersLoad.mockImplementation(async (ids: string[]) => new Map(ids.map((id) => [id, []])))
+    winnersLoad.mockImplementation(async (ids: string[]) => new Map(ids.map((id) => [id, { winners: [], winningVotes: null }])))
     await battleWinners(ended('b1'), {}, { userId: null })
     await battleWinners(ended('b1'), {}, { userId: null })
     expect(winnersLoad).toHaveBeenCalledTimes(2)
   })
 
   it('still works when called without a context', async () => {
-    winnersLoad.mockResolvedValue(new Map([['b1', [{ id: 'u1' }]]]))
+    winnersLoad.mockResolvedValue(new Map([['b1', { winners: [{ id: 'u1' }], winningVotes: 4 }]]))
     expect(await battleWinners(ended('b1'), {}, undefined)).toEqual([{ id: 'u1' }])
+  })
+})
+
+describe('Battle.winningVotes', () => {
+  it('is null for an open battle and never reads standings', async () => {
+    expect(await battleWinningVotes(active('b1'), {}, { userId: null })).toBeNull()
+    expect(winnersLoad).not.toHaveBeenCalled()
+  })
+
+  it('is the winning entry total for a completed battle', async () => {
+    winnersLoad.mockResolvedValue(new Map([['b1', { winners: [{ id: 'u1' }], winningVotes: 4 }]]))
+    expect(await battleWinningVotes(ended('b1'), {}, { userId: null })).toBe(4)
+  })
+
+  it('is null when nobody won', async () => {
+    winnersLoad.mockResolvedValue(new Map([['b1', { winners: [], winningVotes: null }]]))
+    expect(await battleWinningVotes(ended('b1'), {}, { userId: null })).toBeNull()
+  })
+
+  it('shares one batch with Battle.winners within a request', async () => {
+    winnersLoad.mockImplementation(async (ids: string[]) =>
+      new Map(ids.map((id) => [id, { winners: [{ id: 'u1' }], winningVotes: 3 }])))
+    const ctx = { userId: null }
+    await Promise.all([battleWinners(ended('b1'), {}, ctx), battleWinningVotes(ended('b1'), {}, ctx)])
+    expect(winnersLoad).toHaveBeenCalledTimes(1)
   })
 })
 

@@ -62,15 +62,15 @@ describe('Battle.winners through real GraphQL execution', () => {
       { id: 'u2', username: 'bob' },
     ])
 
-    const result = await run('{ battles { id status winners { id username } } }')
+    const result = await run('{ battles { id status winningVotes winners { id username } } }')
 
     expect(result.errors).toBeUndefined()
     expect(result.data).toEqual({
       battles: [
-        { id: 'b1', status: 'COMPLETED', winners: [{ id: 'u1', username: 'ann' }] },
-        { id: 'b2', status: 'COMPLETED', winners: [{ id: 'u2', username: 'bob' }] },
-        { id: 'b3', status: 'COMPLETED', winners: [] }, // no votes: nobody won
-        { id: 'b4', status: 'ACTIVE', winners: [] }, // open: nothing revealed
+        { id: 'b1', status: 'COMPLETED', winningVotes: 3, winners: [{ id: 'u1', username: 'ann' }] },
+        { id: 'b2', status: 'COMPLETED', winningVotes: 2, winners: [{ id: 'u2', username: 'bob' }] },
+        { id: 'b3', status: 'COMPLETED', winningVotes: null, winners: [] }, // no votes: nobody won
+        { id: 'b4', status: 'ACTIVE', winningVotes: null, winners: [] }, // open: nothing revealed
       ],
     })
     // The list itself, plus ONE batched read for all three completed battles.

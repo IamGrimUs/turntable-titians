@@ -7,7 +7,7 @@ import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
 import { boardComment, boardIdea, boardMutation, boardQuery } from './boardResolvers'
 import { boardAdminMutation } from './boardAdminResolvers'
 import { countBattlesWon } from './userBattlesWon'
-import { battleWinners, standingsQuery, userRecord } from './standingsResolvers'
+import { battleWinners, battleWinningVotes, standingsQuery, userRecord } from './standingsResolvers'
 import { prepareCrews, prepareUsername } from './profileRules'
 import {
   LIMITS,
@@ -241,6 +241,7 @@ export const resolvers = {
     submissions: (parent: Battle) =>
       db.submission.findMany({ where: { battleId: parent.id }, orderBy: { createdAt: 'asc' } }),
     winners: battleWinners,
+    winningVotes: battleWinningVotes,
     status: (parent: Battle) => computeBattleStatus(parent.startDate, parent.endDate),
     startDate: (parent: Battle) => parent.startDate.toISOString(),
     endDate: (parent: Battle) => parent.endDate.toISOString(),

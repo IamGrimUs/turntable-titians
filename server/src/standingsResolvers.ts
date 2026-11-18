@@ -2,16 +2,16 @@ import type { Battle, User } from '@prisma/client'
 import { computeBattleStatus } from './battleStatus'
 import { createBatcher } from './batcher'
 import type { Context } from './context'
-import { loadHallOfFame, loadUserRecord, loadWinnersByBattle } from './standings'
+import { loadHallOfFame, loadOutcomesByBattle, loadUserRecord, type BattleOutcome } from './standings'
 
-type WinnersFor = (battleId: string) => Promise<User[] | undefined>
+type OutcomeFor = (battleId: string) => Promise<BattleOutcome | undefined>
 
 // One batcher per request (the context object lives exactly as long as the request), so a
 // list of battles loads all its winners together instead of one query set per battle.
-const loaders = new WeakMap<object, WinnersFor>()
+const loaders = new WeakMap<object, OutcomeFor>()
 
-function winnersLoader(ctx: Context | undefined): WinnersFor {
-  const make = (): WinnersFor => createBatcher<User[]>((ids) => loadWinnersByBattle(ids))
+function outcomeLoader(ctx: Context | undefined): OutcomeFor {
+  const make = (): OutcomeFor => createBatcher<BattleOutcome>((ids) => loadOutcomesByBattle(ids))
   if (!ctx) return make()
   let loader = loaders.get(ctx)
   if (!loader) {
@@ -27,7 +27,13 @@ function winnersLoader(ctx: Context | undefined): WinnersFor {
  */
 export async function battleWinners(parent: Battle, _args: unknown, ctx?: Context): Promise<User[]> {
   if (computeBattleStatus(parent.startDate, parent.endDate) !== 'COMPLETED') return []
-  return (await winnersLoader(ctx)(parent.id)) ?? []
+  return (await outcomeLoader(ctx)(parent.id))?.winners ?? []
+}
+
+/** `Battle.winningVotes`: shares the batch with `winners`. Null unless completed with a winner. */
+export async function battleWinningVotes(parent: Battle, _args: unknown, ctx?: Context): Promise<number | null> {
+  if (computeBattleStatus(parent.startDate, parent.endDate) !== 'COMPLETED') return null
+  return (await outcomeLoader(ctx)(parent.id))?.winningVotes ?? null
 }
 
 export const standingsQuery = {
