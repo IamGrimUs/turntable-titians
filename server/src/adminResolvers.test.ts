@@ -9,6 +9,7 @@ vi.mock('./db', () => ({
     submission: { findMany: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
     vote: { groupBy: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
     battle: { findMany: vi.fn() },
+    runoffVote: { groupBy: vi.fn() },
     idea: { groupBy: vi.fn() },
   },
 }))
@@ -28,6 +29,7 @@ const submissionFindMany = db.submission.findMany as unknown as ReturnType<typeo
 const voteGroupBy = db.vote.groupBy as unknown as ReturnType<typeof vi.fn>
 const battleFindMany = db.battle.findMany as unknown as ReturnType<typeof vi.fn>
 const ideaGroupBy = db.idea.groupBy as unknown as ReturnType<typeof vi.fn>
+const runoffGroupBy = db.runoffVote.groupBy as unknown as ReturnType<typeof vi.fn>
 const userFindUnique = db.user.findUnique as unknown as ReturnType<typeof vi.fn>
 const userFindFirst = db.user.findFirst as unknown as ReturnType<typeof vi.fn>
 const userUpdate = db.user.update as unknown as ReturnType<typeof vi.fn>
@@ -90,6 +92,7 @@ beforeEach(() => {
   voteGroupBy.mockReset().mockResolvedValue([])
   battleFindMany.mockReset().mockResolvedValue([])
   ideaGroupBy.mockReset().mockResolvedValue([])
+  runoffGroupBy.mockReset().mockResolvedValue([])
   querySpy.mockClear()
   userFindUnique.mockReset()
   userFindFirst.mockReset().mockResolvedValue(null)

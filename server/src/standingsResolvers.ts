@@ -23,7 +23,7 @@ function outcomeLoader(ctx: Context | undefined): OutcomeFor {
 
 /**
  * `Battle.winners`. Empty unless the battle is COMPLETED, so nothing is revealed while voting
- * is open. Who counts as a winner is decided in one place, `winnersOfBattle`.
+ * is open. Who counts as a winner (round one, then the runoff on a tie for first) is decided in one place, `resolveBattle`.
  */
 export async function battleWinners(parent: Battle, _args: unknown, ctx?: Context): Promise<User[]> {
   if (computeBattleStatus(parent.startDate, parent.endDate) !== 'COMPLETED') return []

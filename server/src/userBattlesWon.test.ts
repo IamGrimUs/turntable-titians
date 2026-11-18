@@ -5,6 +5,7 @@ vi.mock('./db', () => ({
     submission: { findMany: vi.fn() },
     battle: { findMany: vi.fn() },
     vote: { groupBy: vi.fn() },
+    runoffVote: { groupBy: vi.fn() },
   },
 }))
 
@@ -14,6 +15,7 @@ import { countBattlesWon } from './userBattlesWon'
 const submissionFindMany = db.submission.findMany as unknown as ReturnType<typeof vi.fn>
 const battleFindMany = db.battle.findMany as unknown as ReturnType<typeof vi.fn>
 const voteGroupBy = db.vote.groupBy as unknown as ReturnType<typeof vi.fn>
+const runoffGroupBy = db.runoffVote.groupBy as unknown as ReturnType<typeof vi.fn>
 
 const NOW = new Date('2026-06-01T12:00:00Z')
 const past = (id: string) => ({ id, startDate: new Date('2026-01-01T00:00:00Z'), endDate: new Date('2026-02-01T00:00:00Z') })
@@ -21,6 +23,7 @@ const open = (id: string) => ({ id, startDate: new Date('2026-05-01T00:00:00Z'),
 
 beforeEach(() => {
   vi.resetAllMocks()
+  runoffGroupBy.mockResolvedValue([]) // no runoff votes unless a test says so
 })
 
 /** The user's own entries, then the entries of the completed battles, as the code queries them. */
@@ -106,6 +109,7 @@ describe('countBattlesWon', () => {
       ],
     })
     expect(await countBattlesWon('u1', NOW)).toBe(1)
+    expect(runoffGroupBy).not.toHaveBeenCalled() // nothing tied, so no runoff query
     // Only the completed battles' entries and votes are loaded.
     expect(submissionFindMany).toHaveBeenLastCalledWith(
       expect.objectContaining({ where: { battleId: { in: ['b1', 'b2'] } } }),
@@ -113,5 +117,33 @@ describe('countBattlesWon', () => {
     expect(voteGroupBy).toHaveBeenCalledWith(
       expect.objectContaining({ where: { battleId: { in: ['b1', 'b2'] } } }),
     )
+  })
+
+  describe('with a tie for first', () => {
+    const tiedEntries = [
+      { id: 's1', userId: 'u1', battleId: 'b1' },
+      { id: 's2', userId: 'u2', battleId: 'b1' },
+    ]
+    const tiedCounts = [{ submissionId: 's1', _count: 3 }, { submissionId: 's2', _count: 3 }]
+
+    it('gives the win to the runoff winner only', async () => {
+      setup({ mine: [{ battleId: 'b1' }], battles: [past('b1')], entries: tiedEntries, counts: tiedCounts })
+      runoffGroupBy.mockResolvedValue([{ submissionId: 's2', _count: 2 }, { submissionId: 's1', _count: 1 }])
+      expect(await countBattlesWon('u1', NOW)).toBe(0)
+      expect(runoffGroupBy).toHaveBeenCalledTimes(1)
+    })
+
+    it('still shares the win when the runoff ended level', async () => {
+      setup({ mine: [{ battleId: 'b1' }], battles: [past('b1')], entries: tiedEntries, counts: tiedCounts })
+      runoffGroupBy.mockResolvedValue([])
+      expect(await countBattlesWon('u1', NOW)).toBe(1)
+    })
+
+    it('counts nobody while the runoff is still open', async () => {
+      const justEnded = { id: 'b1', startDate: new Date('2026-05-01T00:00:00Z'), endDate: new Date('2026-05-31T12:00:00Z') }
+      setup({ mine: [{ battleId: 'b1' }], battles: [justEnded], entries: tiedEntries, counts: tiedCounts })
+      runoffGroupBy.mockResolvedValue([])
+      expect(await countBattlesWon('u1', NOW)).toBe(0)
+    })
   })
 })

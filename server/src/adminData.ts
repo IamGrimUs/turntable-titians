@@ -7,7 +7,7 @@ import { buildAdminUserRows, type AdminUserRow } from './adminUserStats'
  * users' entries; `userIds` only narrows which users are returned.
  */
 export async function loadAdminUserRows(userIds?: string[]): Promise<AdminUserRow[]> {
-  const [users, submissions, votesBySubmission, votesByUser, battles, ideasByAuthor] = await Promise.all([
+  const [users, submissions, votesBySubmission, votesByUser, runoffBySubmission, battles, ideasByAuthor] = await Promise.all([
     db.user.findMany({
       ...(userIds ? { where: { id: { in: userIds } } } : {}),
       include: { internalCrews: { select: { crew: { select: { name: true } } } } },
@@ -15,6 +15,8 @@ export async function loadAdminUserRows(userIds?: string[]): Promise<AdminUserRo
     db.submission.findMany({ select: { id: true, userId: true, battleId: true } }),
     db.vote.groupBy({ by: ['submissionId'], _count: true }),
     db.vote.groupBy({ by: ['userId'], _count: true }),
+    // Runoff tallies per entry: only used to settle "battles won", never the vote columns.
+    db.runoffVote.groupBy({ by: ['submissionId'], _count: true }),
     db.battle.findMany({ select: { id: true, startDate: true, endDate: true } }),
     // Board ideas, hidden ones included (the user's real posting volume). Comments and votes are not counted.
     db.idea.groupBy({ by: ['authorId'], _count: true }),
@@ -38,6 +40,7 @@ export async function loadAdminUserRows(userIds?: string[]): Promise<AdminUserRo
     })),
     submissions,
     voteCountsBySubmission: new Map(votesBySubmission.map((v) => [v.submissionId, v._count])),
+    runoffVotesBySubmission: new Map(runoffBySubmission.map((v) => [v.submissionId, v._count])),
     votesCastByUser: new Map(votesByUser.map((v) => [v.userId, v._count])),
     ideasPostedByUser: new Map(ideasByAuthor.map((i) => [i.authorId, i._count])),
     battles,
