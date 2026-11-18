@@ -54,21 +54,30 @@ function byName(a: User, b: User): number {
   return (a.username ?? '').localeCompare(b.username ?? '') || a.id.localeCompare(b.id)
 }
 
+export interface BattleOutcome {
+  winners: User[]
+  /** The vote total of the winning entry (the tied top total on a tie). Null when nobody won. */
+  winningVotes: number | null
+}
+
 /**
- * The winners of each given battle as users, with two queries for all of them plus one user
- * lookup. Every completed battle gets an entry (empty when nobody won); battles that are not
- * completed are left out. Ties list every tied winner.
+ * The outcome of each given battle: its winners as users and the winning vote total. Two
+ * queries for all battles plus one user lookup. Every completed battle gets an entry (empty
+ * when nobody won); battles that are not completed are left out. Ties list every tied winner.
  */
-export async function loadWinnersByBattle(battleIds: string[], now: Date = new Date()): Promise<Map<string, User[]>> {
+export async function loadOutcomesByBattle(battleIds: string[], now: Date = new Date()): Promise<Map<string, BattleOutcome>> {
   const battles = await loadCompletedBattles(battleIds, now)
   const winnerIds = new Map(battles.map((b) => [b.id, winnersOfBattle(b.entries)]))
   const allIds = [...new Set([...winnerIds.values()].flatMap((s) => [...s]))]
   const users = allIds.length > 0 ? await db.user.findMany({ where: { id: { in: allIds } } }) : []
   const userById = new Map(users.map((u) => [u.id, u]))
 
-  const result = new Map<string, User[]>()
-  for (const [battleId, ids] of winnerIds) {
-    result.set(battleId, [...ids].map((id) => userById.get(id)).filter((u): u is User => !!u).sort(byName))
+  const result = new Map<string, BattleOutcome>()
+  for (const battle of battles) {
+    const ids = winnerIds.get(battle.id)!
+    const winners = [...ids].map((id) => userById.get(id)).filter((u): u is User => !!u).sort(byName)
+    const winningVotes = ids.size > 0 ? Math.max(...battle.entries.map((e) => e.votes)) : null
+    result.set(battle.id, { winners, winningVotes })
   }
   return result
 }

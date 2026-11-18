@@ -12,6 +12,8 @@ export const typeDefs = gql`
     submissions: [Submission!]!
     """Who won. Empty while the battle is open and when nobody got a vote. A tie lists everyone tied."""
     winners: [User!]!
+    """Votes the winning entry got (the tied top total on a tie). Null while the battle is open and when nobody won."""
+    winningVotes: Int
     createdAt: String!
     updatedAt: String!
   }
