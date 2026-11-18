@@ -12,6 +12,7 @@ vi.mock('./db', () => ({
 
 import { db } from './db'
 import { loadCompletedBattles, loadOutcomesByBattle, loadHallOfFame, loadUserRecord } from './standings'
+import { regularBattleWhere } from './battleKind'
 
 const battleFindMany = db.battle.findMany as unknown as ReturnType<typeof vi.fn>
 const submissionFindMany = db.submission.findMany as unknown as ReturnType<typeof vi.fn>
@@ -142,7 +143,68 @@ describe('loadCompletedBattles', () => {
   it('looks at every battle that has already ended when no ids are given', async () => {
     battleFindMany.mockResolvedValue([])
     await loadCompletedBattles(undefined, NOW)
-    expect(battleFindMany.mock.calls[0][0].where).toEqual({ endDate: { lt: NOW } })
+    expect(battleFindMany.mock.calls[0][0].where).toEqual({ endDate: { lt: NOW }, ...regularBattleWhere })
+  })
+
+  it('excludes duels (battles with a Challenge) when ids are handed in explicitly', async () => {
+    battleFindMany.mockResolvedValue([])
+    await loadCompletedBattles(['b1', 'duel1'], NOW)
+    expect(battleFindMany.mock.calls[0][0].where).toEqual({ id: { in: ['b1', 'duel1'] }, ...regularBattleWhere })
+  })
+})
+
+/**
+ * A database stand-in that honours the duel filter: battle.findMany drops rows with a Challenge
+ * whenever the query asks for `regularBattleWhere`, exactly as Prisma would.
+ */
+describe('duels never count (head to head)', () => {
+  type Row = ReturnType<typeof done> & { duel: boolean }
+  const rows: Row[] = [{ ...done('reg'), duel: false }, { ...done('duel'), duel: true }]
+  const entries = [
+    { id: 'r1', userId: 'u1', battleId: 'reg' },
+    { id: 'r2', userId: 'u2', battleId: 'reg' },
+    { id: 'd1', userId: 'u1', battleId: 'duel' },
+    { id: 'd2', userId: 'u2', battleId: 'duel' },
+  ]
+  beforeEach(() => {
+    battleFindMany.mockImplementation(async (args: { where: { id?: { in: string[] }; challenge?: unknown } }) => {
+      const wantsRegular = JSON.stringify(args.where.challenge) === JSON.stringify(regularBattleWhere.challenge)
+      return rows
+        .filter((b) => (args.where.id ? args.where.id.in.includes(b.id) : true))
+        .filter((b) => !(wantsRegular && b.duel))
+        .map(({ duel: _d, ...b }) => b)
+    })
+    submissionFindMany.mockImplementation(async (args: { where: { userId?: string; battleId?: { in: string[] } } }) => {
+      if (args.where.userId) return entries.filter((e) => e.userId === args.where.userId).map((e) => ({ battleId: e.battleId }))
+      return entries.filter((e) => args.where.battleId!.in.includes(e.battleId))
+    })
+    // u1 wins both battles 5-3.
+    voteGroupBy.mockResolvedValue([
+      { submissionId: 'r1', _count: 5 }, { submissionId: 'r2', _count: 3 },
+      { submissionId: 'd1', _count: 5 }, { submissionId: 'd2', _count: 3 },
+    ])
+    userFindMany.mockImplementation(async (args: { where: { id: { in: string[] } } }) =>
+      ['u1', 'u2'].filter((id) => args.where.id.in.includes(id)).map((id) => ({ id, username: id }))
+    )
+  })
+
+  it('loadCompletedBattles leaves the duel out even when its id is handed in', async () => {
+    expect((await loadCompletedBattles(['reg', 'duel'], NOW)).map((b) => b.id)).toEqual(['reg'])
+  })
+
+  it('loadOutcomesByBattle has no outcome for a duel id', async () => {
+    const outcomes = await loadOutcomesByBattle(['reg', 'duel'], NOW)
+    expect([...outcomes.keys()]).toEqual(['reg'])
+  })
+
+  it('loadHallOfFame counts the regular win and the regular entry only', async () => {
+    const hof = await loadHallOfFame(NOW)
+    expect(hof.map((r) => [r.user.id, r.wins, r.battlesEntered])).toEqual([['u1', 1, 1]])
+  })
+
+  it('loadUserRecord ignores the duel: entered, wins and podiums', async () => {
+    expect(await loadUserRecord('u1', NOW)).toMatchObject({ wins: 1, podiums: 1, battlesEntered: 1 })
+    expect(await loadUserRecord('u2', NOW)).toMatchObject({ wins: 0, battlesEntered: 1 })
   })
 })
 

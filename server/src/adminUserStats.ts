@@ -46,6 +46,7 @@ export interface StatsInput {
   ideasPostedByUser: Map<string, number>
   /** Runoff votes per entry. Used only to settle "battles won"; never part of entries or votes received. */
   runoffVotesBySubmission: Map<string, number>
+  /** Regular battles only (no head to head duels). A submission whose battle is missing here still counts in entries and votes, never in wins. */
   battles: Array<{ id: string; startDate: Date; endDate: Date }>
 }
 

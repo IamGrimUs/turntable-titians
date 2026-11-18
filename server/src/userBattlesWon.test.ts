@@ -11,6 +11,7 @@ vi.mock('./db', () => ({
 
 import { db } from './db'
 import { countBattlesWon } from './userBattlesWon'
+import { regularBattleWhere } from './battleKind'
 
 const submissionFindMany = db.submission.findMany as unknown as ReturnType<typeof vi.fn>
 const battleFindMany = db.battle.findMany as unknown as ReturnType<typeof vi.fn>
@@ -145,5 +146,18 @@ describe('countBattlesWon', () => {
       runoffGroupBy.mockResolvedValue([])
       expect(await countBattlesWon('u1', NOW)).toBe(0)
     })
+  })
+  it('asks for regular battles only, so a duel the user won is not counted', async () => {
+    // The database drops the duel because of regularBattleWhere; only the regular battle comes back.
+    setup({
+      mine: [{ battleId: 'b1' }, { battleId: 'duel1' }],
+      battles: [],
+      entries: [],
+    })
+    battleFindMany.mockImplementation(async (args: { where: { id: { in: string[] }; challenge?: unknown } }) =>
+      args.where.challenge ? [] : [past('duel1')]
+    )
+    expect(await countBattlesWon('u1', NOW)).toBe(0)
+    expect(battleFindMany.mock.calls[0][0].where).toEqual({ id: { in: ['b1', 'duel1'] }, ...regularBattleWhere })
   })
 })

@@ -14,9 +14,11 @@ import { db } from './db'
 import { countBattlesWon } from './userBattlesWon'
 import { loadOutcomesByBattle, loadHallOfFame, loadUserRecord } from './standings'
 import { buildAdminUserRows, type StatsInput } from './adminUserStats'
+import { regularBattleWhere } from './battleKind'
 
 /**
- * Every consumer of "who won" must agree. One fixture, five battles, every consumer.
+ * Every consumer of "who won" must agree. One fixture, five regular battles plus one head to
+ * head duel, every consumer.
  * Users: a, b, c, d.
  *
  *   b1  no tie                     a 5, b 2            a wins
@@ -24,6 +26,7 @@ import { buildAdminUserRows, type StatsInput } from './adminUserStats'
  *   b3  tie, runoff level          a 3, b 3  runoff none       a and b share
  *   b4  tie, runoff still OPEN     a 2, b 2                    pending: nobody counts
  *   b5  tie for second only        c 6, a 2, d 2               c wins
+ *   duel  a Challenge battle       a 5, c 3                    a would win if it counted: it never does
  */
 const NOW = new Date(2026, 5, 10, 12) // 10 June 2026, local
 const battle = (id: string, endMonth: number, endDay: number) => ({
@@ -38,6 +41,8 @@ const battles = [
   battle('b4', 6, 9), // ended yesterday: runoff open
   battle('b5', 5, 1),
 ]
+// A completed head to head duel (it has a Challenge row). The database drops it for regularBattleWhere.
+const duelBattle = battle('duel', 3, 15)
 const submissions = [
   { id: 's1a', userId: 'a', battleId: 'b1' },
   { id: 's1b', userId: 'b', battleId: 'b1' },
@@ -50,6 +55,8 @@ const submissions = [
   { id: 's5c', userId: 'c', battleId: 'b5' },
   { id: 's5a', userId: 'a', battleId: 'b5' },
   { id: 's5d', userId: 'd', battleId: 'b5' },
+  { id: 'sda', userId: 'a', battleId: 'duel' },
+  { id: 'sdc', userId: 'c', battleId: 'duel' },
 ]
 const voteCounts = new Map([
   ['s1a', 5], ['s1b', 2],
@@ -57,6 +64,7 @@ const voteCounts = new Map([
   ['s3a', 3], ['s3b', 3],
   ['s4a', 2], ['s4b', 2],
   ['s5c', 6], ['s5a', 2], ['s5d', 2],
+  ['sda', 5], ['sdc', 3],
 ])
 const runoffCounts = new Map([['s2a', 1], ['s2b', 4]])
 const users = ['a', 'b', 'c', 'd'].map((id) => ({ id, username: id }))
@@ -71,9 +79,13 @@ const userFindMany = db.user.findMany as unknown as ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   vi.resetAllMocks()
-  battleFindMany.mockImplementation(async (args: { where: { id?: { in: string[] } } }) => {
+  battleFindMany.mockImplementation(async (args: { where: { id?: { in: string[] }; challenge?: unknown } }) => {
+    // Honour the duel filter the way Prisma does: only when it is asked for.
+    const pool = JSON.stringify(args.where.challenge) === JSON.stringify(regularBattleWhere.challenge)
+      ? battles
+      : [...battles, duelBattle]
     const ids = args.where.id?.in
-    return ids ? battles.filter((b) => ids.includes(b.id)) : battles
+    return ids ? pool.filter((b) => ids.includes(b.id)) : pool
   })
   submissionFindMany.mockImplementation(async (args: { where: { userId?: string; battleId?: { in: string[] } } }) => {
     if (args.where.userId) {
@@ -101,7 +113,7 @@ function statsInput(): StatsInput {
     votesCastByUser: new Map(),
     ideasPostedByUser: new Map(),
     runoffVotesBySubmission: runoffCounts,
-    battles,
+    battles, // the admin loader reads regular battles only, so the duel is not in this list
   }
 }
 
@@ -113,10 +125,11 @@ describe('every consumer agrees on who won', () => {
   })
 
   it('loadOutcomesByBattle', async () => {
-    const outcomes = await loadOutcomesByBattle(battles.map((b) => b.id), NOW)
+    const outcomes = await loadOutcomesByBattle([...battles, duelBattle].map((b) => b.id), NOW)
     const wins: Record<string, number> = { a: 0, b: 0, c: 0, d: 0 }
     for (const o of outcomes.values()) for (const u of o.winners) wins[u.id]++
     expect(wins).toEqual(EXPECTED)
+    expect(outcomes.has('duel')).toBe(false)
     expect(outcomes.get('b4')!.winners).toEqual([])
     expect(outcomes.get('b4')!.runoff?.status).toBe('OPEN')
   })
@@ -141,8 +154,30 @@ describe('every consumer agrees on who won', () => {
     const rows = buildAdminUserRows(statsInput(), NOW)
     expect(Object.fromEntries(rows.map((r) => [r.id, r.battlesWon]))).toEqual(EXPECTED)
     // The admin entries column is round-one only and still counts the open-runoff battle.
-    expect(rows.find((r) => r.id === 'a')!.entries).toBe(5)
-    expect(rows.find((r) => r.id === 'a')!.votesReceived).toBe(5 + 3 + 3 + 2 + 2)
+    // Duel entries and votes are real activity: they still count in entries and votes received.
+    expect(rows.find((r) => r.id === 'a')!.entries).toBe(6)
+    expect(rows.find((r) => r.id === 'a')!.votesReceived).toBe(5 + 3 + 3 + 2 + 2 + 5)
+  })
+
+  it('a completed duel (a 5, c 3) appears in none of the consumers, while the regular battles still do', async () => {
+    // Winners: the duel has no outcome at all, and a is not among b1..b5 winners for it.
+    const outcomes = await loadOutcomesByBattle(['duel', 'b1'], NOW)
+    expect([...outcomes.keys()]).toEqual(['b1'])
+    expect(outcomes.get('b1')!.winners.map((u) => u.id)).toEqual(['a'])
+    // Hall of Fame: c has one regular win (b5) and one regular battle, not two; a entered 4 regular battles.
+    const hof = await loadHallOfFame(NOW)
+    expect(hof.find((r) => r.user.id === 'c')).toMatchObject({ wins: 1, battlesEntered: 1 })
+    expect(hof.find((r) => r.user.id === 'a')).toMatchObject({ wins: 2, battlesEntered: 4 })
+    // User record and countBattlesWon: the duel is neither a win nor an entry.
+    expect(await loadUserRecord('a', NOW)).toMatchObject({ wins: 2, battlesEntered: 4 })
+    expect(await loadUserRecord('c', NOW)).toMatchObject({ wins: 1, battlesEntered: 1 })
+    expect(await countBattlesWon('a', NOW)).toBe(2)
+    expect(await countBattlesWon('c', NOW)).toBe(1)
+    // Admin battles won: not counted (the duel is not in the battles list), entries still are.
+    const rows = buildAdminUserRows(statsInput(), NOW)
+    expect(rows.find((r) => r.id === 'a')!.battlesWon).toBe(2)
+    expect(rows.find((r) => r.id === 'c')!.battlesWon).toBe(1)
+    expect(rows.find((r) => r.id === 'c')!.entries).toBe(2)
   })
 
   it('makes no runoff query when nothing ties for first', async () => {

@@ -14,6 +14,7 @@ vi.mock('./db', () => ({
 
 import { db } from './db'
 import { loadAdminUserRows } from './adminData'
+import { regularBattleWhere } from './battleKind'
 
 const userFindMany = db.user.findMany as unknown as ReturnType<typeof vi.fn>
 const submissionFindMany = db.submission.findMany as unknown as ReturnType<typeof vi.fn>
@@ -74,7 +75,7 @@ describe('loadAdminUserRows', () => {
     expect(submissionFindMany).toHaveBeenCalledTimes(1)
     expect(submissionFindMany.mock.calls[0][0].where).toBeUndefined()
     expect(battleFindMany).toHaveBeenCalledTimes(1)
-    expect(battleFindMany.mock.calls[0][0]?.where).toBeUndefined()
+    expect(battleFindMany.mock.calls[0][0]?.where).toEqual(regularBattleWhere)
     expect(voteGroupBy).toHaveBeenCalledTimes(2)
     expect(voteGroupBy).toHaveBeenCalledWith({ by: ['submissionId'], _count: true })
     expect(voteGroupBy).toHaveBeenCalledWith({ by: ['userId'], _count: true })
@@ -156,5 +157,22 @@ describe('loadAdminUserRows', () => {
     expect(rows.map((r) => r.id)).toEqual(['a'])
     expect(rows[0].battlesWon).toBe(0)
     expect(rows[0].votesReceived).toBe(1)
+  })
+  it('keeps duels out of battles won but still counts their entries and votes', async () => {
+    userFindMany.mockResolvedValue([dbUser('a'), dbUser('z')])
+    submissionFindMany.mockResolvedValue([
+      { id: 'd1', userId: 'a', battleId: 'duel' },
+      { id: 'd2', userId: 'z', battleId: 'duel' },
+    ])
+    voteGroupBy.mockImplementation(async (args: { by: string[] }) =>
+      args.by[0] === 'submissionId'
+        ? [{ submissionId: 'd1', _count: 5 }, { submissionId: 'd2', _count: 3 }]
+        : [{ userId: 'z', _count: 2 }]
+    )
+    // The duel is not returned by battle.findMany (regularBattleWhere filters it out).
+    battleFindMany.mockResolvedValue([])
+    const rows = await loadAdminUserRows()
+    expect(rows.find((r) => r.id === 'a')).toMatchObject({ battlesWon: 0, entries: 1, votesReceived: 5, votesCast: 0 })
+    expect(rows.find((r) => r.id === 'z')).toMatchObject({ battlesWon: 0, entries: 1, votesReceived: 3, votesCast: 2 })
   })
 })

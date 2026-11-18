@@ -1,4 +1,5 @@
 import { db } from './db'
+import { regularBattleWhere } from './battleKind'
 import { buildAdminUserRows, type AdminUserRow } from './adminUserStats'
 
 /**
@@ -17,7 +18,9 @@ export async function loadAdminUserRows(userIds?: string[]): Promise<AdminUserRo
     db.vote.groupBy({ by: ['userId'], _count: true }),
     // Runoff tallies per entry: only used to settle "battles won", never the vote columns.
     db.runoffVote.groupBy({ by: ['submissionId'], _count: true }),
-    db.battle.findMany({ select: { id: true, startDate: true, endDate: true } }),
+    // Regular battles only: this list feeds "battles won", and duels never count as wins. Duel
+    // submissions and votes still count in entries, votes cast and votes received (real activity).
+    db.battle.findMany({ where: regularBattleWhere, select: { id: true, startDate: true, endDate: true } }),
     // Board ideas, hidden ones included (the user's real posting volume). Comments and votes are not counted.
     db.idea.groupBy({ by: ['authorId'], _count: true }),
   ])
