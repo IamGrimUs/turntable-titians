@@ -9,7 +9,8 @@ export default auth((req) => {
   const isOnboarding = nextUrl.pathname === '/onboarding'
   const isProtected =
     nextUrl.pathname === '/profile' ||
-    nextUrl.pathname.startsWith('/battles/create')
+    nextUrl.pathname.startsWith('/battles/create') ||
+    nextUrl.pathname.startsWith('/challenges')
 
   if (isAuthRoute || isOnboarding) return NextResponse.next()
 

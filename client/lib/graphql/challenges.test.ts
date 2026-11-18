@@ -164,6 +164,29 @@ describe('challenge mutations', () => {
   })
 })
 
+const documentsAskingForVideo = (docs: [string, DocumentNode][]) =>
+  docs.filter(([, doc]) => print(doc).includes('challengerVideoUrl')).map(([name]) => name)
+
+describe('the challenger video link', () => {
+  it('is selected by GET_CHALLENGE only, in no other document the client sends', () => {
+    expect(documentsAskingForVideo(all)).toEqual(['GET_CHALLENGE'])
+  })
+
+  it('is not part of the shared field strings either', () => {
+    expect(DUEL_FIELDS).not.toContain('challengerVideoUrl')
+    expect(HEAD_TO_HEAD_FIELDS).not.toContain('challengerVideoUrl')
+  })
+
+  it('the check bites: a document that asks for it is found', () => {
+    const leaky = gql`
+      query Leaky {
+        myChallenges { id challengerVideoUrl }
+      }
+    `
+    expect(documentsAskingForVideo([...all, ['LEAKY', leaky]])).toEqual(['GET_CHALLENGE', 'LEAKY'])
+  })
+})
+
 describe('challenge queries', () => {
   it('GET_CHALLENGE takes the id and asks for the message and the challenger own entry', () => {
     const text = flat(GET_CHALLENGE)

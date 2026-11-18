@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { InMemoryCache, gql } from '@apollo/client'
-import { cacheTypePolicies } from './apollo-client'
+import { cacheTypePolicies, client } from './apollo-client'
 import { DUEL_FIELDS, HEAD_TO_HEAD_FIELDS } from './graphql/challenges'
 
 /**
@@ -139,5 +139,27 @@ describe('User.headToHead cache policy', () => {
     const cache = new InMemoryCache()
     writeFullThenCounts(cache)
     expect(cache.readQuery({ query: PROFILE_FULL, variables: { id: 'u1' } })).toBeNull()
+  })
+})
+
+describe('the real Apollo client', () => {
+  afterEach(async () => {
+    await client.cache.reset()
+  })
+
+  // Every test above builds its own cache from `cacheTypePolicies`; this pins that the shipped client
+  // is built from them too, so dropping `{ typePolicies: cacheTypePolicies }` in apollo-client.ts fails here.
+  it('is built with the duel and head to head merge policies', () => {
+    const { policies } = (client.cache as InMemoryCache)
+    expect(typeof policies.getMergeFunction('Battle', 'duel', 'Duel')).toBe('function')
+    expect(typeof policies.getMergeFunction('User', 'headToHead', 'HeadToHeadRecord')).toBe('function')
+    // A type that has no policy gets none (the check is not trivially true).
+    expect(policies.getMergeFunction('Battle', 'title', undefined)).toBeUndefined()
+  })
+
+  it('keeps the full duel when a lighter selection is written to its cache', () => {
+    writePageThenLightList(client.cache as InMemoryCache)
+    const read = client.cache.readQuery({ query: BATTLE_PAGE, variables: { id: 'b1' } }) as PageRead
+    expect(read?.battle.duel.opponentVotes).toBe(62)
   })
 })
