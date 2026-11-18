@@ -1,0 +1,179 @@
+import { describe, expect, it } from 'vitest'
+import {
+  RESULTS_PAGE_SIZE,
+  buildResultRows,
+  displayName,
+  groupRowsByMonth,
+  initialsOf,
+  isTopThree,
+  noWinnerText,
+  resultTypes,
+  winRate,
+  winnerLine,
+  type ResultBattle,
+} from './hall-of-fame-view'
+
+const person = (id: string, username: string | null = id, name: string | null = null) => ({
+  id, username, name, image: null,
+})
+
+const battle = (over: Partial<ResultBattle> & { id: string }): ResultBattle => ({
+  title: over.id,
+  type: 'Scratch',
+  endDate: '2026-11-14T12:00:00Z',
+  status: 'COMPLETED',
+  winners: [],
+  winningVotes: null,
+  submissions: [{ id: 's1' }, { id: 's2' }],
+  ...over,
+})
+
+describe('names and initials', () => {
+  it('prefers username, then name, then "DJ"', () => {
+    expect(displayName(person('a', 'nova'))).toBe('nova')
+    expect(displayName(person('a', null, 'Real Name'))).toBe('Real Name')
+    expect(displayName(person('a', null, null))).toBe('DJ')
+  })
+
+  it('takes the first two letters in capitals', () => {
+    expect(initialsOf(person('a', 'nova'))).toBe('NO')
+    expect(initialsOf(person('a', null, null))).toBe('DJ')
+  })
+})
+
+describe('winRate', () => {
+  it('is wins over battles entered, rounded to a whole percent', () => {
+    expect(winRate(7, 12)).toBe('58%')
+    expect(winRate(1, 3)).toBe('33%')
+    expect(winRate(4, 4)).toBe('100%')
+  })
+
+  it('shows a dash instead of dividing by zero', () => {
+    expect(winRate(0, 0)).toBe('–')
+  })
+})
+
+describe('isTopThree', () => {
+  it('highlights ranks 1 to 3 only', () => {
+    expect([1, 2, 3, 4, 10].map(isTopThree)).toEqual([true, true, true, false, false])
+  })
+})
+
+describe('winnerLine', () => {
+  it('is null when nobody won', () => {
+    expect(winnerLine([])).toBeNull()
+  })
+
+  it('names one, two or many winners', () => {
+    expect(winnerLine([person('a', 'ann')])).toBe('Won by ann')
+    expect(winnerLine([person('a', 'ann'), person('b', 'bob')])).toBe('Tied: ann and bob')
+    expect(winnerLine([person('a', 'ann'), person('b', 'bob'), person('c', 'cy')])).toBe('Tied: ann, bob and cy')
+  })
+})
+
+describe('buildResultRows', () => {
+  it('keeps only completed battles, newest end date first, ties broken by id', () => {
+    const rows = buildResultRows(
+      [
+        battle({ id: 'old', endDate: '2026-10-01T12:00:00Z' }),
+        battle({ id: 'open', status: 'ACTIVE' }),
+        battle({ id: 'soon', status: 'UPCOMING' }),
+        battle({ id: 'b2', endDate: '2026-11-14T12:00:00Z' }),
+        battle({ id: 'b1', endDate: '2026-11-14T12:00:00Z' }),
+      ],
+      null,
+    )
+    expect(rows.map((r) => r.id)).toEqual(['b1', 'b2', 'old'])
+  })
+
+  it('never lists an open battle even if the API sent winners for it', () => {
+    const rows = buildResultRows([battle({ id: 'x', status: 'ACTIVE', winners: [person('a')] })], null)
+    expect(rows).toEqual([])
+  })
+
+  it('filters by type when one is chosen', () => {
+    const rows = buildResultRows([battle({ id: 'a', type: 'Scratch' }), battle({ id: 'b', type: 'Mix' })], 'Mix')
+    expect(rows.map((r) => r.id)).toEqual(['b'])
+  })
+
+  it('shows the winners with the winning vote total, and marks a tie', () => {
+    const [row] = buildResultRows(
+      [battle({ id: 'a', winners: [person('a', 'ann'), person('b', 'bob')], winningVotes: 88 })],
+      null,
+    )
+    expect(row.winners.map((w) => displayName(w.user))).toEqual(['ann', 'bob'])
+    expect(row.winners[0].votes).toBe(88)
+    expect(row.tie).toBe(true)
+    expect(row.noWinner).toBe(false)
+  })
+
+  it('marks a completed battle with no winner, and counts its entries', () => {
+    const [row] = buildResultRows([battle({ id: 'a', submissions: [{ id: '1' }, { id: '2' }, { id: '3' }] })], null)
+    expect(row.noWinner).toBe(true)
+    expect(row.tie).toBe(false)
+    expect(row.entries).toBe(3)
+  })
+
+  it('falls back to "Other" for a battle with no type', () => {
+    const [row] = buildResultRows([battle({ id: 'a', type: null })], null)
+    expect(row.type).toBe('Other')
+  })
+
+  it('does not modify its input', () => {
+    const input = [battle({ id: 'b' }), battle({ id: 'a', endDate: '2026-12-01T12:00:00Z' })]
+    const copy = JSON.parse(JSON.stringify(input))
+    buildResultRows(input, null)
+    expect(input).toEqual(copy)
+  })
+})
+
+describe('noWinnerText', () => {
+  it('says nobody voted when there were entries, and no entries otherwise', () => {
+    expect(noWinnerText(3)).toBe('No winner: nobody voted')
+    expect(noWinnerText(0)).toBe('No entries')
+  })
+})
+
+describe('resultTypes', () => {
+  it('lists the types of completed battles only, once each', () => {
+    expect(
+      resultTypes([
+        battle({ id: 'a', type: 'Mix' }),
+        battle({ id: 'b', type: 'Scratch' }),
+        battle({ id: 'c', type: 'Scratch' }),
+        battle({ id: 'd', type: 'Routine', status: 'ACTIVE' }),
+      ]),
+    ).toEqual(expect.arrayContaining(['Mix', 'Scratch']))
+    expect(
+      resultTypes([battle({ id: 'd', type: 'Routine', status: 'ACTIVE' })]),
+    ).toEqual([])
+  })
+})
+
+describe('groupRowsByMonth', () => {
+  it('groups consecutive rows under one month heading, in the order given', () => {
+    const rows = buildResultRows(
+      [
+        battle({ id: 'a', endDate: '2026-11-14T12:00:00Z' }),
+        battle({ id: 'b', endDate: '2026-11-02T12:00:00Z' }),
+        battle({ id: 'c', endDate: '2026-10-31T12:00:00Z' }),
+      ],
+      null,
+    )
+    const groups = groupRowsByMonth(rows)
+    expect(groups.map((g) => [g.label, g.rows.map((r) => r.id)])).toEqual([
+      ['November 2026', ['a', 'b']],
+      ['October 2026', ['c']],
+    ])
+  })
+
+  it('is empty for no rows', () => {
+    expect(groupRowsByMonth([])).toEqual([])
+  })
+})
+
+describe('paging', () => {
+  it('shows 10 results at a time', () => {
+    expect(RESULTS_PAGE_SIZE).toBe(10)
+  })
+})

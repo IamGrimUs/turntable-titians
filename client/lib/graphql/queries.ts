@@ -10,6 +10,7 @@ export const GET_BATTLES = gql`
       startDate
       endDate
       status
+      winners { id username name image }
       submissions {
         id
         user { id username name image }
