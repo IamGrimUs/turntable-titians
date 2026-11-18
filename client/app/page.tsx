@@ -33,10 +33,11 @@ export default async function Home() {
       </div>
 
       {!signedIn && (
-        <p className="mt-10 text-center text-base">
+        <p className="mt-6 text-center text-base text-muted-foreground">
           <Link href="/auth/signin" className="text-amber-500 font-semibold hover:underline">
-            Sign in to enter battles and vote
-          </Link>
+            Sign in
+          </Link>{' '}
+          to enter battles and vote
         </p>
       )}
     </div>
