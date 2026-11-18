@@ -58,6 +58,10 @@ export default function HowItWorksPage() {
 
       <Section title="The life of a battle">
         <p>Every battle moves through three stages, based on its start and end dates.</p>
+        <p>
+          This page describes regular battles. Head to head challenges work differently: see Head to head
+          challenges below.
+        </p>
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardContent className="space-y-2 p-4">
@@ -240,7 +244,8 @@ export default function HowItWorksPage() {
             </>,
             <>
               <span className={strong}>Accepting opens the battle.</span> They enter with their own video and
-              voting starts straight away. Like any battle, it is open through its last day.
+              voting starts straight away. Like any battle, it is open through its last day. Your message becomes the
+              battle&apos;s description once they accept.
             </>,
           ]}
         />
@@ -259,13 +264,13 @@ export default function HowItWorksPage() {
           </li>
           <li>
             <span className={strong}>A separate record.</span> Your head to head wins, losses and draws show on
-            your profile once you have finished one. They never count toward your career wins or the Hall of
+            a DJ&apos;s profile page once you have finished one. They never count toward your career wins or the Hall of
             Fame, and head to head battles are not listed in the Hall of Fame results.
           </li>
         </ul>
         <h3 className="pt-2 text-xl font-semibold text-foreground">Limits</h3>
         <ul className="list-disc space-y-2 pl-6">
-          <li>Up to 3 challenges can be waiting for an answer at once.</li>
+          <li>You can have up to 3 challenges you sent waiting for an answer at once.</li>
           <li>Only 1 challenge can be waiting between the same two DJs, whoever sent it.</li>
           <li>You can send 5 new challenges in 24 hours.</li>
           <li>If a DJ declines, wait 7 days before challenging them again.</li>

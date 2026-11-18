@@ -3,7 +3,7 @@ import { Crown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { PersonAvatar } from '@/components/hall-of-fame/PersonAvatar'
-import { duelCardView, type DuelBattle, type DuelSide } from '@/lib/duel-view'
+import { DUEL_BADGE_LABEL, duelCardView, type DuelBattle, type DuelSide } from '@/lib/duel-view'
 
 function Side({ user, name, won }: { user: NonNullable<DuelBattle['duel']>['challenger']; name: string; won: boolean }) {
   return (
@@ -32,7 +32,7 @@ export function DuelCard({ battle }: { battle: DuelBattle }) {
       <Card className="flex h-full cursor-pointer flex-col transition-all hover:border-border">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Head to head</Badge>
+            <Badge variant="outline">{DUEL_BADGE_LABEL}</Badge>
             <Badge variant={view.statusVariant}>{view.statusLabel}</Badge>
           </div>
           <h3 className="break-words font-graffiti text-3xl" dir="auto">
