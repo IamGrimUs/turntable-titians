@@ -6,12 +6,11 @@
  */
 import { battleCardView, type CardStatusVariant } from './battle-card-view'
 import { challengeUserName, duelResultLine } from './challenge-view'
+import { isDuel } from './is-duel'
 import type { Person } from './hall-of-fame-view'
 
-/** A duel is a battle whose `duel` is set; `null` (or a missing field) is a regular battle. */
-export function isDuel(battle: { duel?: unknown }): boolean {
-  return battle.duel !== null && battle.duel !== undefined
-}
+// isDuel lives in its own file (no imports) so the view modules can use it without an import cycle.
+export { isDuel }
 
 /** Splits a battle list into regular battles and duels, keeping the given order inside each group. */
 export function splitDuels<T extends { duel?: unknown | null }>(battles: readonly T[]): { regular: T[]; duels: T[] } {
@@ -113,6 +112,11 @@ export interface DuelPageView {
   intro: string
   /** The server's result line; null until the duel is COMPLETED. */
   resultLine: string | null
+  /**
+   * The user id of the crowned DJ: the one rule for the crown on the battle page, taken from
+   * `duelCardView` so the page and the card cannot disagree. Null for a draw or an unfinished duel.
+   */
+  winnerUserId: string | null
   /** Nobody can add an entry to a duel: the entries come from the challenge. */
   canAddEntry: false
 }
@@ -121,6 +125,8 @@ export interface DuelPageView {
 export function duelPageView(battle: { title: string; status: string; duel: DuelBattle['duel'] }): DuelPageView | null {
   if (!battle.duel) return null
   const card = duelCardView({ id: '', title: battle.title, status: battle.status, duel: battle.duel })
+  const winnerUserId =
+    card.winnerSide === 'CHALLENGER' ? battle.duel.challenger.id : card.winnerSide === 'OPPONENT' ? battle.duel.opponent.id : null
   const base = `A 1v1 between ${card.challengerName} and ${card.opponentName}.`
   return {
     headline: `${card.challengerName} vs ${card.opponentName}`,
@@ -128,6 +134,20 @@ export function duelPageView(battle: { title: string; status: string; duel: Duel
     badgeLabel: DUEL_BADGE_LABEL,
     intro: battle.status === 'ACTIVE' ? `${base} Everyone else can vote.` : base,
     resultLine: card.resultLine,
+    winnerUserId,
     canAddEntry: false,
   }
+}
+
+/**
+ * Whether the battle page shows the "Submit Entry" form: an ACTIVE battle, a signed-in DJ who has not
+ * entered, and (for a duel) only if the page view allows adding an entry, which it never does.
+ */
+export function entryFormOpen(input: {
+  status: string
+  signedIn: boolean
+  hasSubmitted: boolean
+  duelView: Pick<DuelPageView, 'canAddEntry'> | null
+}): boolean {
+  return input.status === 'ACTIVE' && input.signedIn && !input.hasSubmitted && (input.duelView?.canAddEntry ?? true)
 }

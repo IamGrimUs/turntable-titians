@@ -3,7 +3,7 @@
  * who won (`winners`, only for completed battles) and each person's career wins (`hallOfFame`);
  * this only picks the most recent results and words them.
  */
-import { isDuel } from './duel-view'
+import { isDuel } from './is-duel'
 import { displayName, joinNames, type Person } from './hall-of-fame-view'
 
 export interface LatestBattle {

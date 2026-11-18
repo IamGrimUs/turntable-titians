@@ -5,7 +5,7 @@
  */
 import { NO_TYPE_LABEL, groupBattlesByType } from './battle-groups'
 import { formatShortDate, joinNames } from './display-format'
-import { isDuel } from './duel-view'
+import { isDuel } from './is-duel'
 import { runoffCardLine, runoffStatusLabel, type RunoffStatus } from './runoff-view'
 
 export { formatShortDate, joinNames }

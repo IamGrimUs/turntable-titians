@@ -16,7 +16,7 @@ import { entryStyle } from '@/lib/battle-entry-style'
 import { boardAccess } from '@/lib/board-view'
 import { battleCardView } from '@/lib/battle-card-view'
 import { RunoffPanel, type RunoffData } from '@/components/battles/RunoffPanel'
-import { duelPageView, duelSignInText, type DuelBattle } from '@/lib/duel-view'
+import { duelPageView, duelSignInText, entryFormOpen, type DuelBattle } from '@/lib/duel-view'
 
 interface SubmissionUser {
   id: string
@@ -106,8 +106,8 @@ export default function BattleDetailPage() {
       userId: submission.userId,
       rank: index + 1,
       voteCount: submission.voteCount,
-      // The duel's winner is found by user id: the two entries come in no meaningful order.
-      duel: battle.duel ? { winnerId: battle.duel.winner?.id ?? null } : null,
+      // The crown comes from the same rule as the duel card (duelCardView), found by user id.
+      duel: duelView ? { winnerId: duelView.winnerUserId } : null,
     })
   const hasWinner = sortedSubmissions.some((s, i) => styleFor(s, i).isWinner)
 
@@ -121,7 +121,7 @@ export default function BattleDetailPage() {
     : false
 
   // Nobody can add an entry to a duel: both entries come from the challenge.
-  const showForm = battle.status === 'ACTIVE' && !!currentUserId && !hasSubmitted && !duelView
+  const showForm = entryFormOpen({ status: battle.status, signedIn: !!currentUserId, hasSubmitted, duelView })
 
   // Same pill as the battle cards: an open runoff reads RUNOFF, not COMPLETED.
   const headerView = battleCardView({ status: battle.status, runoff })

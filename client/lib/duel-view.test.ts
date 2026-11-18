@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { entryStyle } from './battle-entry-style'
 import {
   battlesListState,
   duelCardView,
   duelPageView,
   duelSignInText,
+  entryFormOpen,
   isDuel,
   orderDuels,
   splitDuels,
@@ -265,5 +267,76 @@ describe('duelSignInText', () => {
   it('asks a signed-out visitor to vote in a duel, and to submit an entry in a regular battle', () => {
     expect(duelSignInText(true)).toBe('to vote.')
     expect(duelSignInText(false)).toBe('to submit your entry.')
+  })
+
+  it('names the crowned DJ by user id, the same rule as the card (winnerUserId)', () => {
+    const won = (outcome: string, winner: { id: string } | null, status = 'COMPLETED') =>
+      duelPageView(duel({ id: '1', status, duel: duelOf({ outcome, challengerVotes: 3, opponentVotes: 1, winner }) }))!
+    expect(won('CHALLENGER_WON', { id: 'c' }).winnerUserId).toBe('c')
+    expect(won('OPPONENT_WON', { id: 'o' }).winnerUserId).toBe('o')
+    // The winner id decides the side, not the order of the entries.
+    expect(won('CHALLENGER_WON', { id: 'o' }).winnerUserId).toBe('o')
+    // A winner id that matches neither DJ falls back to the outcome, like the card.
+    expect(won('OPPONENT_WON', { id: 'zzz' }).winnerUserId).toBe('o')
+  })
+
+  it('crowns nobody unless the outcome is decided and the duel is COMPLETED, even with a stray winner', () => {
+    const v = (status: string, outcome: string | null) =>
+      duelPageView(duel({ id: '1', status, duel: duelOf({ outcome, winner: { id: 'c' } }) }))!
+    expect(v('COMPLETED', 'DRAW').winnerUserId).toBeNull()
+    expect(v('COMPLETED', null).winnerUserId).toBeNull()
+    expect(v('ACTIVE', 'CHALLENGER_WON').winnerUserId).toBeNull()
+  })
+
+  it('feeds the battle page crown: a DRAW with a stray winner crowns nobody, a decided duel crowns the right entry', () => {
+    const crowned = (outcome: string, winnerId: string) => {
+      const view = duelPageView(duel({ id: '1', status: 'COMPLETED', duel: duelOf({ outcome, winner: { id: winnerId } }) }))!
+      return ['c', 'o'].filter(
+        (userId) =>
+          entryStyle({ battleStatus: 'COMPLETED', hasRunoff: false, winnerUserIds: [], userId, rank: 1, voteCount: 3, duel: { winnerId: view.winnerUserId } }).isWinner,
+      )
+    }
+    expect(crowned('DRAW', 'c')).toEqual([])
+    expect(crowned('OPPONENT_WON', 'o')).toEqual(['o'])
+    expect(crowned('CHALLENGER_WON', 'c')).toEqual(['c'])
+  })
+
+  it('agrees with duelCardView on who is crowned', () => {
+    const cases = [
+      duel({ id: '1', status: 'COMPLETED', duel: duelOf({ outcome: 'CHALLENGER_WON', winner: { id: 'c' } }) }),
+      duel({ id: '2', status: 'COMPLETED', duel: duelOf({ outcome: 'DRAW', winner: { id: 'o' } }) }),
+      duel({ id: '3', status: 'COMPLETED', duel: duelOf({ outcome: 'OPPONENT_WON', winner: { id: 'x' } }) }),
+      duel({ id: '4', status: 'ACTIVE', duel: duelOf({ outcome: 'OPPONENT_WON', winner: { id: 'o' } }) }),
+    ]
+    for (const c of cases) {
+      const card = duelCardView(c)
+      const page = duelPageView(c)!
+      const side = card.winnerSide
+      expect(page.winnerUserId).toBe(side === 'CHALLENGER' ? 'c' : side === 'OPPONENT' ? 'o' : null)
+    }
+  })
+})
+
+describe('entryFormOpen', () => {
+  const open = { status: 'ACTIVE', signedIn: true, hasSubmitted: false }
+
+  it('opens the entry form on an active regular battle for a signed-in DJ who has not entered', () => {
+    expect(entryFormOpen({ ...open, duelView: null })).toBe(true)
+  })
+
+  it('stays closed for a regular battle unless ACTIVE, signed in and not yet entered', () => {
+    expect(entryFormOpen({ ...open, status: 'UPCOMING', duelView: null })).toBe(false)
+    expect(entryFormOpen({ ...open, status: 'COMPLETED', duelView: null })).toBe(false)
+    expect(entryFormOpen({ ...open, signedIn: false, duelView: null })).toBe(false)
+    expect(entryFormOpen({ ...open, hasSubmitted: true, duelView: null })).toBe(false)
+  })
+
+  it('never opens for a duel, because the page view says nobody can add an entry', () => {
+    const view = duelPageView(duel({ id: '1' }))!
+    expect(entryFormOpen({ ...open, duelView: view })).toBe(false)
+  })
+
+  it('reads canAddEntry from the page view', () => {
+    expect(entryFormOpen({ ...open, duelView: { canAddEntry: true } as never })).toBe(true)
   })
 })
