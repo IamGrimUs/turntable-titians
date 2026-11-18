@@ -201,6 +201,25 @@ describe('loadHeadToHead', () => {
     expect(voteGroupBy.mock.calls[0][0].where).toEqual({ battleId: { in: ['older', 'newer'] } })
   })
 
+  it('orders duels that end at the same time the same way, whatever order the database returned them in', async () => {
+    const end = past(3)
+    const rows = [row('b-2', 'me', 'x', end), row('b-1', 'y', 'me', end), row('b-3', 'me', 'z', end)]
+    voteGroupBy.mockResolvedValue([tally('b-1', 'me', 1), tally('b-2', 'me', 1), tally('b-3', 'me', 1)])
+
+    challengeFindMany.mockResolvedValue(rows)
+    const a = (await loadHeadToHead('me', NOW)).results.map((r) => r.battleId)
+    challengeFindMany.mockResolvedValue([...rows].reverse())
+    const b = (await loadHeadToHead('me', NOW)).results.map((r) => r.battleId)
+    expect(a).toEqual(['b-1', 'b-2', 'b-3'])
+    expect(b).toEqual(a)
+  })
+
+  it('asks the database for newest first, with the battle id as the tie-break', async () => {
+    challengeFindMany.mockResolvedValue([])
+    await loadHeadToHead('me', NOW)
+    expect(challengeFindMany.mock.calls[0][0].orderBy).toEqual([{ battle: { endDate: 'desc' } }, { battleId: 'asc' }])
+  })
+
   it('selects accepted duels with a battle that involve the user', async () => {
     challengeFindMany.mockResolvedValue([])
     await loadHeadToHead('me', NOW)

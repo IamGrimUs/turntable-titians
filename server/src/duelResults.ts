@@ -60,7 +60,11 @@ export function summarizeHeadToHead(
       endedAt: d.endDate,
     })
   }
-  summary.results.sort((a, b) => b.endedAt.getTime() - a.endedAt.getTime())
+  // Newest first; duels that ended at the same time fall back to the battle id so the order never
+  // depends on what order the database happened to return the rows in.
+  summary.results.sort(
+    (a, b) => b.endedAt.getTime() - a.endedAt.getTime() || (a.battleId < b.battleId ? -1 : a.battleId > b.battleId ? 1 : 0),
+  )
   return summary
 }
 
@@ -142,6 +146,7 @@ export async function loadHeadToHead(userId: string, now: Date = new Date()): Pr
       battleId: { not: null },
       OR: [{ challengerId: userId }, { opponentId: userId }],
     },
+    orderBy: [{ battle: { endDate: 'desc' } }, { battleId: 'asc' }],
     select: DUEL_SELECT,
   })
   const finished = (await resolveDuels(rows, now)).filter(
