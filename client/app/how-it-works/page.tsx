@@ -76,7 +76,10 @@ export default function HowItWorksPage() {
           <Card>
             <CardContent className="space-y-2 p-4">
               <Badge variant="completed">COMPLETED</Badge>
-              <p>Everything is closed. The vote counts are revealed and the winner is crowned.</p>
+              <p>
+                Everything is closed. The vote counts are revealed and the winner is crowned. If entries tied
+                for first, voting reopens for 3 days on just the tied entries before the winner is crowned.
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -151,6 +154,11 @@ export default function HowItWorksPage() {
             <span className={strong}>You must be signed in</span>, and voting only works while the battle is
             ACTIVE.
           </li>
+          <li>
+            <span className={strong}>Runoff votes.</span> If a battle ends tied for first, anyone signed in can
+            vote in the runoff except the tied DJs, including people who voted in the first round. The runoff
+            counts stay hidden until it closes, and you can change your runoff vote until then.
+          </li>
         </ul>
 
         <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3">
@@ -171,8 +179,10 @@ export default function HowItWorksPage() {
             <p className={strong}>How the winner is decided</p>
             <p>
               When the end date passes, the counts are revealed and the entries are ranked by votes received.
-              The entry with the most votes wins. If entries tie for the top spot, they share the win. A
-              battle that finished with no votes has no winner.
+              The entry with the most votes wins. If entries tie for the top spot, voting reopens for a
+              3-day runoff on just the tied entries, and the tied DJs cannot vote in it. The entry with the
+              most runoff votes wins. If the runoff ends level too, they share the win. A battle that
+              finished with no votes has no winner.
             </p>
           </div>
         </div>
@@ -197,8 +207,13 @@ export default function HowItWorksPage() {
             finishes (top three), best finish and winning streaks, plus badges for milestones.
           </li>
           <li>
-            <span className={strong}>Shared wins count in full.</span> If you tie for first, the win is on your
-            record just like everyone else who tied.
+            <span className={strong}>Shared wins count in full.</span> A win is only shared when the runoff
+            also ends level. Then the win is on your record just like everyone else who tied.
+          </li>
+          <li>
+            <span className={strong}>A runoff counts for nobody until it ends.</span> A battle that is in a
+            runoff shows &ldquo;Runoff in progress&rdquo; and adds no win to anyone&apos;s record until the
+            runoff closes.
           </li>
         </ul>
       </Section>
