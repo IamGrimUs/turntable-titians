@@ -178,12 +178,14 @@ describe('notifyChallenge', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
-  it('never rejects when fetch rejects, and logs neither the key nor the address', async () => {
-    fetchImpl.mockRejectedValue(new Error(`boom Bearer ${CONFIG.apiKey} to ${OPPONENT_ADDRESS}`))
+  it('never rejects when fetch rejects, and logs neither the key nor the address (the error name only)', async () => {
+    fetchImpl.mockRejectedValue(new TypeError(`boom Bearer ${CONFIG.apiKey} to ${OPPONENT_ADDRESS}`))
     await expect(run('CHALLENGED')).resolves.toBeUndefined()
     const logs = allLogs()
     expect(logs).toContain('CHALLENGED')
     expect(logs).toContain('c1')
+    expect(logs).toContain('TypeError')
+    expect(logs).not.toContain('boom')
     expect(logs).not.toContain(CONFIG.apiKey)
     expect(logs).not.toContain(OPPONENT_ADDRESS)
   })

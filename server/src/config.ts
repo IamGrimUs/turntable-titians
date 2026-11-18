@@ -10,7 +10,7 @@ export interface EmailConfig {
 
 /**
  * The settings for the emails the server sends itself (challenge updates, through Resend).
- * Returns null unless RESEND_API_KEY, EMAIL_FROM and SITE_URL are all set and non-blank, which
+ * Returns null unless RESEND_API_KEY, EMAIL_FROM and SITE_URL are all set and non-blank and SITE_URL is an https URL, which
  * means "do not send": an unconfigured server simply skips emails. The key is never logged.
  */
 export function getEmailConfig(env: Record<string, string | undefined> = process.env): EmailConfig | null {
@@ -18,6 +18,12 @@ export function getEmailConfig(env: Record<string, string | undefined> = process
   const from = env.EMAIL_FROM?.trim()
   const siteUrl = env.SITE_URL?.trim()
   if (!apiKey || !from || !siteUrl) return null
+  // Links in emails are built from this, so it must be a real https URL (never log the value).
+  try {
+    if (new URL(siteUrl).protocol !== 'https:') return null
+  } catch {
+    return null
+  }
   return { apiKey, from, siteUrl }
 }
 

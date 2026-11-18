@@ -123,8 +123,8 @@ export async function notifyChallenge(
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     })
     if (!res.ok) console.error('[challenge-email] send failed:', event, challengeId, `status ${res.status}`)
-  } catch {
-    // The error itself is dropped on purpose: a fetch or Prisma message can echo the address or key.
-    console.error('[challenge-email] send failed:', event, challengeId)
+  } catch (e) {
+    // Only the error's name is kept on purpose: a fetch or Prisma message can echo the address or key.
+    console.error('[challenge-email] send failed:', event, challengeId, e instanceof Error ? e.name : undefined)
   }
 }

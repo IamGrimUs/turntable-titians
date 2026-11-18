@@ -38,6 +38,7 @@ export const SAFE_SELECT = {
 } as const
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const CREATE_ATTEMPTS = 3
 
 // One message for a missing id, a stranger and an anonymous caller: no signal about which it was.
 export function notFound(): GraphQLError {
@@ -139,11 +140,10 @@ export const challengeMutation = {
     if (!ctx.username) throw badInput('Choose a username before challenging someone.')
 
     const now = new Date()
-    let created: ChallengeParent
-    try {
-      // The checks and the create share one Serializable transaction, so two simultaneous
-      // requests cannot both pass the "one waiting per pair" and rate checks.
-      created = await db.$transaction(
+    // The checks and the create share one Serializable transaction, so two simultaneous
+    // requests cannot both pass the "one waiting per pair" and rate checks.
+    const attempt = () =>
+      db.$transaction(
         async (tx) => {
           // Usernames are unique ignoring case, so "djopp" must find "DJOpp".
           const opponent = await tx.user.findFirst({
@@ -204,9 +204,18 @@ export const challengeMutation = {
         },
         { isolationLevel: 'Serializable' }
       )
-    } catch (err) {
-      if (isSerializationFailure(err)) throw badInput('Something went wrong, please try again.')
-      throw err
+
+    // Overlapping creates conflict under Serializable (P2034): retry the whole transaction, checks
+    // and create, a few times. Any other error is not retried. The email goes out only after a
+    // transaction has committed, and only once.
+    let created: ChallengeParent | undefined
+    for (let tries = 1; created === undefined; tries++) {
+      try {
+        created = await attempt()
+      } catch (err) {
+        if (!isSerializationFailure(err)) throw err
+        if (tries >= CREATE_ATTEMPTS) throw badInput('Something went wrong, please try again.')
+      }
     }
     sendEmail('CHALLENGED', created.id)
     return created

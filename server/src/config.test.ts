@@ -53,6 +53,22 @@ describe('getEmailConfig', () => {
     expect(getEmailConfig({})).toBeNull()
   })
 
+  it('accepts an https SITE_URL with or without a trailing slash', () => {
+    expect(getEmailConfig({ ...full, SITE_URL: 'https://www.battleskratch.com' })?.siteUrl).toBe(
+      'https://www.battleskratch.com'
+    )
+    expect(getEmailConfig({ ...full, SITE_URL: 'https://www.battleskratch.com/' })?.siteUrl).toBe(
+      'https://www.battleskratch.com/'
+    )
+  })
+
+  it.each(['battleskratch.com', 'www.battleskratch.com/path', 'http://www.battleskratch.com', 'javascript:alert(1)', 'ftp://x.io', 'https://'])(
+    'is null when SITE_URL is not an https URL (%s)',
+    (siteUrl) => {
+      expect(getEmailConfig({ ...full, SITE_URL: siteUrl })).toBeNull()
+    }
+  )
+
   it('trims the values', () => {
     expect(getEmailConfig({ RESEND_API_KEY: ' k ', EMAIL_FROM: ' a@b.c ', SITE_URL: ' https://x.io ' })).toEqual({
       apiKey: 'k',

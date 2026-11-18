@@ -358,6 +358,48 @@ describe('createChallenge', () => {
     expect((await msg(m.createChallenge({}, validArgs, asMe)))?.message).toBe('connection lost')
   })
 
+  describe('retries serialization failures', () => {
+    const conflict = () => Object.assign(new Error('write conflict'), { code: 'P2034' })
+
+    it('retries the whole transaction: P2034 twice, then success creates the challenge once and notifies once', async () => {
+      const notify = fn(notifyChallenge)
+      transaction
+        .mockRejectedValueOnce(conflict())
+        .mockRejectedValueOnce(conflict())
+        .mockImplementationOnce(async (cb: (t: typeof tx) => unknown) => cb(tx))
+      const result = await m.createChallenge({}, validArgs, asMe)
+      expect(result).toEqual(row())
+      expect(transaction).toHaveBeenCalledTimes(3)
+      expect(txCreate).toHaveBeenCalledTimes(1)
+      expect(notify).toHaveBeenCalledTimes(1)
+      expect(notify).toHaveBeenCalledWith('CHALLENGED', 'c1')
+    })
+
+    it('gives up after three attempts with the friendly message, creating and notifying nothing', async () => {
+      const notify = fn(notifyChallenge)
+      transaction.mockRejectedValue(conflict())
+      expect(await msg(m.createChallenge({}, validArgs, asMe))).toEqual({
+        message: 'Something went wrong, please try again.',
+        code: 'BAD_USER_INPUT',
+      })
+      expect(transaction).toHaveBeenCalledTimes(3)
+      expect(txCreate).not.toHaveBeenCalled()
+      expect(notify).not.toHaveBeenCalled()
+    })
+
+    it('does not retry any other error', async () => {
+      transaction.mockRejectedValue(Object.assign(new Error('connection lost'), { code: 'P1001' }))
+      await msg(m.createChallenge({}, validArgs, asMe))
+      expect(transaction).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not retry a refusal thrown inside the transaction', async () => {
+      txCount.mockResolvedValue(3)
+      await msg(m.createChallenge({}, validArgs, asMe))
+      expect(transaction).toHaveBeenCalledTimes(1)
+    })
+  })
+
   it('never puts the video url in an error message', async () => {
     txUserFindFirst.mockResolvedValue(null)
     const r = await msg(m.createChallenge({}, validArgs, asMe))
