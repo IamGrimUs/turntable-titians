@@ -15,6 +15,12 @@ function assertRunoffOpen(endDate: Date): void {
   if (runoffPhase(endDate, new Date()) !== 'OPEN') throw badInput('The runoff is not open.')
 }
 
+/** A head to head duel (a battle with a Challenge) is never decided by a runoff: a tie is a draw. */
+async function assertNotDuel(battleId: string): Promise<void> {
+  const duel = await db.challenge.findUnique({ where: { battleId }, select: { id: true } })
+  if (duel) throw badInput('The runoff is not open.')
+}
+
 /**
  * Runoff voting: when a completed battle ties for first, people vote again on just the tied
  * entries. One runoff vote per person per battle, separate from round-one `Vote` rows.
@@ -30,6 +36,7 @@ export const runoffMutation = {
     // The battle always comes from the submission itself, never from the client.
     const { battleId } = submission
     assertRunoffOpen(submission.battle.endDate)
+    await assertNotDuel(battleId)
 
     const [entries, tallies] = await Promise.all([
       db.submission.findMany({ where: { battleId }, select: { id: true, userId: true } }),
@@ -54,6 +61,7 @@ export const runoffMutation = {
     const battle = await db.battle.findUnique({ where: { id: battleId }, select: { endDate: true } })
     if (!battle) throw notFound('Battle not found')
     assertRunoffOpen(battle.endDate)
+    await assertNotDuel(battleId)
     const { count } = await db.runoffVote.deleteMany({ where: { userId, battleId } })
     return count > 0
   },

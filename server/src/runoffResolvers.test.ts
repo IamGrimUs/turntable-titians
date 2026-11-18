@@ -4,6 +4,7 @@ vi.mock('./db', () => ({
   db: {
     submission: { findUnique: vi.fn(), findMany: vi.fn() },
     battle: { findUnique: vi.fn() },
+    challenge: { findUnique: vi.fn() },
     vote: { groupBy: vi.fn() },
     runoffVote: { upsert: vi.fn(), deleteMany: vi.fn(), create: vi.fn() },
   },
@@ -16,6 +17,7 @@ const fn = (f: unknown) => f as ReturnType<typeof vi.fn>
 const subFindUnique = fn(db.submission.findUnique)
 const subFindMany = fn(db.submission.findMany)
 const battleFindUnique = fn(db.battle.findUnique)
+const challengeFindUnique = fn(db.challenge.findUnique)
 const voteGroupBy = fn(db.vote.groupBy)
 const upsert = fn(db.runoffVote.upsert)
 const deleteMany = fn(db.runoffVote.deleteMany)
@@ -79,6 +81,41 @@ function expectNoDbUse() {
     expect(f).not.toHaveBeenCalled()
   }
 }
+
+describe('a head to head battle never has a runoff', () => {
+  beforeEach(() => {
+    challengeFindUnique.mockResolvedValue({ id: 'c1' })
+    battleFindUnique.mockResolvedValue({ id: 'b1', endDate: END })
+  })
+
+  it('refuses castRunoffVote even when the duel is level and the window would be open', async () => {
+    // Two entries, 1-1: exactly the tie that would open a runoff in a regular battle.
+    setupBattle(
+      [{ submissionId: 'sA', _count: 1 }, { submissionId: 'sB', _count: 1 }],
+      [{ id: 'sA', userId: 'djA' }, { id: 'sB', userId: 'djB' }],
+    )
+    expect(await msg(m.castRunoffVote({}, { submissionId: 'sA' }, asVoter))).toEqual({
+      message: 'The runoff is not open.',
+      code: 'BAD_USER_INPUT',
+    })
+    expect(challengeFindUnique).toHaveBeenCalledWith({ where: { battleId: 'b1' }, select: { id: true } })
+    expect(upsert).not.toHaveBeenCalled()
+  })
+
+  it('refuses removeRunoffVote on a duel', async () => {
+    expect(await msg(m.removeRunoffVote({}, { battleId: 'b1' }, asVoter))).toEqual({
+      message: 'The runoff is not open.',
+      code: 'BAD_USER_INPUT',
+    })
+    expect(challengeFindUnique).toHaveBeenCalledWith({ where: { battleId: 'b1' }, select: { id: true } })
+    expect(deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('does not tally votes for a duel', async () => {
+    await msg(m.castRunoffVote({}, { submissionId: 'sA' }, asVoter))
+    expect(voteGroupBy).not.toHaveBeenCalled()
+  })
+})
 
 describe('castRunoffVote', () => {
   it('refuses an anonymous caller before any db read', async () => {

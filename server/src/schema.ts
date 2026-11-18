@@ -16,8 +16,55 @@ export const typeDefs = gql`
     winningVotes: Int
     """The runoff vote, if the battle ended tied for first. Null for an open or upcoming battle and when there was no tie."""
     runoff: Runoff
+    """The head to head duel this battle is, with both DJs and the result. Null for a regular battle. Duels never have winners or a runoff: a tie is a draw."""
+    duel: Duel
     createdAt: String!
     updatedAt: String!
+  }
+
+  enum DuelOutcome {
+    CHALLENGER_WON
+    OPPONENT_WON
+    """A tie, including 0-0. Duels have no runoff."""
+    DRAW
+  }
+
+  """A head to head duel between two DJs. Votes and the result stay hidden until the duel is COMPLETED."""
+  type Duel {
+    challenger: User!
+    opponent: User!
+    """Null until the duel is COMPLETED."""
+    outcome: DuelOutcome
+    """The winning DJ. Null on a draw and until the duel is COMPLETED."""
+    winner: User
+    """Null until the duel is COMPLETED: counts stay secret while voting is open."""
+    challengerVotes: Int
+    """Null until the duel is COMPLETED: counts stay secret while voting is open."""
+    opponentVotes: Int
+  }
+
+  enum HeadToHeadResultKind {
+    WON
+    LOST
+    DRAW
+  }
+
+  """One finished duel, from the point of view of the user whose record it is in."""
+  type HeadToHeadResult {
+    battleId: ID!
+    opponent: User!
+    result: HeadToHeadResultKind!
+    """When the duel's voting ended."""
+    endedAt: String!
+  }
+
+  """A user's results across COMPLETED head to head duels. Open duels never count."""
+  type HeadToHeadRecord {
+    wins: Int!
+    losses: Int!
+    draws: Int!
+    """Newest first. limit is clamped to 1-20."""
+    results(limit: Int = 5): [HeadToHeadResult!]!
   }
 
   enum RunoffStatus {
@@ -85,6 +132,10 @@ export const typeDefs = gql`
     battlesWon: Int!
     """Results across COMPLETED battles only. Open battles never count."""
     record: UserRecord!
+    """Wins, losses and draws in COMPLETED head to head duels. Duels are not part of battlesWon or record."""
+    headToHead: HeadToHeadRecord!
+    """The user's own "email me about challenges" setting. Null for everyone except the user themselves. Never an address."""
+    challengeEmails: Boolean
     createdAt: String!
   }
 
@@ -319,6 +370,12 @@ export const typeDefs = gql`
       pageSize: Int = 20
     ): IdeaPage!
     idea(id: ID!): Idea
+    """A challenge, only for the two DJs in it. Anyone else gets "Challenge not found"."""
+    challenge(id: ID!): Challenge
+    """Challenges the caller sent or received, newest first (at most 50). Empty when logged out."""
+    myChallenges: [Challenge!]!
+    """How many challenges are waiting for the caller's answer. 0 when logged out."""
+    challengesWaiting: Int!
   }
 
   type Mutation {
@@ -339,6 +396,7 @@ export const typeDefs = gql`
       username: String
       image: String
       externalCrews: [String!]
+      challengeEmails: Boolean
     ): User!
     adminUpdateUser(
       userId: ID!
@@ -370,6 +428,46 @@ export const typeDefs = gql`
     adminHideComment(id: ID!): IdeaComment!
     adminUnhideComment(id: ID!): IdeaComment!
     adminDeleteComment(id: ID!): Boolean!
+    createChallenge(
+      opponentUsername: String!
+      title: String!
+      message: String
+      videoUrl: String!
+      votingDays: Int!
+    ): Challenge!
+    acceptChallenge(id: ID!, videoUrl: String!): Challenge!
+    declineChallenge(id: ID!): Challenge!
+    withdrawChallenge(id: ID!): Challenge!
+  }
+
+  enum ChallengeStatus {
+    PENDING
+    ACCEPTED
+    DECLINED
+    WITHDRAWN
+    EXPIRED
+  }
+
+  enum ChallengeRole {
+    CHALLENGER
+    OPPONENT
+  }
+
+  type Challenge {
+    id: ID!
+    title: String!
+    message: String
+    votingDays: Int!
+    status: ChallengeStatus!
+    expiresAt: String!
+    createdAt: String!
+    respondedAt: String
+    challenger: User!
+    opponent: User!
+    viewerRole: ChallengeRole!
+    battleId: ID
+    """Only the challenger sees this, and only while the challenge is waiting. Never the opponent: it stays hidden until they accept."""
+    challengerVideoUrl: String
   }
 
   type HealthStatus {

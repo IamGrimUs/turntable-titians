@@ -33,6 +33,10 @@ model User {
   suspendedUntil   DateTime?
   suspensionReason String?
   lastSignInAt     DateTime  @default(now())
+
+  challengesSent     Challenge[] @relation("ChallengesSent")
+  challengesReceived Challenge[] @relation("ChallengesReceived")
+  challengeEmails    Boolean     @default(true)
 }
 
 enum UserRole {
@@ -75,12 +79,42 @@ model Battle {
   submissions Submission[]
   votes       Vote[]
   runoffVotes RunoffVote[]
+  challenge   Challenge?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
 
+enum ChallengeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+model Challenge {
+  id                 String          @id @default(cuid())
+  challengerId       String
+  opponentId         String
+  title              String
+  message            String?
+  challengerVideoUrl String
+  votingDays         Int
+  status             ChallengeStatus @default(PENDING)
+  expiresAt          DateTime
+  respondedAt        DateTime?
+  battleId           String?         @unique
+  createdAt          DateTime        @default(now())
+
+  challenger User    @relation("ChallengesSent", fields: [challengerId], references: [id], onDelete: Cascade)
+  opponent   User    @relation("ChallengesReceived", fields: [opponentId], references: [id], onDelete: Cascade)
+  battle     Battle? @relation(fields: [battleId], references: [id], onDelete: SetNull)
+
+  @@index([challengerId, createdAt])
+  @@index([opponentId, status])
+}
+
 model Submission {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   battleId    String
   userId      String
   videoUrl    String
@@ -88,8 +122,8 @@ model Submission {
   description String?
   votes       Vote[]
   runoffVotes RunoffVote[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   battle Battle @relation(fields: [battleId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -100,15 +134,15 @@ model Submission {
 }
 
 model Vote {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   submissionId String
   battleId     String
   userId       String
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime @default(now())
 
-  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  battle       Battle     @relation(fields: [battleId], references: [id], onDelete: Cascade)
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  battle     Battle     @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, battleId])
   @@index([battleId])
@@ -116,15 +150,15 @@ model Vote {
 }
 
 model RunoffVote {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   battleId     String
   submissionId String
   userId       String
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime @default(now())
 
-  battle       Battle     @relation(fields: [battleId], references: [id], onDelete: Cascade)
-  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  battle     Battle     @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, battleId])
   @@index([battleId])

@@ -1,6 +1,7 @@
 import type { User } from '@prisma/client'
 import { db } from './db'
 import { computeBattleStatus } from './battleStatus'
+import { regularBattleWhere } from './battleKind'
 import { resolveBattle, tiedForFirst, type BattleResolution, type OutcomeEntry } from './battleOutcome'
 import {
   rankChampions,
@@ -28,7 +29,7 @@ export interface CompletedBattle {
 /**
  * Completed battles (from `battleIds`, or every battle that has ended) with each entry's
  * vote total and the resolved outcome. "Completed" is decided by `computeBattleStatus`, like
- * everywhere else. Runoff tallies are read with one extra query, and only when at least one
+ * everywhere else. Head to head duels are never included (see `regularBattleWhere`). Runoff tallies are read with one extra query, and only when at least one
  * of these battles ties for first.
  */
 export async function loadCompletedBattles(
@@ -37,7 +38,9 @@ export async function loadCompletedBattles(
 ): Promise<CompletedBattle[]> {
   const battles = await db.battle.findMany({
     // A battle that has ended is a superset of "completed"; computeBattleStatus makes the final call.
-    where: battleIds ? { id: { in: battleIds } } : { endDate: { lt: now } },
+    // Regular battles only, in both branches: a duel id handed in explicitly (as `loadUserRecord`
+    // and `countBattlesWon` do) is dropped too, so duels never reach any win or standing.
+    where: battleIds ? { id: { in: battleIds }, ...regularBattleWhere } : { endDate: { lt: now }, ...regularBattleWhere },
     select: { id: true, startDate: true, endDate: true },
   })
   const completed = battles.filter((b) => computeBattleStatus(b.startDate, b.endDate, now) === 'COMPLETED')

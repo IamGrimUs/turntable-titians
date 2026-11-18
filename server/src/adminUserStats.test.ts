@@ -202,6 +202,25 @@ describe('buildAdminUserRows', () => {
     expect(byId(rows, 'a').entries).toBe(1)
   })
 
+  it('counts a duel entry and its votes but never a win when the duel is not in the battles list', () => {
+    const rows = buildAdminUserRows(
+      input({
+        users: [user('a'), user('b')],
+        submissions: [
+          { id: 'd1', userId: 'a', battleId: 'duel' },
+          { id: 'd2', userId: 'b', battleId: 'duel' },
+        ],
+        voteCountsBySubmission: new Map([['d1', 5], ['d2', 3]]),
+        runoffVotesBySubmission: new Map([['d1', 1]]),
+        votesCastByUser: new Map([['b', 2]]),
+        battles: [],
+      }),
+      now
+    )
+    expect(byId(rows, 'a')).toMatchObject({ battlesWon: 0, entries: 1, votesReceived: 5 })
+    expect(byId(rows, 'b')).toMatchObject({ battlesWon: 0, entries: 1, votesReceived: 3, votesCast: 2 })
+  })
+
   it('is SUSPENDED while suspended and ACTIVE once suspendedUntil has passed', () => {
     const rows = buildAdminUserRows(
       input({

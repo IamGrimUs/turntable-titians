@@ -8,7 +8,7 @@ vi.mock('./db', () => ({
     $transaction: vi.fn(),
     submission: { findMany: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
     vote: { groupBy: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
-    battle: { findMany: vi.fn() },
+    battle: { findMany: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
     runoffVote: { groupBy: vi.fn() },
     idea: { groupBy: vi.fn() },
   },
@@ -28,6 +28,8 @@ const userFindMany = db.user.findMany as unknown as ReturnType<typeof vi.fn>
 const submissionFindMany = db.submission.findMany as unknown as ReturnType<typeof vi.fn>
 const voteGroupBy = db.vote.groupBy as unknown as ReturnType<typeof vi.fn>
 const battleFindMany = db.battle.findMany as unknown as ReturnType<typeof vi.fn>
+const battleCount = db.battle.count as unknown as ReturnType<typeof vi.fn>
+const battleDeleteMany = db.battle.deleteMany as unknown as ReturnType<typeof vi.fn>
 const ideaGroupBy = db.idea.groupBy as unknown as ReturnType<typeof vi.fn>
 const runoffGroupBy = db.runoffVote.groupBy as unknown as ReturnType<typeof vi.fn>
 const userFindUnique = db.user.findUnique as unknown as ReturnType<typeof vi.fn>
@@ -103,6 +105,8 @@ beforeEach(() => {
   voteCount.mockReset().mockResolvedValue(0)
   submissionDeleteMany.mockReset()
   voteDeleteMany.mockReset()
+  battleCount.mockReset().mockResolvedValue(0)
+  battleDeleteMany.mockReset().mockImplementation((args: unknown) => ({ op: 'battle.deleteMany', args }))
   auditFindMany.mockReset().mockResolvedValue([])
   auditCount.mockReset().mockResolvedValue(0)
   auditCreate.mockReset().mockImplementation((args: unknown) => ({ op: 'adminAuditLog.create', args }))
@@ -882,12 +886,57 @@ describe('adminDeleteUser', () => {
     expect(voteCount).toHaveBeenCalledTimes(2)
   })
 
+  describe('head to head battles the user was in', () => {
+    const duelWhere = { challenge: { is: { OR: [{ challengerId: 't1' }, { opponentId: 't1' }] } } }
+
+    it('counts the duels before the delete, with the same filter the delete uses', async () => {
+      battleCount.mockResolvedValue(3)
+      await adminDeleteUser({}, { userId: 't1' }, boss)
+      expect(battleCount).toHaveBeenCalledWith({ where: duelWhere })
+    })
+
+    it('deletes those battles in the SAME transaction, queued BEFORE the user delete', async () => {
+      await adminDeleteUser({}, { userId: 't1' }, boss)
+      expect(transaction).toHaveBeenCalledTimes(1)
+      const ops = transaction.mock.calls[0][0] as Array<{ op: string; args: unknown }>
+      const names = ops.map((op) => op.op)
+      expect(names).toContain('battle.deleteMany')
+      expect(names.indexOf('battle.deleteMany')).toBeLessThan(names.indexOf('user.delete'))
+      expect(ops[names.indexOf('battle.deleteMany')].args).toEqual({ where: duelWhere })
+    })
+
+    it('with blockEmail the duel delete is still queued before the user delete', async () => {
+      await adminDeleteUser({}, { userId: 't1', blockEmail: true }, boss)
+      const names = (transaction.mock.calls[0][0] as Array<{ op: string }>).map((op) => op.op)
+      expect(names.indexOf('battle.deleteMany')).toBeGreaterThan(-1)
+      expect(names.indexOf('battle.deleteMany')).toBeLessThan(names.indexOf('user.delete'))
+    })
+
+    it('records duelsDeleted in the USER_DELETE audit details', async () => {
+      battleCount.mockResolvedValue(2)
+      await adminDeleteUser({}, { userId: 't1' }, boss)
+      expect(auditCreate.mock.calls[0][0].data.details).toEqual({
+        entries: 2,
+        votesCast: 5,
+        votesReceived: 7,
+        duelsDeleted: 2,
+        emailBlocked: false,
+      })
+    })
+
+    it('does not delete any duel when the actor may not delete the user', async () => {
+      await rejection(adminDeleteUser({}, { userId: 't1' }, asUser))
+      expect(battleDeleteMany).not.toHaveBeenCalled()
+      expect(battleCount).not.toHaveBeenCalled()
+    })
+  })
+
   it('deletes a USER as ADMIN in ONE transaction: the USER_DELETE audit entry, then the delete, returning true', async () => {
     const result = await adminDeleteUser({}, { userId: 't1' }, boss)
     expect(result).toBe(true)
     expect(transaction).toHaveBeenCalledTimes(1)
     const ops = transaction.mock.calls[0][0]
-    expect(ops.map((op: { op: string }) => op.op)).toEqual(['adminAuditLog.create', 'user.delete'])
+    expect(ops.map((op: { op: string }) => op.op)).toEqual(['adminAuditLog.create', 'battle.deleteMany', 'user.delete'])
     expect(auditCreate).toHaveBeenCalledTimes(1)
     expect(auditCreate).toHaveBeenCalledWith({
       data: {
@@ -899,7 +948,7 @@ describe('adminDeleteUser', () => {
         targetId: 't1',
         targetUsername: 'oldname',
         targetEmail: 't1@example.com',
-        details: { entries: 2, votesCast: 5, votesReceived: 7, emailBlocked: false },
+        details: { entries: 2, votesCast: 5, votesReceived: 7, duelsDeleted: 0, emailBlocked: false },
       },
     })
     expect(userDelete).toHaveBeenCalledWith({ where: { id: 't1' } })
@@ -911,7 +960,7 @@ describe('adminDeleteUser', () => {
     expect(voteDeleteMany).not.toHaveBeenCalled()
     expect(submissionDeleteMany).not.toHaveBeenCalled()
     const ops = transaction.mock.calls[0][0]
-    expect(ops.every((op: { op: string }) => ['bannedEmail.upsert', 'adminAuditLog.create', 'user.delete'].includes(op.op))).toBe(true)
+    expect(ops.every((op: { op: string }) => ['bannedEmail.upsert', 'adminAuditLog.create', 'battle.deleteMany', 'user.delete'].includes(op.op))).toBe(true)
   })
 
   it('does not block the email when blockEmail is false or omitted', async () => {
@@ -928,6 +977,7 @@ describe('adminDeleteUser', () => {
       'bannedEmail.upsert',
       'adminAuditLog.create',
       'adminAuditLog.create',
+      'battle.deleteMany',
       'user.delete',
     ])
     expect(bannedEmailUpsert).toHaveBeenCalledWith({
@@ -946,9 +996,10 @@ describe('adminDeleteUser', () => {
       entries: 2,
       votesCast: 5,
       votesReceived: 7,
+      duelsDeleted: 0,
       emailBlocked: true,
     })
-    expect(ops[3].args).toEqual({ where: { id: 't1' } })
+    expect(ops[4].args).toEqual({ where: { id: 't1' } })
   })
 
   it('blocks the email lower-cased, but keeps the original-case email in the audit snapshot', async () => {

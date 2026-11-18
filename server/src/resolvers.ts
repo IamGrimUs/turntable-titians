@@ -6,8 +6,17 @@ import { requireAuth, type Context } from './context'
 import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
 import { boardComment, boardIdea, boardMutation, boardQuery } from './boardResolvers'
 import { boardAdminMutation } from './boardAdminResolvers'
+import { HEAD_TO_HEAD_TYPE } from './battleKind'
 import { runoffMutation } from './runoffResolvers'
+import { challengeFields, challengeMutation, challengeQuery } from './challengeResolvers'
 import { countBattlesWon } from './userBattlesWon'
+import {
+  duelBattleField,
+  duelFields,
+  headToHeadRecordFields,
+  headToHeadResultFields,
+  userHeadToHead,
+} from './duelResults'
 import {
   battleRunoff,
   battleWinners,
@@ -31,6 +40,7 @@ export const resolvers = {
   Query: {
     ...boardQuery,
     ...standingsQuery,
+    ...challengeQuery,
     battles: () => db.battle.findMany({ orderBy: { createdAt: 'desc' } }),
     battle: (_: unknown, { id }: { id: string }) =>
       db.battle.findUnique({ where: { id } }),
@@ -70,6 +80,12 @@ export const resolvers = {
       requireAuth(ctx)
       const cleanTitle = cleanSingleLine(title, 'Title', { max: LIMITS.title, required: true })!
       const cleanType = cleanSingleLine(type, 'Battle type', { max: LIMITS.battleType, required: true })!
+      // "Head to Head" is the label of a duel; a regular battle must not pose as one. Case and
+      // interior spacing are ignored, so "Head  to  Head" is refused too ("Head to Head 2" is fine).
+      const squash = (s: string) => s.toLowerCase().replace(/\s+/g, '')
+      if (squash(cleanType) === squash(HEAD_TO_HEAD_TYPE)) {
+        throw new GraphQLError('That battle type is reserved.', { extensions: { code: 'BAD_USER_INPUT' } })
+      }
       const cleanDescription = cleanMultiLine(description, 'Description', { max: LIMITS.description })
       const { start, end } = parseBattleDates(startDate, endDate)
       return db.battle.create({
@@ -97,6 +113,14 @@ export const resolvers = {
         select: { startDate: true, endDate: true },
       })
       if (!battle) throw new GraphQLError('Battle not found', { extensions: { code: 'NOT_FOUND' } })
+
+      // A head to head battle gets exactly its two entries when the challenge is accepted.
+      const duel = await db.challenge.findUnique({ where: { battleId }, select: { id: true } })
+      if (duel) {
+        throw new GraphQLError('Entries to a head-to-head battle come from the challenge.', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        })
+      }
 
       // Entries are only open while the battle is running, same rule as voting.
       const status = computeBattleStatus(battle.startDate, battle.endDate)
@@ -140,7 +164,13 @@ export const resolvers = {
         username,
         image,
         externalCrews,
-      }: { username?: string | null; image?: string | null; externalCrews?: string[] | null },
+        challengeEmails,
+      }: {
+        username?: string | null
+        image?: string | null
+        externalCrews?: string[] | null
+        challengeEmails?: boolean | null
+      },
       ctx: Context
     ) => {
       const userId = requireAuth(ctx)
@@ -176,6 +206,8 @@ export const resolvers = {
           ...(nextUsername !== undefined && { username: nextUsername }),
           ...(nextImage !== undefined && { image: nextImage }),
           ...(nextCrews !== undefined && { externalCrews: nextCrews }),
+          // Only changes when sent; null (the column is not nullable) means "leave it".
+          ...(typeof challengeEmails === 'boolean' && { challengeEmails }),
         },
       })
     },
@@ -199,6 +231,16 @@ export const resolvers = {
         extensions: { code: 'BAD_USER_INPUT' },
       })
       const { battleId } = submission
+      // The two DJs of a duel never vote in it, for either entry (a third party votes normally).
+      const duel = await db.challenge.findUnique({
+        where: { battleId },
+        select: { challengerId: true, opponentId: true },
+      })
+      if (duel && (duel.challengerId === userId || duel.opponentId === userId)) {
+        throw new GraphQLError("You can't vote in your own head-to-head battle.", {
+          extensions: { code: 'BAD_USER_INPUT' },
+        })
+      }
       const battleStatus = computeBattleStatus(submission.battle.startDate, submission.battle.endDate)
       if (battleStatus !== 'ACTIVE') throw new GraphQLError(
         battleStatus === 'COMPLETED' ? 'Battle has ended' : 'Battle has not started yet',
@@ -242,6 +284,7 @@ export const resolvers = {
     },
     ...boardMutation,
     ...runoffMutation,
+    ...challengeMutation,
     ...boardAdminMutation,
     ...adminMutation,
   },
@@ -253,6 +296,7 @@ export const resolvers = {
     winners: battleWinners,
     winningVotes: battleWinningVotes,
     runoff: battleRunoff,
+    duel: duelBattleField,
     status: (parent: Battle) => computeBattleStatus(parent.startDate, parent.endDate),
     startDate: (parent: Battle) => parent.startDate.toISOString(),
     endDate: (parent: Battle) => parent.endDate.toISOString(),
@@ -261,6 +305,14 @@ export const resolvers = {
   },
 
   Runoff: runoffFields,
+
+  Duel: duelFields,
+
+  HeadToHeadRecord: headToHeadRecordFields,
+
+  HeadToHeadResult: headToHeadResultFields,
+
+  Challenge: challengeFields,
 
   RunoffCandidate: runoffCandidateFields,
 
@@ -296,6 +348,10 @@ export const resolvers = {
     externalCrews: (parent: { externalCrews: string[] }) => parent.externalCrews,
     battlesWon: (parent: { id: string }) => countBattlesWon(parent.id),
     record: userRecord,
+    headToHead: userHeadToHead,
+    // A private setting: the stored value for the user themselves, null for everyone else.
+    challengeEmails: (parent: { id: string; challengeEmails?: boolean }, _args: unknown, ctx: Context) =>
+      ctx.userId && ctx.userId === parent.id ? (parent.challengeEmails ?? null) : null,
     createdAt: (parent: { createdAt: Date }) => parent.createdAt.toISOString(),
   },
 
