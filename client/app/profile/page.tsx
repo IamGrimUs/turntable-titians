@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
-import { Shield } from 'lucide-react'
+import { useSession, signOut } from 'next-auth/react'
+import { LogOut, Shield } from 'lucide-react'
 import { useQuery, useMutation } from '@apollo/client'
 import { useState, useRef } from 'react'
 import { ME_QUERY, UPDATE_PROFILE_MUTATION } from '@/lib/graphql/queries'
@@ -203,6 +203,15 @@ export default function ProfilePage() {
             </button>
           </form>
         </div>
+
+        <button
+          type="button"
+          onClick={() => signOut({ callbackUrl: '/' })}
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-md border border-border px-4 py-3 text-base font-semibold text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+        >
+          <LogOut className="h-5 w-5" aria-hidden="true" />
+          Sign out
+        </button>
       </div>
     </div>
   )

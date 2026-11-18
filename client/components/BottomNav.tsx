@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
-import { Home, Swords, Plus, Lightbulb, User, LogIn, LogOut } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { Home, Swords, Plus, Lightbulb, User, LogIn } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NavAvatar } from '@/components/NavAvatar'
 
@@ -43,34 +43,22 @@ export function BottomNav() {
       })}
 
       {session?.user ? (
-        <>
-          <Link
-            href="/profile"
-            className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 px-0.5 text-sm whitespace-nowrap transition-colors',
-              pathname === '/profile'
-                ? 'text-amber-500'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {session.user.image ? (
-              <NavAvatar key={session.user.image} src={session.user.image} />
-            ) : (
-              <User className="h-5 w-5" />
-            )}
-            <span>Profile</span>
-          </Link>
-          <button
-            onClick={() => signOut({ callbackUrl: '/' })}
-            className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 px-0.5 text-sm whitespace-nowrap transition-colors',
-              'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <LogOut className="h-5 w-5" />
-            <span>Sign Out</span>
-          </button>
-        </>
+        <Link
+          href="/profile"
+          className={cn(
+            'flex flex-1 flex-col items-center justify-center gap-1 px-0.5 text-sm whitespace-nowrap transition-colors',
+            pathname === '/profile'
+              ? 'text-amber-500'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {session.user.image ? (
+            <NavAvatar key={session.user.image} src={session.user.image} />
+          ) : (
+            <User className="h-5 w-5" />
+          )}
+          <span>Profile</span>
+        </Link>
       ) : (
         <Link
           href="/auth/signin"
