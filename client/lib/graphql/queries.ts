@@ -1,4 +1,5 @@
 import { gql } from '@apollo/client';
+import { DUEL_FIELDS } from './challenges';
 
 export const GET_BATTLES = gql`
   query GetBattles {
@@ -16,6 +17,7 @@ export const GET_BATTLES = gql`
         user { id username name image }
       }
       createdAt
+      duel { ${DUEL_FIELDS} }
     }
   }
 `;
@@ -43,6 +45,7 @@ export const GET_BATTLE = gql`
       }
       createdAt
       updatedAt
+      duel { ${DUEL_FIELDS} }
     }
   }
 `;

@@ -1,5 +1,16 @@
 import { ApolloClient, InMemoryCache, HttpLink, ApolloLink, fromPromise } from '@apollo/client';
 
+/**
+ * `Duel` and `HeadToHeadRecord` have no id, so Apollo would replace `Battle:<id>.duel` and
+ * `User:<id>.headToHead` wholesale. The battle lists, the battle page, the Hall of Fame tab and the
+ * profile each write a different slice; `merge: true` makes the slices add up instead of one
+ * erasing the other's fields.
+ */
+export const cacheTypePolicies = {
+  Battle: { fields: { duel: { merge: true } } },
+  User: { fields: { headToHead: { merge: true } } },
+} as const;
+
 let cachedToken: string | null = null;
 let tokenExpiry = 0;
 
@@ -51,7 +62,7 @@ const httpLink = new HttpLink({
 
 export const client = new ApolloClient({
   link: authLink.concat(httpLink),
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({ typePolicies: cacheTypePolicies }),
   defaultOptions: {
     watchQuery: {
       fetchPolicy: 'cache-and-network',
