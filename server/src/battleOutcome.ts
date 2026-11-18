@@ -9,6 +9,11 @@ import { placesInBattle } from './battlePlacement'
  * so it can end with one winner. Without a tie for first the result is exactly round one
  * (`winnersOfBattle` / `placesInBattle`). A runoff that ends level stays tied and the tied
  * entries share the win.
+ *
+ * Known limit: results are computed from live vote rows, so deleting a user (their votes cascade)
+ * after a battle ended can change its result. This already applied to round one; a runoff can also
+ * appear or disappear if it happens within the runoff window. It only happens through an admin
+ * deletion.
  */
 
 /** How many days the runoff stays open, counting the first (the day after the end date). */

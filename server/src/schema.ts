@@ -10,9 +10,9 @@ export const typeDefs = gql`
     endDate: String!
     status: BattleStatus!
     submissions: [Submission!]!
-    """Who won. Empty while the battle is open and when nobody got a vote. A tie lists everyone tied."""
+    """Who won. Empty while the battle is open, while a runoff is open (no winner yet: check runoff.status, do not show it as nobody voted) and when nobody got a vote. A tie for first is settled by the runoff, so this lists one winner, or every tied winner only if the runoff also ended level."""
     winners: [User!]!
-    """Votes the winning entry got (the tied top total on a tie). Null while the battle is open and when nobody won."""
+    """Votes the winning entry got in round one (the tied top total on a tie), always the round-one total even after a runoff decides; the runoff score is in runoff.candidates.votes. Null while the battle is open and when nobody won."""
     winningVotes: Int
     """The runoff vote, if the battle ended tied for first. Null for an open or upcoming battle and when there was no tie."""
     runoff: Runoff
@@ -21,8 +21,11 @@ export const typeDefs = gql`
   }
 
   enum RunoffStatus {
+    """Voting is open on the tied entries; no winner yet."""
     OPEN
+    """One candidate won the runoff."""
     DECIDED
+    """The runoff also ended level (or nobody voted), so the candidates at the top share the win."""
     TIED
   }
 
@@ -38,7 +41,7 @@ export const typeDefs = gql`
     status: RunoffStatus!
     """When voting opens (start of the day after the battle ended)."""
     opensAt: String!
-    """The last day voting is open."""
+    """Start (local midnight) of the last day voting is open. Voting closes at the end of that day, so do not compare this with now to decide the runoff is over; use status."""
     endsAt: String!
     """The tied entries, oldest first. Never ordered by votes."""
     candidates: [RunoffCandidate!]!
@@ -78,7 +81,7 @@ export const typeDefs = gql`
     image: String
     externalCrews: [String!]!
     submissions: [Submission!]!
-    """COMPLETED battles where this user's entry had the most votes (ties count for everyone tied). Open battles never count."""
+    """COMPLETED battles where this user's entry had the most votes (a tie for first is settled by the runoff: only the runoff winner(s) count, everyone at the top if the runoff also ends level; a battle whose runoff is still open counts for nobody yet). Open battles never count."""
     battlesWon: Int!
     """Results across COMPLETED battles only. Open battles never count."""
     record: UserRecord!
