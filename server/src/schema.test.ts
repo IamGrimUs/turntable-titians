@@ -325,6 +325,39 @@ describe('winners and Hall of Fame schema', () => {
     expect(String(fields.wins.type)).toBe('Int!')
   })
 
+  it('pins the Battle runoff field and the Runoff types', () => {
+    const fieldsOf = (name: string) => {
+      const t = schema.getType(name)
+      return t && 'getFields' in t
+        ? Object.fromEntries(Object.entries(t.getFields()).map(([k, f]) => [k, String(f.type)]))
+        : {}
+    }
+    expect(fieldsOf('Battle').runoff).toBe('Runoff')
+    expect(fieldsOf('Runoff')).toEqual({
+      status: 'RunoffStatus!',
+      opensAt: 'String!',
+      endsAt: 'String!',
+      candidates: '[RunoffCandidate!]!',
+      viewerVoteSubmissionId: 'ID',
+      viewerCanVote: 'Boolean!',
+    })
+    // votes is nullable: null while the runoff is open.
+    expect(fieldsOf('RunoffCandidate')).toEqual({ submission: 'Submission!', votes: 'Int' })
+    const status = schema.getType('RunoffStatus')
+    expect(status && 'getValues' in status ? status.getValues().map((v) => v.name) : []).toEqual(['OPEN', 'DECIDED', 'TIED'])
+  })
+
+  it('validates the runoff documents the client will send and keeps voters out of them', () => {
+    expect(
+      errorsFor(
+        '{ battles { id runoff { status opensAt endsAt viewerVoteSubmissionId viewerCanVote candidates { votes submission { id videoUrl user { id username } } } } } }',
+      ),
+    ).toEqual([])
+    expect(errorsFor('{ battles { runoff { voters { id } } } }').length).toBeGreaterThan(0)
+    expect(errorsFor('{ battles { runoff { candidates { userId } } } }').length).toBeGreaterThan(0)
+    expect(errorsFor('{ battles { runoff { candidates { voters { id } } } } }').length).toBeGreaterThan(0)
+  })
+
   it('defines the runoff mutations with the documented arguments and return types', () => {
     const m = schema.getMutationType()!.getFields()
     expect(String(m.castRunoffVote.type)).toBe('Boolean!')

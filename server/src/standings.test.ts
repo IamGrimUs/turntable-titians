@@ -60,6 +60,14 @@ describe('loadCompletedBattles', () => {
     expect(voteGroupBy.mock.calls[0][0].where).toEqual({ battleId: { in: ['b1'] } })
   })
 
+  it('reads entries oldest first (id as tiebreak), so runoff candidates never depend on votes', async () => {
+    battleFindMany.mockResolvedValue([done('b1')])
+    submissionFindMany.mockResolvedValue([])
+    voteGroupBy.mockResolvedValue([])
+    await loadCompletedBattles(['b1'], NOW)
+    expect(submissionFindMany.mock.calls[0][0].orderBy).toEqual([{ createdAt: 'asc' }, { id: 'asc' }])
+  })
+
   it('makes no runoff query when no completed battle ties for first', async () => {
     battleFindMany.mockResolvedValue([done('b1'), done('b2')])
     submissionFindMany.mockResolvedValue([

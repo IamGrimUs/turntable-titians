@@ -14,8 +14,38 @@ export const typeDefs = gql`
     winners: [User!]!
     """Votes the winning entry got (the tied top total on a tie). Null while the battle is open and when nobody won."""
     winningVotes: Int
+    """The runoff vote, if the battle ended tied for first. Null for an open or upcoming battle and when there was no tie."""
+    runoff: Runoff
     createdAt: String!
     updatedAt: String!
+  }
+
+  enum RunoffStatus {
+    OPEN
+    DECIDED
+    TIED
+  }
+
+  """One entry in a runoff."""
+  type RunoffCandidate {
+    submission: Submission!
+    """Runoff votes. Null while the runoff is open: counts stay secret until it closes."""
+    votes: Int
+  }
+
+  """The runoff vote that follows a battle ended tied for first. Only the tied entries compete."""
+  type Runoff {
+    status: RunoffStatus!
+    """When voting opens (start of the day after the battle ended)."""
+    opensAt: String!
+    """The last day voting is open."""
+    endsAt: String!
+    """The tied entries, oldest first. Never ordered by votes."""
+    candidates: [RunoffCandidate!]!
+    """The entry the caller voted for, if any. Only ever the caller's own choice. Null when logged out."""
+    viewerVoteSubmissionId: ID
+    """Whether the caller could vote now: signed in, not suspended, the runoff is open and the caller has no entry in it."""
+    viewerCanVote: Boolean!
   }
 
   type Submission {

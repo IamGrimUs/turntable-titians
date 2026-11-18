@@ -45,7 +45,13 @@ export async function loadCompletedBattles(
   const ids = completed.map((b) => b.id)
 
   const [entries, counts] = await Promise.all([
-    db.submission.findMany({ where: { battleId: { in: ids } }, select: { id: true, userId: true, battleId: true } }),
+    // Oldest entry first, id as the tiebreak. Runoff candidates keep this order, which must
+    // never depend on votes (it would show who is ahead while the runoff is open).
+    db.submission.findMany({
+      where: { battleId: { in: ids } },
+      select: { id: true, userId: true, battleId: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    }),
     db.vote.groupBy({ by: ['submissionId'], where: { battleId: { in: ids } }, _count: true }),
   ])
   const votesBySubmission = new Map(counts.map((c) => [c.submissionId, c._count]))
