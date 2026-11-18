@@ -7,6 +7,7 @@ import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
 import { boardComment, boardIdea, boardMutation, boardQuery } from './boardResolvers'
 import { boardAdminMutation } from './boardAdminResolvers'
 import { countBattlesWon } from './userBattlesWon'
+import { battleWinners, standingsQuery, userRecord } from './standingsResolvers'
 import { prepareCrews, prepareUsername } from './profileRules'
 import {
   LIMITS,
@@ -20,6 +21,7 @@ import {
 export const resolvers = {
   Query: {
     ...boardQuery,
+    ...standingsQuery,
     battles: () => db.battle.findMany({ orderBy: { createdAt: 'desc' } }),
     battle: (_: unknown, { id }: { id: string }) =>
       db.battle.findUnique({ where: { id } }),
@@ -238,6 +240,7 @@ export const resolvers = {
     // Oldest first. The order must never depend on votes, or it would reveal who is ahead.
     submissions: (parent: Battle) =>
       db.submission.findMany({ where: { battleId: parent.id }, orderBy: { createdAt: 'asc' } }),
+    winners: battleWinners,
     status: (parent: Battle) => computeBattleStatus(parent.startDate, parent.endDate),
     startDate: (parent: Battle) => parent.startDate.toISOString(),
     endDate: (parent: Battle) => parent.endDate.toISOString(),
@@ -276,6 +279,7 @@ export const resolvers = {
       db.submission.findMany({ where: { userId: parent.id } }),
     externalCrews: (parent: { externalCrews: string[] }) => parent.externalCrews,
     battlesWon: (parent: { id: string }) => countBattlesWon(parent.id),
+    record: userRecord,
     createdAt: (parent: { createdAt: Date }) => parent.createdAt.toISOString(),
   },
 
