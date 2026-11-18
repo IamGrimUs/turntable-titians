@@ -20,6 +20,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   votes         Vote[]
+  runoffVotes   RunoffVote[]
   createdAt     DateTime     @default(now())
 
   ideas            Idea[]
@@ -73,6 +74,7 @@ model Battle {
   status      BattleStatus @default(UPCOMING)
   submissions Submission[]
   votes       Vote[]
+  runoffVotes RunoffVote[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -85,6 +87,7 @@ model Submission {
   title       String?
   description String?
   votes       Vote[]
+  runoffVotes RunoffVote[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -105,6 +108,22 @@ model Vote {
 
   submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   battle       Battle     @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, battleId])
+  @@index([battleId])
+  @@index([submissionId])
+}
+
+model RunoffVote {
+  id           String     @id @default(cuid())
+  battleId     String
+  submissionId String
+  userId       String
+  createdAt    DateTime   @default(now())
+
+  battle       Battle     @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, battleId])

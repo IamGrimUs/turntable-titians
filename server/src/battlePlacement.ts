@@ -1,9 +1,11 @@
 /**
  * Placements, personal records and the Hall of Fame ranking. Pure: no database access.
  *
- * Callers pass only the entries of COMPLETED battles (vote counts are secret until then).
- * "Won" is the same rule as `winnersOfBattle`: finishing first with at least one vote, ties
- * share the win. A test pins the two together.
+ * Callers pass only COMPLETED battles (vote counts are secret until then). `placesInBattle`
+ * is the round-one rule; a battle that ties for first may be settled by a runoff, so the
+ * record and the ranking take each battle's final `places` (and `pending`) as data from
+ * `resolveBattle` rather than recomputing them. A battle in an open runoff is `pending` and
+ * is skipped entirely. A test pins round-one first place to `winnersOfBattle`.
  */
 export interface EntryVotes {
   userId: string
@@ -31,6 +33,8 @@ export interface BattleResult {
   endDate: Date
   /** Null when the user entered but did not place (no votes). */
   place: number | null
+  /** A runoff is still open: the battle is left out of the record entirely. */
+  pending: boolean
 }
 
 export interface UserRecord {
@@ -48,9 +52,10 @@ export interface UserRecord {
 /**
  * A user's record from their results in completed battles. Streaks run over the battles the
  * user entered, in end-date order (ties by battle id), so battles they skipped never break one.
+ * Pending battles (runoff still open) are skipped entirely, so they neither count nor break a streak.
  */
 export function summarizeRecord(results: ReadonlyArray<BattleResult>): UserRecord {
-  const ordered = [...results].sort(
+  const ordered = results.filter((r) => !r.pending).sort(
     (a, b) => a.endDate.getTime() - b.endDate.getTime() || a.battleId.localeCompare(b.battleId)
   )
   const record: UserRecord = {
@@ -82,7 +87,12 @@ export function summarizeRecord(results: ReadonlyArray<BattleResult>): UserRecor
 export interface CompletedBattleEntries {
   id: string
   endDate: Date
-  entries: ReadonlyArray<EntryVotes>
+  /** Who entered; used for "battles entered". */
+  entries: ReadonlyArray<{ userId: string }>
+  /** Final places by user id (runoff included), decided by `resolveBattle`. Empty while pending. */
+  places: ReadonlyMap<string, number>
+  /** A runoff is still open: skipped entirely (no entry, no win). */
+  pending: boolean
 }
 
 export interface ChampionRow {
@@ -104,9 +114,10 @@ export function rankChampions(battles: ReadonlyArray<CompletedBattleEntries>): C
   const wins = new Map<string, { count: number; last: Date }>()
 
   for (const battle of battles) {
+    if (battle.pending) continue
     const seen = new Set(battle.entries.map((e) => e.userId))
     for (const userId of seen) entered.set(userId, (entered.get(userId) ?? 0) + 1)
-    for (const [userId, place] of placesInBattle(battle.entries)) {
+    for (const [userId, place] of battle.places) {
       if (place !== 1) continue
       const current = wins.get(userId)
       wins.set(userId, {

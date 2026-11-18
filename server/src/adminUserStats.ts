@@ -1,5 +1,5 @@
 import { computeBattleStatus } from './battleStatus'
-import { winnersOfBattle } from './battleResults'
+import { resolveBattle, type OutcomeEntry } from './battleOutcome'
 import type { Role } from './permissions'
 import { isSuspended } from './suspension'
 
@@ -44,6 +44,8 @@ export interface StatsInput {
   votesCastByUser: Map<string, number>
   /** Ideas posted on the suggestions board, hidden ones included. Never touches the battle vote numbers. */
   ideasPostedByUser: Map<string, number>
+  /** Runoff votes per entry. Used only to settle "battles won"; never part of entries or votes received. */
+  runoffVotesBySubmission: Map<string, number>
   battles: Array<{ id: string; startDate: Date; endDate: Date }>
 }
 
@@ -62,35 +64,43 @@ function mergeCrews(internal: string[], external: string[]): string[] {
 /**
  * Turns plain rows and count maps into the admin table rows. Pure: no database access,
  * inputs are never modified. "Battles won" counts COMPLETED battles (status derived from
- * the dates) where the user's entry has the top vote count and that count is above zero;
- * ties award every tied user.
+ * the dates) the user won according to `resolveBattle`: the top round-one count above zero,
+ * settled by the runoff when it tied; a battle in an open runoff counts for no one. Entries
+ * and votes received stay round-one only.
  */
 export function buildAdminUserRows(input: StatsInput, now: Date = new Date()): AdminUserRow[] {
-  const completedBattleIds = new Set<string>()
+  const completedBattles = new Map<string, { endDate: Date }>()
   for (const battle of input.battles) {
     if (computeBattleStatus(battle.startDate, battle.endDate, now) === 'COMPLETED') {
-      completedBattleIds.add(battle.id)
+      completedBattles.set(battle.id, battle)
     }
   }
 
   const entriesByUser = new Map<string, number>()
   const votesReceivedByUser = new Map<string, number>()
-  const submissionsByBattle = new Map<string, Array<{ userId: string; votes: number }>>()
+  const submissionsByBattle = new Map<string, OutcomeEntry[]>()
 
   for (const sub of input.submissions) {
     const votes = input.voteCountsBySubmission.get(sub.id) ?? 0
     entriesByUser.set(sub.userId, (entriesByUser.get(sub.userId) ?? 0) + 1)
     votesReceivedByUser.set(sub.userId, (votesReceivedByUser.get(sub.userId) ?? 0) + votes)
 
-    if (!completedBattleIds.has(sub.battleId)) continue
+    if (!completedBattles.has(sub.battleId)) continue
     const list = submissionsByBattle.get(sub.battleId)
-    if (list) list.push({ userId: sub.userId, votes })
-    else submissionsByBattle.set(sub.battleId, [{ userId: sub.userId, votes }])
+    const entry = { id: sub.id, userId: sub.userId, votes }
+    if (list) list.push(entry)
+    else submissionsByBattle.set(sub.battleId, [entry])
   }
 
   const winsByUser = new Map<string, number>()
-  for (const entries of submissionsByBattle.values()) {
-    for (const userId of winnersOfBattle(entries)) {
+  for (const [battleId, entries] of submissionsByBattle) {
+    const { winnerUserIds } = resolveBattle({
+      endDate: completedBattles.get(battleId)!.endDate,
+      entries,
+      runoffVotes: input.runoffVotesBySubmission,
+      now,
+    })
+    for (const userId of winnerUserIds) {
       winsByUser.set(userId, (winsByUser.get(userId) ?? 0) + 1)
     }
   }

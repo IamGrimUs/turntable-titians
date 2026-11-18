@@ -5,6 +5,7 @@ vi.mock('./db', () => ({
     user: { findMany: vi.fn() },
     submission: { findMany: vi.fn() },
     vote: { groupBy: vi.fn() },
+    runoffVote: { groupBy: vi.fn() },
     battle: { findMany: vi.fn() },
     // Deliberately no ideaVote or ideaCommentVote: touching them would throw.
     idea: { groupBy: vi.fn() },
@@ -17,6 +18,7 @@ import { loadAdminUserRows } from './adminData'
 const userFindMany = db.user.findMany as unknown as ReturnType<typeof vi.fn>
 const submissionFindMany = db.submission.findMany as unknown as ReturnType<typeof vi.fn>
 const voteGroupBy = db.vote.groupBy as unknown as ReturnType<typeof vi.fn>
+const runoffGroupBy = db.runoffVote.groupBy as unknown as ReturnType<typeof vi.fn>
 const battleFindMany = db.battle.findMany as unknown as ReturnType<typeof vi.fn>
 const ideaGroupBy = db.idea.groupBy as unknown as ReturnType<typeof vi.fn>
 
@@ -42,6 +44,7 @@ beforeEach(() => {
   userFindMany.mockReset().mockResolvedValue([])
   submissionFindMany.mockReset().mockResolvedValue([])
   voteGroupBy.mockReset().mockResolvedValue([])
+  runoffGroupBy.mockReset().mockResolvedValue([])
   battleFindMany.mockReset().mockResolvedValue([])
   ideaGroupBy.mockReset().mockResolvedValue([])
 })
@@ -75,6 +78,26 @@ describe('loadAdminUserRows', () => {
     expect(voteGroupBy).toHaveBeenCalledTimes(2)
     expect(voteGroupBy).toHaveBeenCalledWith({ by: ['submissionId'], _count: true })
     expect(voteGroupBy).toHaveBeenCalledWith({ by: ['userId'], _count: true })
+  })
+
+  it('reads runoff vote counts with one groupBy and uses them for battles won only', async () => {
+    userFindMany.mockResolvedValue([dbUser('a'), dbUser('z')])
+    submissionFindMany.mockResolvedValue([
+      { id: 's1', userId: 'a', battleId: 'b1' },
+      { id: 's2', userId: 'z', battleId: 'b1' },
+    ])
+    voteGroupBy.mockImplementation(async (args: { by: string[] }) =>
+      args.by[0] === 'submissionId' ? [{ submissionId: 's1', _count: 3 }, { submissionId: 's2', _count: 3 }] : []
+    )
+    runoffGroupBy.mockResolvedValue([{ submissionId: 's1', _count: 2 }])
+    battleFindMany.mockResolvedValue([
+      { id: 'b1', startDate: new Date(Date.now() - 20 * day), endDate: new Date(Date.now() - 10 * day) },
+    ])
+    const rows = await loadAdminUserRows()
+    expect(runoffGroupBy).toHaveBeenCalledTimes(1)
+    expect(runoffGroupBy).toHaveBeenCalledWith({ by: ['submissionId'], _count: true })
+    expect(rows.find((r) => r.id === 'a')).toMatchObject({ battlesWon: 1, votesReceived: 3 })
+    expect(rows.find((r) => r.id === 'z')).toMatchObject({ battlesWon: 0, votesReceived: 3 })
   })
 
   it('counts ideas with one groupBy on the idea table and leaves the battle vote queries alone', async () => {

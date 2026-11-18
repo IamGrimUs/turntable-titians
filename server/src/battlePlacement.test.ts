@@ -45,7 +45,9 @@ describe('placesInBattle', () => {
 })
 
 describe('summarizeRecord', () => {
-  const r = (battleId: string, day: number, place: number | null): BattleResult => ({ battleId, endDate: d(day), place })
+  const r = (battleId: string, day: number, place: number | null, pending = false): BattleResult => ({
+    battleId, endDate: d(day), place, pending,
+  })
 
   it('is all zeros with no results', () => {
     expect(summarizeRecord([])).toEqual({
@@ -79,6 +81,13 @@ describe('summarizeRecord', () => {
     expect(rec.bestStreak).toBe(3)
   })
 
+  it('skips a pending battle entirely: not entered, no win, and it does not break a streak', () => {
+    const rec = summarizeRecord([r('b1', 1, 1), r('b2', 2, null, true), r('b3', 3, 1)])
+    expect(rec.battlesEntered).toBe(2)
+    expect(rec.wins).toBe(2)
+    expect(rec.currentStreak).toBe(2)
+  })
+
   it('orders battles that end the same day by id so the streak is stable', () => {
     const a = summarizeRecord([r('b2', 1, 2), r('b1', 1, 1)])
     const b = summarizeRecord([r('b1', 1, 1), r('b2', 1, 2)])
@@ -88,11 +97,11 @@ describe('summarizeRecord', () => {
 })
 
 describe('rankChampions', () => {
-  const battle = (id: string, day: number, entries: Array<[string, number]>) => ({
-    id,
-    endDate: d(day),
-    entries: entries.map(([userId, votes]) => ({ userId, votes })),
-  })
+  // `places` and `pending` arrive as data: the resolver decides them, rankChampions only reads them.
+  const battle = (id: string, day: number, entries: Array<[string, number]>, pending = false) => {
+    const list = entries.map(([userId, votes]) => ({ userId, votes }))
+    return { id, endDate: d(day), entries: list, places: pending ? new Map<string, number>() : placesInBattle(list), pending }
+  }
 
   it('returns nobody when there are no wins', () => {
     expect(rankChampions([])).toEqual([])
@@ -142,6 +151,26 @@ describe('rankChampions', () => {
     ])
     expect(rows.find((x) => x.userId === 'a')).toMatchObject({ wins: 2, lastWinAt: d(7) })
     expect(rows.find((x) => x.userId === 'b')).toMatchObject({ wins: 1, lastWinAt: d(1) })
+  })
+
+  it('reads wins from the places it is given, not from the vote counts', () => {
+    // Round one was a tie (5 and 5) but the runoff gave b the win.
+    const tied = {
+      id: 'b1', endDate: d(1),
+      entries: [{ userId: 'a', votes: 5 }, { userId: 'b', votes: 5 }],
+      places: new Map([['a', 2], ['b', 1]]),
+      pending: false,
+    }
+    const rows = rankChampions([tied])
+    expect(rows.map((x) => [x.userId, x.wins])).toEqual([['b', 1]])
+  })
+
+  it('skips a pending battle entirely: no wins, not entered, no last win date', () => {
+    const rows = rankChampions([
+      battle('b1', 1, [['a', 5], ['b', 2]]),
+      battle('b2', 9, [['a', 4], ['b', 4]], true),
+    ])
+    expect(rows).toEqual([{ userId: 'a', rank: 1, wins: 1, battlesEntered: 1, lastWinAt: d(1) }])
   })
 
   it('matches the single win rule: a win equals finishing first in placesInBattle', () => {

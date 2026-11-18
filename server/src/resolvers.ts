@@ -6,8 +6,17 @@ import { requireAuth, type Context } from './context'
 import { adminMutation, adminQuery, AdminUser } from './adminResolvers'
 import { boardComment, boardIdea, boardMutation, boardQuery } from './boardResolvers'
 import { boardAdminMutation } from './boardAdminResolvers'
+import { runoffMutation } from './runoffResolvers'
 import { countBattlesWon } from './userBattlesWon'
-import { battleWinners, battleWinningVotes, standingsQuery, userRecord } from './standingsResolvers'
+import {
+  battleRunoff,
+  battleWinners,
+  battleWinningVotes,
+  runoffCandidateFields,
+  runoffFields,
+  standingsQuery,
+  userRecord,
+} from './standingsResolvers'
 import { prepareCrews, prepareUsername } from './profileRules'
 import {
   LIMITS,
@@ -232,6 +241,7 @@ export const resolvers = {
       return true
     },
     ...boardMutation,
+    ...runoffMutation,
     ...boardAdminMutation,
     ...adminMutation,
   },
@@ -242,12 +252,17 @@ export const resolvers = {
       db.submission.findMany({ where: { battleId: parent.id }, orderBy: { createdAt: 'asc' } }),
     winners: battleWinners,
     winningVotes: battleWinningVotes,
+    runoff: battleRunoff,
     status: (parent: Battle) => computeBattleStatus(parent.startDate, parent.endDate),
     startDate: (parent: Battle) => parent.startDate.toISOString(),
     endDate: (parent: Battle) => parent.endDate.toISOString(),
     createdAt: (parent: Battle) => parent.createdAt.toISOString(),
     updatedAt: (parent: Battle) => parent.updatedAt.toISOString(),
   },
+
+  Runoff: runoffFields,
+
+  RunoffCandidate: runoffCandidateFields,
 
   Submission: {
     // Vote counts stay secret until the battle is over, for everyone (entrants included).

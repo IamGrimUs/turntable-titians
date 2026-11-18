@@ -35,6 +35,7 @@ function input(extra: Partial<StatsInput> = {}): StatsInput {
     voteCountsBySubmission: new Map(),
     votesCastByUser: new Map(),
     ideasPostedByUser: new Map(),
+    runoffVotesBySubmission: new Map(),
     battles: [],
     ...extra,
   }
@@ -334,6 +335,46 @@ describe('buildAdminUserRows', () => {
     expect(battleNumbers(withIdeas)).toEqual(battleNumbers(without))
     expect(byId(withIdeas, 'c').ideasPosted).toBe(12)
     expect(byId(without, 'c').ideasPosted).toBe(0)
+  })
+
+  describe('runoff', () => {
+    const tied = (battle = completed) =>
+      input({
+        users: [user('a'), user('b')],
+        battles: [battle],
+        submissions: [
+          { id: 's1', userId: 'a', battleId: battle.id },
+          { id: 's2', userId: 'b', battleId: battle.id },
+        ],
+        voteCountsBySubmission: new Map([['s1', 4], ['s2', 4]]),
+      })
+
+    it('gives the win to the runoff winner only, without touching entries or votes received', () => {
+      const rows = buildAdminUserRows(
+        { ...tied(), runoffVotesBySubmission: new Map([['s1', 1], ['s2', 6]]) },
+        now
+      )
+      expect(byId(rows, 'a').battlesWon).toBe(0)
+      expect(byId(rows, 'b').battlesWon).toBe(1)
+      expect(byId(rows, 'a').votesReceived).toBe(4) // runoff votes never feed this
+      expect(byId(rows, 'b').votesReceived).toBe(4)
+      expect(byId(rows, 'b').entries).toBe(1)
+    })
+
+    it('shares the win when the runoff ended level', () => {
+      const rows = buildAdminUserRows(tied(), now)
+      expect(byId(rows, 'a').battlesWon).toBe(1)
+      expect(byId(rows, 'b').battlesWon).toBe(1)
+    })
+
+    it('counts nobody while the runoff is open, but still counts the entries', () => {
+      const justEnded = { id: 'b-just', startDate: day('2026-11-01'), endDate: day('2026-11-14') }
+      const rows = buildAdminUserRows(tied(justEnded), now)
+      expect(byId(rows, 'a').battlesWon).toBe(0)
+      expect(byId(rows, 'b').battlesWon).toBe(0)
+      expect(byId(rows, 'a').entries).toBe(1)
+      expect(byId(rows, 'a').votesReceived).toBe(4)
+    })
   })
 
   it('does not mutate its input', () => {
