@@ -1,0 +1,121 @@
+/**
+ * Display rules for the Hall of Fame and the winner lines on battle cards. Pure, so they are
+ * unit-tested. "Who won" is never worked out here: the server sends `winners` and
+ * `winningVotes` (only for completed battles) and `hallOfFame` already ranked.
+ */
+import { NO_TYPE_LABEL, groupBattlesByType } from './battle-groups'
+
+export interface Person {
+  id: string
+  username: string | null
+  name: string | null
+  image: string | null
+}
+
+export function displayName(user: Pick<Person, 'username' | 'name'>): string {
+  return user.username ?? user.name ?? 'DJ'
+}
+
+export function initialsOf(user: Pick<Person, 'username' | 'name'>): string {
+  return displayName(user).slice(0, 2).toUpperCase()
+}
+
+/** Wins as a share of the battles entered, e.g. "58%". A dash when there is nothing to divide by. */
+export function winRate(wins: number, entered: number): string {
+  if (entered <= 0) return '–'
+  return `${Math.round((wins / entered) * 100)}%`
+}
+
+/** The top three ranks are highlighted. Equal wins share a rank, so more than three rows can qualify. */
+export function isTopThree(rank: number): boolean {
+  return rank >= 1 && rank <= 3
+}
+
+/** "Won by ann", or "Tied: ann and bob". Null when nobody won (nothing is shown). */
+export function winnerLine(winners: ReadonlyArray<Pick<Person, 'username' | 'name'>>): string | null {
+  const names = winners.map(displayName)
+  if (names.length === 0) return null
+  if (names.length === 1) return `Won by ${names[0]}`
+  return `Tied: ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+export function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function monthLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
+/** The fields of GET_BATTLE_RESULTS this view uses. */
+export interface ResultBattle {
+  id: string
+  title: string
+  type: string | null
+  endDate: string
+  status: string
+  winners: Person[]
+  winningVotes: number | null
+  submissions: ReadonlyArray<{ id: string }> | null
+}
+
+export interface ResultRow {
+  id: string
+  title: string
+  type: string
+  endDate: string
+  entries: number
+  winners: Array<{ user: Person; votes: number | null }>
+  tie: boolean
+  noWinner: boolean
+}
+
+/**
+ * The Battle results tab: completed battles only, newest end date first (ties by id), optionally
+ * one type. A battle still open never appears, whatever the API sent for it.
+ */
+export function buildResultRows(battles: readonly ResultBattle[], typeFilter: string | null): ResultRow[] {
+  return battles
+    .filter((b) => b.status === 'COMPLETED')
+    .map((b) => ({ ...b, type: b.type?.trim() || NO_TYPE_LABEL }))
+    .filter((b) => typeFilter === null || b.type === typeFilter)
+    .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || a.id.localeCompare(b.id))
+    .map((b) => ({
+      id: b.id,
+      title: b.title,
+      type: b.type,
+      endDate: b.endDate,
+      entries: b.submissions?.length ?? 0,
+      winners: b.winners.map((user) => ({ user, votes: b.winningVotes })),
+      tie: b.winners.length > 1,
+      noWinner: b.winners.length === 0,
+    }))
+}
+
+export function noWinnerText(entries: number): string {
+  return entries === 0 ? 'No entries' : 'No winner: nobody voted'
+}
+
+/** Types that have at least one completed battle, in the order the Battles page lists them. */
+export function resultTypes(battles: readonly ResultBattle[]): string[] {
+  return groupBattlesByType(battles.filter((b) => b.status === 'COMPLETED')).map((g) => g.type)
+}
+
+export interface ResultMonth {
+  label: string
+  rows: ResultRow[]
+}
+
+/** Month headings over rows that are already sorted; consecutive rows of one month share a heading. */
+export function groupRowsByMonth(rows: readonly ResultRow[]): ResultMonth[] {
+  const months: ResultMonth[] = []
+  for (const row of rows) {
+    const label = monthLabel(row.endDate)
+    const last = months[months.length - 1]
+    if (last && last.label === label) last.rows.push(row)
+    else months.push({ label, rows: [row] })
+  }
+  return months
+}
+
+export const RESULTS_PAGE_SIZE = 10

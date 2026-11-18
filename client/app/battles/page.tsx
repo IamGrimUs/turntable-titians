@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from '@/components/ui/card'
 import { GET_BATTLES } from '@/lib/graphql/queries'
 import { groupBattlesByType } from '@/lib/battle-groups'
+import { winnerLine, type Person } from '@/lib/hall-of-fame-view'
+import { Crown } from 'lucide-react'
 import { useQuery } from '@apollo/client'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -22,6 +24,7 @@ interface BattleSummary {
   startDate: string
   endDate: string
   status: string
+  winners: Person[] | null
   submissions: Participant[] | null
 }
 
@@ -57,6 +60,8 @@ function BattleCard({ battle }: { battle: BattleSummary }) {
   }
 
   const statusVariant = statusVariantMap[battle.status] || 'upcoming'
+  // The server only fills in winners for a completed battle with at least one vote.
+  const winners = battle.status === 'COMPLETED' ? winnerLine(battle.winners ?? []) : null
 
   return (
     <Link href={`/battles/${battle.id}`} className="block h-full">
@@ -76,6 +81,12 @@ function BattleCard({ battle }: { battle: BattleSummary }) {
               <span>Start: {new Date(battle.startDate).toLocaleDateString()}</span>
               <span>End: {new Date(battle.endDate).toLocaleDateString()}</span>
             </div>
+            {winners && (
+              <p className="flex items-center gap-2 font-semibold text-amber-400">
+                <Crown className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span dir="auto">{winners}</span>
+              </p>
+            )}
           </div>
         </CardContent>
         {/* mt-auto pins the avatars and submission count to the bottom of every card, whatever the title and description take. */}
@@ -130,14 +141,23 @@ export default function BattlesPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-5xl font-graffiti mb-2 text-foreground">Battles</h1>
-        <p className="text-muted-foreground text-base">
-          Compete, submit your sets, and vote for the winners.{' '}
-          <Link href="/how-it-works" className="text-amber-500 font-semibold hover:underline">
-            How it works
-          </Link>
-        </p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div>
+          <h1 className="text-5xl font-graffiti mb-2 text-foreground">Battles</h1>
+          <p className="text-muted-foreground text-base">
+            Compete, submit your sets, and vote for the winners.{' '}
+            <Link href="/how-it-works" className="text-amber-500 font-semibold hover:underline">
+              How it works
+            </Link>
+          </p>
+        </div>
+        <Link
+          href="/hall-of-fame"
+          className="flex items-center gap-2 rounded-md border border-amber-500/40 px-4 py-2 text-base font-semibold text-amber-500 transition-colors hover:bg-amber-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+        >
+          <Crown className="h-5 w-5" aria-hidden="true" />
+          Hall of Fame
+        </Link>
       </div>
 
       {hasAny && (
