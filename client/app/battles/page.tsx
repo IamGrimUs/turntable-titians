@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader } from '@/co
 import { GET_BATTLES } from '@/lib/graphql/queries'
 import { groupBattlesByType } from '@/lib/battle-groups'
 import { battleCardView } from '@/lib/battle-card-view'
+import { DuelCard } from '@/components/battles/DuelCard'
+import { battlesListState, splitDuels, type DuelBattle } from '@/lib/duel-view'
 import type { ListRunoff, Person } from '@/lib/hall-of-fame-view'
 import { Crown, Plus } from 'lucide-react'
 import { useQuery } from '@apollo/client'
@@ -28,6 +30,8 @@ interface BattleSummary {
   winners: Person[] | null
   runoff: ListRunoff | null
   submissions: Participant[] | null
+  /** Set for a head to head duel: those get their own group, below the regular battles. */
+  duel: DuelBattle['duel']
 }
 
 function ParticipantAvatars({ submissions }: { submissions: Participant[] }) {
@@ -130,7 +134,9 @@ export default function BattlesPage() {
       </div>
     )
 
-  const battles: BattleSummary[] = data?.battles || []
+  // Duels never join the regular groups, filters or counts; they get their own group below.
+  const { regular: battles, duels } = splitDuels<BattleSummary>(data?.battles || [])
+  const listState = battlesListState(battles.length, duels.length)
 
   // One section per battle type; Active battles first inside each (see lib/battle-groups.ts).
   const groups = groupBattlesByType(battles)
@@ -184,13 +190,15 @@ export default function BattlesPage() {
         </div>
       )}
 
-      {!hasAny ? (
+      {listState === 'EMPTY' ? (
         <div className="text-center py-16">
           <p className="text-muted-foreground mb-6">No battles yet</p>
           <Button asChild variant="default">
             <Link href="/battles/create">Create First Battle</Link>
           </Button>
         </div>
+      ) : listState === 'NO_REGULAR' ? (
+        <p className="text-base text-muted-foreground">No regular battles right now.</p>
       ) : (
         <div className="flex flex-col gap-10">
           {visibleGroups.map(({ type, battles: inType }) => (
@@ -204,6 +212,22 @@ export default function BattlesPage() {
             </section>
           ))}
         </div>
+      )}
+
+      {duels.length > 0 && (
+        <section aria-labelledby="head-to-head-title" className="mt-10">
+          <h2 id="head-to-head-title" className="text-base font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+            Head to head
+          </h2>
+          <p className="text-base text-muted-foreground mb-4">
+            1v1 challenges between two DJs. They are kept separate from the Hall of Fame.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {duels.map((battle) => (
+              <DuelCard key={battle.id} battle={battle} />
+            ))}
+          </div>
+        </section>
       )}
     </div>
   )

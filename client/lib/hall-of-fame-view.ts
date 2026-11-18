@@ -85,6 +85,8 @@ export interface ResultBattle {
   winningVotes: number | null
   submissions: ReadonlyArray<{ id: string }> | null
   runoff?: ListRunoff | null
+  /** Set for a head to head duel, which never appears here (duels have their own group on the Battles page). */
+  duel?: { outcome: string | null } | null
 }
 
 export interface ResultRow {
@@ -103,11 +105,12 @@ export interface ResultRow {
 
 /**
  * The Battle results tab: completed battles only, newest end date first (ties by id), optionally
- * one type. A battle still open never appears, whatever the API sent for it.
+ * one type. A battle still open never appears, whatever the API sent for it. A duel never appears
+ * either: it has no winners by design, so it would read as "No winner: nobody voted".
  */
 export function buildResultRows(battles: readonly ResultBattle[], typeFilter: string | null): ResultRow[] {
   return battles
-    .filter((b) => b.status === 'COMPLETED')
+    .filter((b) => b.status === 'COMPLETED' && !b.duel)
     .map((b) => ({ ...b, type: b.type?.trim() || NO_TYPE_LABEL }))
     .filter((b) => typeFilter === null || b.type === typeFilter)
     .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || a.id.localeCompare(b.id))
@@ -137,7 +140,7 @@ export function noWinnerText(entries: number): string {
 
 /** Types that have at least one completed battle, in the order the Battles page lists them. */
 export function resultTypes(battles: readonly ResultBattle[]): string[] {
-  return groupBattlesByType(battles.filter((b) => b.status === 'COMPLETED')).map((g) => g.type)
+  return groupBattlesByType(battles.filter((b) => b.status === 'COMPLETED' && !b.duel)).map((g) => g.type)
 }
 
 export interface ResultMonth {
