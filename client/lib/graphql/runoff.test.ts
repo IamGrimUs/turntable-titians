@@ -54,6 +54,10 @@ describe('runoff documents against the server SDL', () => {
     )
   })
 
+  it('GET_BATTLE selects the server winners, which are the only source of the crown', () => {
+    expect(flat(GET_BATTLE)).toContain('winners { id }')
+  })
+
   it.each(listDocuments)('%s selects only the light runoff shape', (_name, doc) => {
     const text = flat(doc)
     expect(text).toContain(

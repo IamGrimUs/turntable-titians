@@ -32,6 +32,7 @@ export const GET_BATTLE = gql`
       startDate
       endDate
       status
+      winners { id }
       runoff { ${RUNOFF_DETAIL_FIELDS} }
       submissions {
         id
