@@ -125,6 +125,38 @@ describe('buildLatestChampions', () => {
   })
 })
 
+describe('buildLatestChampions and duels', () => {
+  it('leaves out a duel, even one that somehow has winners', () => {
+    const cards = buildLatestChampions(
+      [
+        battle({ id: 'duel', duel: { outcome: 'CHALLENGER_WON' }, winners: [person('c')], endDate: '2026-11-18T12:00:00Z' }),
+        battle({ id: 'regular', endDate: '2026-11-01T12:00:00Z' }),
+      ],
+      hall(['u1', 2], ['c', 1]),
+    )
+    expect(cards.map((c) => c.battleId)).toEqual(['regular'])
+  })
+
+  it('a duel does not use up one of the three places', () => {
+    const cards = buildLatestChampions(
+      [
+        battle({ id: 'd1', duel: { outcome: 'DRAW' }, endDate: '2026-11-20T12:00:00Z' }),
+        battle({ id: 'd2', duel: { outcome: 'OPPONENT_WON' }, endDate: '2026-11-19T12:00:00Z' }),
+        battle({ id: 'r1', endDate: '2026-11-03T12:00:00Z' }),
+        battle({ id: 'r2', endDate: '2026-11-02T12:00:00Z' }),
+        battle({ id: 'r3', endDate: '2026-11-01T12:00:00Z' }),
+      ],
+      hall(['u1', 3]),
+    )
+    expect(cards.map((c) => c.battleId)).toEqual(['r1', 'r2', 'r3'])
+  })
+
+  it('a battle with duel: null is unchanged', () => {
+    const cards = buildLatestChampions([battle({ id: 'r', duel: null })], hall(['u1', 3]))
+    expect(cards.map((c) => c.battleId)).toEqual(['r'])
+  })
+})
+
 describe('championHeadline', () => {
   it('says who won what for one winner', () => {
     const [card] = buildLatestChampions([battle({ id: 'a', title: 'Scratch Showdown', winners: [person('u1', 'nova')] })], [])

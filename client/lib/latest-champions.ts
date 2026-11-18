@@ -3,6 +3,7 @@
  * who won (`winners`, only for completed battles) and each person's career wins (`hallOfFame`);
  * this only picks the most recent results and words them.
  */
+import { isDuel } from './is-duel'
 import { displayName, joinNames, type Person } from './hall-of-fame-view'
 
 export interface LatestBattle {
@@ -14,6 +15,8 @@ export interface LatestBattle {
   winners: Person[]
   /** Only the status is needed: a battle with an open runoff has no winner yet. */
   runoff?: { status: 'OPEN' | 'DECIDED' | 'TIED' } | null
+  /** Set for a head to head duel, which never appears in the strip. */
+  duel?: { outcome: string | null } | null
 }
 
 export interface HallOfFameWins {
@@ -35,7 +38,7 @@ export const LATEST_CHAMPIONS_COUNT = 3
 
 /**
  * The most recent completed battles that have a winner, newest first. A battle whose runoff is still
- * open is left out (it has no winner yet). After a runoff the vote total is dropped: `winningVotes`
+ * open is left out (it has no winner yet), and so is a head to head duel. After a runoff the vote total is dropped: `winningVotes`
  * is the round-one total, which says nothing about how the runoff went.
  */
 export function buildLatestChampions(
@@ -45,7 +48,7 @@ export function buildLatestChampions(
 ): ChampionCard[] {
   const winsByUser = new Map(hallOfFame.map((row) => [row.user.id, row.wins]))
   return battles
-    .filter((b) => b.status === 'COMPLETED' && b.runoff?.status !== 'OPEN' && b.winners.length > 0)
+    .filter((b) => b.status === 'COMPLETED' && !isDuel(b) && b.runoff?.status !== 'OPEN' && b.winners.length > 0)
     .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || a.id.localeCompare(b.id))
     .slice(0, limit)
     .map((b) => ({

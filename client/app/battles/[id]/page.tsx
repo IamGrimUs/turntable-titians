@@ -16,6 +16,7 @@ import { entryStyle } from '@/lib/battle-entry-style'
 import { boardAccess } from '@/lib/board-view'
 import { battleCardView } from '@/lib/battle-card-view'
 import { RunoffPanel, type RunoffData } from '@/components/battles/RunoffPanel'
+import { duelPageView, duelSignInText, entryFormOpen, type DuelBattle } from '@/lib/duel-view'
 
 interface SubmissionUser {
   id: string
@@ -49,6 +50,8 @@ interface Battle {
   /** Set when the battle ended tied for first: voting reopens on the tied entries. */
   runoff: RunoffData | null
   submissions: Submission[]
+  /** Set for a head to head duel (a 1v1 challenge); null for a regular battle. */
+  duel: DuelBattle['duel']
 }
 
 export default function BattleDetailPage() {
@@ -92,14 +95,19 @@ export default function BattleDetailPage() {
   // Crowns come only from the server's `winners`. In a tied battle round-one counts would crown
   // both tied entries, so while a runoff exists the rank badges are off too (see entryStyle).
   const winnerUserIds = battle.winners.map((w) => w.id)
+  // A duel (1v1 challenge) has its own page layout and never a runoff: a level duel is a draw.
+  const duelView = duelPageView(battle)
+  const runoff = duelView ? null : battle.runoff
   const styleFor = (submission: Submission, index: number) =>
     entryStyle({
       battleStatus: battle.status,
-      hasRunoff: battle.runoff !== null,
+      hasRunoff: runoff !== null,
       winnerUserIds,
       userId: submission.userId,
       rank: index + 1,
       voteCount: submission.voteCount,
+      // The crown comes from the same rule as the duel card (duelCardView), found by user id.
+      duel: duelView ? { winnerId: duelView.winnerUserId } : null,
     })
   const hasWinner = sortedSubmissions.some((s, i) => styleFor(s, i).isWinner)
 
@@ -112,10 +120,11 @@ export default function BattleDetailPage() {
     ? sortedSubmissions.some((s) => s.userId === currentUserId)
     : false
 
-  const showForm = battle.status === 'ACTIVE' && !!currentUserId && !hasSubmitted
+  // Nobody can add an entry to a duel: both entries come from the challenge.
+  const showForm = entryFormOpen({ status: battle.status, signedIn: !!currentUserId, hasSubmitted, duelView })
 
   // Same pill as the battle cards: an open runoff reads RUNOFF, not COMPLETED.
-  const headerView = battleCardView({ status: battle.status, runoff: battle.runoff })
+  const headerView = battleCardView({ status: battle.status, runoff })
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -125,15 +134,26 @@ export default function BattleDetailPage() {
           Battle Skratch
         </p>
         <div className="flex flex-wrap items-start gap-3 mb-3">
-          <h1 className="text-5xl font-graffiti text-foreground">
-            {battle.title}
+          <h1 className="min-w-0 max-w-full break-words text-5xl font-graffiti text-foreground">
+            {duelView ? duelView.headline : battle.title}
           </h1>
           <Badge variant={headerView.statusVariant}>{headerView.statusLabel}</Badge>
           <Badge variant="outline" className="text-muted-foreground">
-            {battle.type}
+            {duelView ? duelView.badgeLabel : battle.type}
           </Badge>
         </div>
+        {duelView && (
+          <p className="mb-3 break-words text-xl font-bold text-foreground">{duelView.subtitle}</p>
+        )}
         <div className="mt-3 h-px bg-gradient-to-r from-amber-500 to-transparent mb-4" />
+        {duelView && (
+          <>
+            <p className="mb-2 text-base text-muted-foreground">{duelView.intro}</p>
+            {duelView.resultLine && (
+              <p className="mb-2 break-words text-xl font-bold text-amber-500">{duelView.resultLine}</p>
+            )}
+          </>
+        )}
         <p className="text-base text-muted-foreground">
           {new Date(battle.startDate).toLocaleDateString()} → {new Date(battle.endDate).toLocaleDateString()}
         </p>
@@ -183,15 +203,15 @@ export default function BattleDetailPage() {
           <Link href="/auth/signin" className="text-amber-500 hover:underline font-semibold">
             Sign in
           </Link>{' '}
-          to submit your entry.
+          {duelSignInText(duelView !== null)}
         </div>
       )}
 
       {/* Runoff: the tie-break vote on the entries that tied for first */}
-      {battle.runoff && (
+      {runoff && (
         <RunoffPanel
           battleId={battle.id}
-          runoff={battle.runoff}
+          runoff={runoff}
           entries={sortedSubmissions}
           currentUserId={currentUserId}
           access={boardAccess(session?.user)}
@@ -202,7 +222,7 @@ export default function BattleDetailPage() {
       )}
 
       {/* Submissions Grid */}
-      {battle.runoff && sortedSubmissions.length > 0 && (
+      {runoff && sortedSubmissions.length > 0 && (
         <h2 className="mt-12 text-xl font-bold text-foreground">Round one entries</h2>
       )}
       {sortedSubmissions.length === 0 ? (
@@ -218,6 +238,7 @@ export default function BattleDetailPage() {
               currentUserId={currentUserId}
               onVoteChange={() => refetch()}
               battleStatus={battle.status}
+              duel={battle.duel}
             />
           ))}
         </div>

@@ -304,6 +304,9 @@ function ChallengeDetails({
           <Card className="p-4 sm:p-6">
             <h2 className="text-2xl font-graffiti text-foreground mb-2">Your message</h2>
             <p className="whitespace-pre-wrap break-words text-base text-foreground">{message}</p>
+            <p className="mt-2 text-base text-muted-foreground">
+              If they accept, this is shown to everyone on the battle page.
+            </p>
           </Card>
         )}
 

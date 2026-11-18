@@ -58,6 +58,10 @@ export default function HowItWorksPage() {
 
       <Section title="The life of a battle">
         <p>Every battle moves through three stages, based on its start and end dates.</p>
+        <p>
+          This page describes regular battles. Head to head challenges work differently: see Head to head
+          challenges below.
+        </p>
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardContent className="space-y-2 p-4">
@@ -190,7 +194,7 @@ export default function HowItWorksPage() {
 
       <Section title="Wins and the Hall of Fame">
         <p>
-          Every completed battle with a winner goes on the record. Wins are counted only from finished
+          Every completed regular battle with a winner goes on the record. Wins are counted only from finished
           battles, so the numbers never move while a battle is still running.
         </p>
         <ul className="list-disc space-y-2 pl-6">
@@ -199,7 +203,7 @@ export default function HowItWorksPage() {
             career wins. DJs with the same number of wins share a rank. Open it from the Battles page.
           </li>
           <li>
-            <span className={strong}>Battle results</span> is the second tab there: every completed battle,
+            <span className={strong}>Battle results</span> is the second tab there: every completed regular battle,
             newest first, with who won and the result.
           </li>
           <li>
@@ -215,7 +219,69 @@ export default function HowItWorksPage() {
             runoff shows &ldquo;Runoff in progress&rdquo; and adds no win to anyone&apos;s record until the
             runoff closes.
           </li>
+          <li>
+            <span className={strong}>Head to head battles are not counted.</span> They have their own record
+            (see below) and never add to your wins, the Hall of Fame or the battle results.
+          </li>
         </ul>
+      </Section>
+
+      <Section title="Head to head challenges">
+        <p>
+          Want to take on one DJ directly? Challenge them to a head to head battle: just the two of you, and
+          everyone else votes. It works differently from a regular battle, so here are the rules.
+        </p>
+        <Steps
+          items={[
+            <>
+              <span className={strong}>Challenge a DJ.</span> You name one DJ and send your own entry video, and
+              you pick how long voting lasts: 3, 7 or 14 days. The DJ you challenge cannot see your video until
+              they accept, so use an unlisted video.
+            </>,
+            <>
+              <span className={strong}>They answer within 10 days.</span> They can accept or decline. While it is
+              still waiting, you can withdraw a challenge you sent.
+            </>,
+            <>
+              <span className={strong}>Accepting opens the battle.</span> They enter with their own video and
+              voting starts straight away. Like any battle, it is open through its last day. Your message becomes the
+              battle&apos;s description once they accept.
+            </>,
+          ]}
+        />
+        <h3 className="pt-2 text-xl font-semibold text-foreground">Voting and the result</h3>
+        <ul className="list-disc space-y-2 pl-6">
+          <li>
+            <span className={strong}>Everyone else votes.</span> Anyone signed in can vote, except the two DJs,
+            who cannot vote in their own head to head battle. Nobody can add other entries.
+          </li>
+          <li>
+            <span className={strong}>Counts stay hidden until it ends.</span> Just like a regular battle.
+          </li>
+          <li>
+            <span className={strong}>A tie is a draw.</span> If the votes are level, including when nobody
+            voted, it is a draw. There is no runoff.
+          </li>
+          <li>
+            <span className={strong}>A separate record.</span> Your head to head wins, losses and draws show on
+            a DJ&apos;s profile page once you have finished one. They never count toward your career wins or the Hall of
+            Fame, and head to head battles are not listed in the Hall of Fame results.
+          </li>
+        </ul>
+        <h3 className="pt-2 text-xl font-semibold text-foreground">Limits</h3>
+        <ul className="list-disc space-y-2 pl-6">
+          <li>You can have up to 3 challenges you sent waiting for an answer at once.</li>
+          <li>Only 1 challenge can be waiting between the same two DJs, whoever sent it.</li>
+          <li>You can send 5 new challenges in 24 hours.</li>
+          <li>If a DJ declines, wait 7 days before challenging them again.</li>
+        </ul>
+        <h3 className="pt-2 text-xl font-semibold text-foreground">Hearing about a challenge</h3>
+        <p>
+          You are told by email, and a count appears on the{' '}
+          <span className={strong}>Profile</span> item in the menu. The challenges you have sent and received
+          are listed on your own profile. If you would rather not get the emails, switch off{' '}
+          <span className={strong}>Email me about challenges</span> in your profile.
+        </p>
       </Section>
 
       <Section title="Hosting your own battle">

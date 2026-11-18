@@ -201,13 +201,13 @@ export function ChallengeForm({ initialUsername }: ChallengeFormProps) {
                 onChange={(e) => setField('message', e.target.value)}
                 maxLength={CHALLENGE_LIMITS.messageMax}
                 rows={3}
-                placeholder="Trash talk, ground rules, anything they should know"
+                placeholder="Ground rules, a bit of trash talk, anything people should know"
                 aria-invalid={fieldErrors.message ? true : undefined}
                 aria-describedby={describedBy('message', 'challenge-message-hint')}
                 className={`${fieldClass} resize-none`}
               />
               <p id="challenge-message-hint" className="text-base text-muted-foreground">
-                {plural(remainingChars(values.message, CHALLENGE_LIMITS.messageMax), 'character')} left. No links.
+                {plural(remainingChars(values.message, CHALLENGE_LIMITS.messageMax), 'character')} left. No links. If they accept, your message is shown to everyone on the battle page.
               </p>
               {fieldError('message')}
             </div>
@@ -311,6 +311,7 @@ export function ChallengeForm({ initialUsername }: ChallengeFormProps) {
             The DJ has {CHALLENGE_LIMITS.answerDays} days to answer. They will not see your video until they accept.
           </li>
           <li>If they accept, they add their own video and a public head to head battle starts today.</li>
+          <li>Your message is shown to everyone on the battle page once they accept.</li>
           <li>The community votes. The most votes wins, and a tie is a draw.</li>
         </ol>
         <p className="mt-4 text-base text-muted-foreground">

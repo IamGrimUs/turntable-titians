@@ -214,6 +214,44 @@ describe('buildResultRows with a runoff', () => {
   })
 })
 
+describe('buildResultRows and duels', () => {
+  it('drops a duel even though its winners is [] (so "No winner: nobody voted" never shows for one)', () => {
+    const rows = buildResultRows(
+      [
+        battle({ id: 'duel', duel: { outcome: 'DRAW' }, winners: [], submissions: [{ id: 's1' }, { id: 's2' }] }),
+        battle({ id: 'regular' }),
+      ],
+      null,
+    )
+    expect(rows.map((r) => r.id)).toEqual(['regular'])
+  })
+
+  it('drops a duel that is unfinished (null outcome) and one with winners sent by mistake', () => {
+    const rows = buildResultRows(
+      [
+        battle({ id: 'd1', duel: { outcome: null } }),
+        battle({ id: 'd2', duel: { outcome: 'CHALLENGER_WON' }, winners: [person('a')], winningVotes: 5 }),
+      ],
+      null,
+    )
+    expect(rows).toEqual([])
+  })
+
+  it('keeps a battle with duel: null exactly as before', () => {
+    const rows = buildResultRows([battle({ id: 'r', duel: null, winners: [person('a')], winningVotes: 7 })], null)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].winners.map((w) => w.votes)).toEqual([7])
+  })
+
+  it('does not offer a type that only has duels in the type filter', () => {
+    const types = resultTypes([
+      battle({ id: 'd', type: 'Head to Head', duel: { outcome: 'DRAW' } }),
+      battle({ id: 'r', type: 'Scratch' }),
+    ])
+    expect(types).toEqual(['Scratch'])
+  })
+})
+
 describe('noWinnerText', () => {
   it('says nobody voted when there were entries, and no entries otherwise', () => {
     expect(noWinnerText(3)).toBe('No winner: nobody voted')
