@@ -89,6 +89,7 @@ export function BattleResults() {
                       <h3 className="text-xl font-bold leading-tight" dir="auto">{row.title}</h3>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Badge variant="outline">{row.type}</Badge>
+                        {row.runoff?.status === 'OPEN' && <Badge variant="runoff">{row.runoff.label}</Badge>}
                         {row.tie && <Badge variant="upcoming">Tie</Badge>}
                         <span className="text-base text-muted-foreground">{plural(row.entries, 'entry', 'entries')}</span>
                       </div>
@@ -97,7 +98,9 @@ export function BattleResults() {
                 </div>
 
                 <div className="flex flex-col gap-2.5 border-t border-border pt-3.5 md:w-72 md:shrink-0 md:border-t-0 md:pt-0">
-                  {row.noWinner ? (
+                  {row.runoff?.status === 'OPEN' ? (
+                    <span className="text-base font-semibold text-foreground" dir="auto">{row.runoff.line}</span>
+                  ) : row.noWinner ? (
                     <span className="text-base text-muted-foreground">{noWinnerText(row.entries)}</span>
                   ) : (
                     row.winners.map((w) => (
@@ -110,6 +113,9 @@ export function BattleResults() {
                         </div>
                       </div>
                     ))
+                  )}
+                  {row.runoff && row.runoff.status !== 'OPEN' && (
+                    <span className="text-base text-muted-foreground" dir="auto">{row.runoff.line}</span>
                   )}
                 </div>
               </Link>

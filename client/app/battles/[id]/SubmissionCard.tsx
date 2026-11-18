@@ -9,6 +9,7 @@ import { VoteCount } from '@/components/VoteCount'
 import { propsButtonLabel } from '@/lib/props-button'
 import { OWN_ENTRY_NOTE, ownEntryBlocksVote } from '@/lib/own-entry'
 import { VideoModal } from './VideoModal'
+import type { EntryStyle } from '@/lib/battle-entry-style'
 
 interface SubmissionUser {
   id: string
@@ -31,26 +32,14 @@ interface Submission {
 
 interface Props {
   submission: Submission
-  rank: number
+  /** Crown, rank badge and podium border, decided by `entryStyle` (never by this card). */
+  style: EntryStyle
   userVotedSubmissionId: string | null
   currentUserId: string | null
   onVoteChange: () => void
-  isLeading: boolean
-  isWinner: boolean
   battleStatus: 'UPCOMING' | 'ACTIVE' | 'COMPLETED'
 }
 
-const podiumBorder: Record<number, string> = {
-  1: 'border-amber-400',
-  2: 'border-border',
-  3: 'border-border'
-}
-
-const podiumBadge: Record<number, string> = {
-  1: 'bg-amber-400 text-black',
-  2: 'bg-slate-400 text-black',
-  3: 'bg-amber-700 text-white'
-}
 
 function GraffitiCrown({ hidden }: { hidden: boolean }) {
   return (
@@ -72,7 +61,7 @@ function GraffitiCrown({ hidden }: { hidden: boolean }) {
   )
 }
 
-export function SubmissionCard({ submission, rank, userVotedSubmissionId, currentUserId, onVoteChange, isLeading, isWinner, battleStatus }: Props) {
+export function SubmissionCard({ submission, style, userVotedSubmissionId, currentUserId, onVoteChange, battleStatus }: Props) {
   const [vote, { loading: voting }] = useMutation(VOTE_MUTATION)
   const [deleteVote, { loading: deleting }] = useMutation(DELETE_VOTE_MUTATION)
   const [voteError, setVoteError] = useState('')
@@ -96,9 +85,9 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
     ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}`
     : null
 
-  // Podium styling is by vote rank, so it only applies once results are revealed.
-  // While voting is open, rank is just entry order and must not look like standings.
-  const isPodium = battleStatus === 'COMPLETED' && rank <= 3
+  // Styling comes from `entryStyle`: the crown only for the winners the server names, rank badges
+  // only once results are revealed and no runoff is deciding the top spot.
+  const { isWinner, badge } = style
   const isVotedHere = userVotedSubmissionId === submission.id
   const hasVotedElsewhere = userVotedSubmissionId !== null && !isVotedHere
   const ownEntryBlocked = ownEntryBlocksVote({
@@ -110,10 +99,10 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
   const initial = displayName.charAt(0).toUpperCase()
   const loading = voting || deleting
 
-  const showCrown = isWinner || (rank === 1 && isLeading)
+  const showCrown = isWinner
 
   const cardGlowStyle: CSSProperties = (() => {
-    if (isWinner || (rank === 1 && isLeading)) {
+    if (isWinner) {
       return {
         animation: 'card-glow-gold 5s ease-in-out alternate infinite',
         boxShadow: '0 0 12px 3px rgba(251, 191, 36, 0.35)',
@@ -154,15 +143,14 @@ export function SubmissionCard({ submission, rank, userVotedSubmissionId, curren
       }}
     >
       {showCrown && <GraffitiCrown hidden={previewActive} />}
-      <div className={`rounded-lg border-2 bg-card overflow-hidden relative ${isWinner || (rank === 1 && isLeading) ? 'border-amber-400' : isPodium ? podiumBorder[rank] : 'border-border'}`} style={cardGlowStyle}>
+      <div className={`rounded-lg border-2 bg-card overflow-hidden relative ${isWinner || style.podium ? 'border-amber-400' : 'border-border'}`} style={cardGlowStyle}>
         {/* Video */}
         <div
           className="aspect-video bg-muted relative cursor-pointer"
           onClick={() => embedUrl && setIsModalOpen(true)}
         >
-          {isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className="absolute bottom-2 right-2 z-10 text-base font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">Leading</span>}
-          {rank === 2 && !isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className="absolute bottom-2 right-2 z-10 text-base font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
-          {rank === 3 && !isLeading && !isWinner && (submission.voteCount ?? 0) > 0 && <span className={`absolute bottom-2 right-2 z-10 text-base font-black px-2 py-0.5 rounded-full ${podiumBadge[rank]}`}>#{rank}</span>}
+          {badge === 'RANK_2' && <span className="absolute bottom-2 right-2 z-10 text-base font-black px-2 py-0.5 rounded-full bg-slate-400 text-black">#2</span>}
+          {badge === 'RANK_3' && <span className="absolute bottom-2 right-2 z-10 text-base font-black px-2 py-0.5 rounded-full bg-amber-700 text-white">#3</span>}
           {embedUrl ? (
             <>
               <img

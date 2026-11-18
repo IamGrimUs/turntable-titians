@@ -1,5 +1,6 @@
 import { gql } from '@apollo/client';
 import { DUEL_FIELDS } from './challenges';
+import { RUNOFF_FIELDS, RUNOFF_DETAIL_FIELDS } from './runoff';
 
 export const GET_BATTLES = gql`
   query GetBattles {
@@ -12,6 +13,7 @@ export const GET_BATTLES = gql`
       endDate
       status
       winners { id username name image }
+      runoff { ${RUNOFF_FIELDS} }
       submissions {
         id
         user { id username name image }
@@ -32,6 +34,8 @@ export const GET_BATTLE = gql`
       startDate
       endDate
       status
+      winners { id }
+      runoff { ${RUNOFF_DETAIL_FIELDS} }
       submissions {
         id
         userId

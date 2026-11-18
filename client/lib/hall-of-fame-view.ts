@@ -4,6 +4,10 @@
  * `winningVotes` (only for completed battles) and `hallOfFame` already ranked.
  */
 import { NO_TYPE_LABEL, groupBattlesByType } from './battle-groups'
+import { formatShortDate, joinNames } from './display-format'
+import { runoffCardLine, runoffStatusLabel, type RunoffStatus } from './runoff-view'
+
+export { formatShortDate, joinNames }
 
 export interface Person {
   id: string
@@ -31,12 +35,6 @@ export function isTopThree(rank: number): boolean {
   return rank >= 1 && rank <= 3
 }
 
-/** "ann", "ann and bob", "ann, bob and cy". */
-export function joinNames(names: readonly string[]): string {
-  if (names.length <= 1) return names[0] ?? ''
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-}
-
 /** "Won by ann", or "Tied: ann and bob". Null when nobody won (nothing is shown). */
 export function winnerLine(winners: ReadonlyArray<Pick<Person, 'username' | 'name'>>): string | null {
   const names = winners.map(displayName)
@@ -44,12 +42,36 @@ export function winnerLine(winners: ReadonlyArray<Pick<Person, 'username' | 'nam
   return names.length === 1 ? `Won by ${names[0]}` : `Tied: ${joinNames(names)}`
 }
 
-export function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
 function monthLabel(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
+/** The light runoff selection (`RUNOFF_FIELDS`) that the battle lists carry. */
+export interface ListRunoff {
+  status: RunoffStatus
+  endsAt: string
+  candidates: ReadonlyArray<{ submission: { user: Pick<Person, 'username' | 'name'> }; votes: number | null }>
+}
+
+/** A runoff as words: the pill label and one ready-made line. */
+export interface RunoffSummary {
+  status: RunoffStatus
+  label: string
+  line: string
+}
+
+/**
+ * The runoff of a list battle as a pill label and a line, or null when there is none. Candidates
+ * stay in the order the server sent them (never sorted by votes); an open runoff never shows counts.
+ */
+export function summarizeRunoff(runoff: ListRunoff | null | undefined): RunoffSummary | null {
+  if (!runoff) return null
+  const candidates = runoff.candidates.map((c) => ({ name: displayName(c.submission.user), votes: c.votes }))
+  return {
+    status: runoff.status,
+    label: runoffStatusLabel(runoff.status),
+    line: runoffCardLine(runoff.status, candidates, runoff.endsAt),
+  }
 }
 
 /** The fields of GET_BATTLE_RESULTS this view uses. */
@@ -62,6 +84,7 @@ export interface ResultBattle {
   winners: Person[]
   winningVotes: number | null
   submissions: ReadonlyArray<{ id: string }> | null
+  runoff?: ListRunoff | null
 }
 
 export interface ResultRow {
@@ -72,7 +95,10 @@ export interface ResultRow {
   entries: number
   winners: Array<{ user: Person; votes: number | null }>
   tie: boolean
+  /** True only for a completed battle with no winner and no runoff to wait for: nobody voted. */
   noWinner: boolean
+  /** The runoff status and line, or null when the battle had no tie for first. */
+  runoff: RunoffSummary | null
 }
 
 /**
@@ -85,16 +111,24 @@ export function buildResultRows(battles: readonly ResultBattle[], typeFilter: st
     .map((b) => ({ ...b, type: b.type?.trim() || NO_TYPE_LABEL }))
     .filter((b) => typeFilter === null || b.type === typeFilter)
     .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || a.id.localeCompare(b.id))
-    .map((b) => ({
-      id: b.id,
-      title: b.title,
-      type: b.type,
-      endDate: b.endDate,
-      entries: b.submissions?.length ?? 0,
-      winners: b.winners.map((user) => ({ user, votes: b.winningVotes })),
-      tie: b.winners.length > 1,
-      noWinner: b.winners.length === 0,
-    }))
+    .map((b) => {
+      const runoff = summarizeRunoff(b.runoff)
+      // While a runoff is open the battle has no winner, whatever else was sent for it.
+      const winners = runoff?.status === 'OPEN' ? [] : b.winners
+      return {
+        id: b.id,
+        title: b.title,
+        type: b.type,
+        endDate: b.endDate,
+        entries: b.submissions?.length ?? 0,
+        // After a runoff the round-one total says nothing about the winner; the runoff line has the result.
+        winners: winners.map((user) => ({ user, votes: runoff ? null : b.winningVotes })),
+        tie: winners.length > 1,
+        // An open runoff has no winner yet, which is not the same as nobody having voted.
+        noWinner: winners.length === 0 && runoff?.status !== 'OPEN',
+        runoff,
+      }
+    })
 }
 
 export function noWinnerText(entries: number): string {

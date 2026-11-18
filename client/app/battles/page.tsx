@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from '@/components/ui/card'
 import { GET_BATTLES } from '@/lib/graphql/queries'
 import { groupBattlesByType } from '@/lib/battle-groups'
-import { winnerLine, type Person } from '@/lib/hall-of-fame-view'
+import { battleCardView } from '@/lib/battle-card-view'
+import type { ListRunoff, Person } from '@/lib/hall-of-fame-view'
 import { Crown, Plus } from 'lucide-react'
 import { useQuery } from '@apollo/client'
 import Link from 'next/link'
@@ -25,6 +26,7 @@ interface BattleSummary {
   endDate: string
   status: string
   winners: Person[] | null
+  runoff: ListRunoff | null
   submissions: Participant[] | null
 }
 
@@ -53,15 +55,7 @@ function ParticipantAvatars({ submissions }: { submissions: Participant[] }) {
 
 function BattleCard({ battle }: { battle: BattleSummary }) {
   const submissionCount = battle.submissions?.length || 0
-  const statusVariantMap: Record<string, 'upcoming' | 'active' | 'completed'> = {
-    UPCOMING: 'upcoming',
-    ACTIVE: 'active',
-    COMPLETED: 'completed'
-  }
-
-  const statusVariant = statusVariantMap[battle.status] || 'upcoming'
-  // The server only fills in winners for a completed battle with at least one vote.
-  const winners = battle.status === 'COMPLETED' ? winnerLine(battle.winners ?? []) : null
+  const { statusLabel, statusVariant, winnerLine: winners, runoffLine } = battleCardView(battle)
 
   return (
     <Link href={`/battles/${battle.id}`} className="block h-full">
@@ -70,7 +64,7 @@ function BattleCard({ battle }: { battle: BattleSummary }) {
           <div className="flex justify-between items-start gap-3">
             <h2 className="text-3xl font-graffiti">{battle.title}</h2>
             <Badge variant={statusVariant} className="shrink-0">
-              {battle.status}
+              {statusLabel}
             </Badge>
           </div>
           {battle.description && <CardDescription className="line-clamp-2 text-base mt-2">{battle.description}</CardDescription>}
@@ -81,6 +75,12 @@ function BattleCard({ battle }: { battle: BattleSummary }) {
               <span>Start: {new Date(battle.startDate).toLocaleDateString()}</span>
               <span>End: {new Date(battle.endDate).toLocaleDateString()}</span>
             </div>
+            {runoffLine && (
+              <p className={`flex items-center gap-2 font-semibold ${runoffLine.crown ? 'text-amber-400' : 'text-foreground'}`}>
+                {runoffLine.crown && <Crown className="h-4 w-4 shrink-0" aria-hidden="true" />}
+                <span dir="auto">{runoffLine.text}</span>
+              </p>
+            )}
             {winners && (
               <p className="flex items-center gap-2 font-semibold text-amber-400">
                 <Crown className="h-4 w-4 shrink-0" aria-hidden="true" />

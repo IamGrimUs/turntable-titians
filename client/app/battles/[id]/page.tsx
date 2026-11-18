@@ -12,6 +12,10 @@ import { SubmitFAB } from './SubmitFAB'
 import { SubmissionCard } from './SubmissionCard'
 import { Lock } from 'lucide-react'
 import { rankSubmissions, VOTES_HIDDEN_HINT } from '@/lib/vote-visibility'
+import { entryStyle } from '@/lib/battle-entry-style'
+import { boardAccess } from '@/lib/board-view'
+import { battleCardView } from '@/lib/battle-card-view'
+import { RunoffPanel, type RunoffData } from '@/components/battles/RunoffPanel'
 
 interface SubmissionUser {
   id: string
@@ -40,18 +44,16 @@ interface Battle {
   startDate: string
   endDate: string
   status: 'UPCOMING' | 'ACTIVE' | 'COMPLETED'
+  /** The server's answer to who won. The page never works it out from vote counts. */
+  winners: { id: string }[]
+  /** Set when the battle ended tied for first: voting reopens on the tied entries. */
+  runoff: RunoffData | null
   submissions: Submission[]
-}
-
-const statusVariantMap: Record<string, 'upcoming' | 'active' | 'completed'> = {
-  UPCOMING: 'upcoming',
-  ACTIVE: 'active',
-  COMPLETED: 'completed',
 }
 
 export default function BattleDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const { data, loading, error, refetch } = useQuery(GET_BATTLE, { variables: { id } })
   const [isFormOpen, setIsFormOpen] = useState(false)
   const handleCloseForm = useCallback(() => setIsFormOpen(false), [])
@@ -85,10 +87,21 @@ export default function BattleDetailPage() {
   const currentUserId = (session?.user as { id?: string } | undefined)?.id ?? null
 
   // While voting is open the order stays neutral (oldest first) so it can't reveal who is ahead.
-  const { ordered: sortedSubmissions, votesRevealed, maxVoteCount, hasWinner } = rankSubmissions(
-    battle.submissions,
-    battle.status
-  )
+  const { ordered: sortedSubmissions } = rankSubmissions(battle.submissions, battle.status)
+
+  // Crowns come only from the server's `winners`. In a tied battle round-one counts would crown
+  // both tied entries, so while a runoff exists the rank badges are off too (see entryStyle).
+  const winnerUserIds = battle.winners.map((w) => w.id)
+  const styleFor = (submission: Submission, index: number) =>
+    entryStyle({
+      battleStatus: battle.status,
+      hasRunoff: battle.runoff !== null,
+      winnerUserIds,
+      userId: submission.userId,
+      rank: index + 1,
+      voteCount: submission.voteCount,
+    })
+  const hasWinner = sortedSubmissions.some((s, i) => styleFor(s, i).isWinner)
 
   const userVotedSubmissionId =
     currentUserId
@@ -101,6 +114,9 @@ export default function BattleDetailPage() {
 
   const showForm = battle.status === 'ACTIVE' && !!currentUserId && !hasSubmitted
 
+  // Same pill as the battle cards: an open runoff reads RUNOFF, not COMPLETED.
+  const headerView = battleCardView({ status: battle.status, runoff: battle.runoff })
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Battle Header */}
@@ -112,9 +128,7 @@ export default function BattleDetailPage() {
           <h1 className="text-5xl font-graffiti text-foreground">
             {battle.title}
           </h1>
-          <Badge variant={statusVariantMap[battle.status] ?? 'upcoming'}>
-            {battle.status}
-          </Badge>
+          <Badge variant={headerView.statusVariant}>{headerView.statusLabel}</Badge>
           <Badge variant="outline" className="text-muted-foreground">
             {battle.type}
           </Badge>
@@ -173,7 +187,24 @@ export default function BattleDetailPage() {
         </div>
       )}
 
+      {/* Runoff: the tie-break vote on the entries that tied for first */}
+      {battle.runoff && (
+        <RunoffPanel
+          battleId={battle.id}
+          runoff={battle.runoff}
+          entries={sortedSubmissions}
+          currentUserId={currentUserId}
+          access={boardAccess(session?.user)}
+          sessionLoading={sessionStatus === 'loading'}
+          winnerUserIds={winnerUserIds}
+          onChange={() => refetch()}
+        />
+      )}
+
       {/* Submissions Grid */}
+      {battle.runoff && sortedSubmissions.length > 0 && (
+        <h2 className="mt-12 text-xl font-bold text-foreground">Round one entries</h2>
+      )}
       {sortedSubmissions.length === 0 ? (
         <p className={`${hasWinner ? 'mt-12' : 'mt-8'} text-muted-foreground text-base text-center py-16`}>No submissions yet.</p>
       ) : (
@@ -182,13 +213,11 @@ export default function BattleDetailPage() {
             <SubmissionCard
               key={submission.id}
               submission={submission}
-              rank={index + 1}
+              style={styleFor(submission, index)}
               userVotedSubmissionId={userVotedSubmissionId}
               currentUserId={currentUserId}
               onVoteChange={() => refetch()}
               battleStatus={battle.status}
-              isLeading={false}
-              isWinner={votesRevealed && maxVoteCount > 0 && submission.voteCount === maxVoteCount}
             />
           ))}
         </div>
