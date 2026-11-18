@@ -3,14 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Home, Swords, Plus, Lightbulb, User, LogIn } from 'lucide-react'
+import { Home, Swords, Lightbulb, User, LogIn } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NavAvatar } from '@/components/NavAvatar'
 
 const navigation = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Battles', href: '/battles', icon: Swords },
-  { name: 'Create', href: '/battles/create', icon: Plus },
   { name: 'Ideas', href: '/board', icon: Lightbulb },
 ]
 

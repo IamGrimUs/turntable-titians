@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader } from '@/co
 import { GET_BATTLES } from '@/lib/graphql/queries'
 import { groupBattlesByType } from '@/lib/battle-groups'
 import { winnerLine, type Person } from '@/lib/hall-of-fame-view'
-import { Crown } from 'lucide-react'
+import { Crown, Plus } from 'lucide-react'
 import { useQuery } from '@apollo/client'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -151,13 +151,21 @@ export default function BattlesPage() {
             </Link>
           </p>
         </div>
-        <Link
-          href="/hall-of-fame"
-          className="flex items-center gap-2 rounded-md border border-amber-500/40 px-4 py-2 text-base font-semibold text-amber-500 transition-colors hover:bg-amber-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
-        >
-          <Crown className="h-5 w-5" aria-hidden="true" />
-          Hall of Fame
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/hall-of-fame"
+            className="flex items-center gap-2 rounded-md border border-amber-500/40 px-4 py-2 text-base font-semibold text-amber-500 transition-colors hover:bg-amber-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+          >
+            <Crown className="h-5 w-5" aria-hidden="true" />
+            Hall of Fame
+          </Link>
+          <Button asChild variant="default">
+            <Link href="/battles/create">
+              <Plus className="h-5 w-5" aria-hidden="true" />
+              Create Battle
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {hasAny && (
