@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { DjPicker } from './DjPicker'
 import {
   buildChallengeVariables,
   challengeErrorMessage,
@@ -150,21 +151,12 @@ export function ChallengeForm({ initialUsername }: ChallengeFormProps) {
               <label htmlFor="challenge-username" className={labelClass}>
                 DJ to challenge <span aria-hidden="true">*</span>
               </label>
-              <input
-                id="challenge-username"
-                type="text"
+              <DjPicker
                 value={values.username}
-                onChange={(e) => setField('username', e.target.value)}
-                maxLength={CHALLENGE_LIMITS.usernameMax}
-                autoComplete="off"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                placeholder="Their username"
-                aria-required="true"
-                aria-invalid={fieldErrors.username ? true : undefined}
-                aria-describedby={describedBy('username')}
-                className={fieldClass}
+                onChange={(username) => setField('username', username)}
+                inputId={fieldDomId('username')}
+                describedBy={describedBy('username')}
+                invalid={Boolean(fieldErrors.username)}
               />
               {fieldError('username')}
             </div>
