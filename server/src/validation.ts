@@ -113,7 +113,7 @@ export function getAllowedImageHosts(
   return hosts.length > 0 ? hosts : undefined
 }
 
-const USERNAME_PATTERN = /^[A-Za-z0-9_.-]+$/
+export const USERNAME_PATTERN = /^[A-Za-z0-9_.-]+$/
 // Compared after lower-casing and removing . _ - so "Ad_min" cannot slip past "admin".
 const RESERVED_USERNAMES = new Set([
   'admin',

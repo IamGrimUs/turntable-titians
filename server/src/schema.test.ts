@@ -450,4 +450,14 @@ describe('duel and head to head schema', () => {
     expect(errorsFor('{ user(id: "x") { headToHead { results { opponent { email } } } } }').length).toBeGreaterThan(0)
     expect(errorsFor('{ battles { duel { voters { id } } } }').length).toBeGreaterThan(0)
   })
+
+  it('UserSearchResult exposes exactly id, username, image and crew, and searchUsers returns only it', () => {
+    const t = schema.getType('UserSearchResult')
+    if (!isObjectType(t)) throw new Error('UserSearchResult is not an object type')
+    expect(Object.keys(t.getFields())).toEqual(['id', 'username', 'image', 'crew'])
+    expect(String(schema.getQueryType()!.getFields().searchUsers.type)).toBe('[UserSearchResult!]!')
+    expect(errorsFor('{ searchUsers(query: "sk") { id username image crew } }')).toEqual([])
+    expect(errorsFor('{ searchUsers(query: "sk") { email } }').length).toBeGreaterThan(0)
+    expect(errorsFor('{ searchUsers(query: "sk") { role suspendedAt battlesWon } }').length).toBeGreaterThan(0)
+  })
 })

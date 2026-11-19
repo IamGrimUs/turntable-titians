@@ -139,6 +139,15 @@ export const typeDefs = gql`
     createdAt: String!
   }
 
+  """A DJ found by name. Public fields only."""
+  type UserSearchResult {
+    id: ID!
+    username: String!
+    image: String
+    """First crew the DJ lists, if any."""
+    crew: String
+  }
+
   """A user's results across completed battles."""
   type UserRecord {
     wins: Int!
@@ -348,6 +357,8 @@ export const typeDefs = gql`
     submissions(battleId: ID!): [Submission!]!
     user(id: ID!): User
     me: User
+    """DJs whose username starts with or contains the text (at least 2 characters), at most 8. Suspended and unnamed accounts are never listed."""
+    searchUsers(query: String!): [UserSearchResult!]!
     """Everyone with at least one win in a completed battle, most wins first."""
     hallOfFame: [Champion!]!
     health: HealthStatus!
