@@ -8,6 +8,8 @@ import { fieldClass } from '@/lib/form-styles'
 import { SEARCH_LIMITS, moveActive, resultsAnnouncement, type UserSearchResult } from '@/lib/user-search'
 import { useUserSearch } from '@/lib/use-user-search'
 
+const ERROR_MESSAGE = 'Search is not working right now. Please try again.'
+
 /**
  * The content of the "Find a DJ" dialog: a search box (an ARIA combobox) and the matching DJs as
  * links to their profiles. Focus stays in the box; the arrow keys move a highlight through the rows
@@ -44,7 +46,12 @@ export function UserSearchPanel({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const announcement = state === 'results' || state === 'empty' ? resultsAnnouncement(results.length) : ''
+  const announcement =
+    state === 'results' || state === 'empty'
+      ? resultsAnnouncement(results.length)
+      : state === 'error'
+        ? ERROR_MESSAGE
+        : ''
 
   return (
     <div>
@@ -86,7 +93,7 @@ export function UserSearchPanel({ onClose }: { onClose: () => void }) {
         {state === 'loading' && <p className="px-1 py-2 text-base text-muted-foreground">Searching…</p>}
         {state === 'empty' && <p className="px-1 py-2 text-base text-muted-foreground">No DJs found.</p>}
         {state === 'error' && (
-          <p className="px-1 py-2 text-base text-muted-foreground">Search is not working right now. Please try again.</p>
+          <p className="px-1 py-2 text-base text-muted-foreground">{ERROR_MESSAGE}</p>
         )}
         {state === 'results' && (
           <ul id={listboxId} role="listbox" aria-label="DJs" className="space-y-1.5">

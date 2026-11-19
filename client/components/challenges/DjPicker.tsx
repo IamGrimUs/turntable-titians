@@ -8,6 +8,8 @@ import { fieldClass } from '@/lib/form-styles'
 import { moveActive, resultsAnnouncement, type UserSearchResult } from '@/lib/user-search'
 import { useUserSearch } from '@/lib/use-user-search'
 
+const ERROR_MESSAGE = 'Search is not working right now. You can still type the exact username.'
+
 interface DjPickerProps {
   /** The typed username (the form's `values.username`). */
   value: string
@@ -31,7 +33,7 @@ export function DjPicker({ value, onChange, inputId, describedBy, invalid }: DjP
   const [highlight, setHighlight] = useState<{ list: UserSearchResult[]; index: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const refocusRef = useRef(false)
-  // Set by pick(): the input is replaced by the clear button, so focus has to follow it.
+  // Set by pick(): the input is replaced by the chosen view, so focus has to follow it (to its clear button).
   const focusChosenRef = useRef(false)
 
   const chosenUser = chosen !== null && chosen.username === value ? chosen : null
@@ -56,11 +58,11 @@ export function DjPicker({ value, onChange, inputId, describedBy, invalid }: DjP
     }
   }, [chosenUser])
 
-  // After a pick the focused input is gone; move focus to the clear button (it carries `inputId`).
+  // After a pick the focused input is gone; move focus to the clear button.
   useEffect(() => {
     if (chosenUser && focusChosenRef.current) {
       focusChosenRef.current = false
-      document.getElementById(inputId)?.focus()
+      document.getElementById(`${inputId}-clear`)?.focus()
     }
   }, [chosenUser, inputId])
 
@@ -93,6 +95,9 @@ export function DjPicker({ value, onChange, inputId, describedBy, invalid }: DjP
       if (expanded && activeIndex >= 0) {
         e.preventDefault()
         pick(results[activeIndex])
+      } else {
+        // The form is about to submit: close the list so a row cannot be clicked mid-send.
+        setOpen(false)
       }
     } else if (e.key === 'Escape') {
       if (listOpen) {
@@ -107,21 +112,29 @@ export function DjPicker({ value, onChange, inputId, describedBy, invalid }: DjP
     ? `Chosen: ${chosenUser.username}`
     : listOpen && (state === 'results' || state === 'empty')
       ? resultsAnnouncement(results.length)
-      : ''
+      : listOpen && state === 'error'
+        ? ERROR_MESSAGE
+        : ''
 
   return (
     <div className="relative">
       {chosenUser ? (
-        <div className="flex items-center gap-2">
+        <div
+          id={inputId}
+          role="group"
+          tabIndex={-1}
+          aria-label={`DJ to challenge: ${chosenUser.username}`}
+          aria-describedby={describedBy}
+          className="flex items-center gap-2 focus-visible:outline-none"
+        >
           <div className="min-w-0 flex-1">
             <UserSearchRow user={chosenUser} active />
           </div>
           <button
             type="button"
-            id={inputId}
+            id={`${inputId}-clear`}
             onClick={clearChoice}
-            aria-label="Choose a different DJ"
-            aria-describedby={describedBy}
+            aria-label={`Choose a different DJ than ${chosenUser.username}`}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:border-amber-500/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 disabled:opacity-50"
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -164,12 +177,16 @@ export function DjPicker({ value, onChange, inputId, describedBy, invalid }: DjP
       </div>
 
       {listOpen && (
-        <div className="absolute left-0 right-0 z-20 mt-1 rounded-lg border border-border/60 bg-card shadow-sm">
+        <div
+          className="absolute left-0 right-0 z-20 mt-1 rounded-lg border border-border/60 bg-card shadow-sm"
+          // Keep focus in the input (also for the scrollbar, padding and gaps) so its blur does not close the list.
+          onMouseDown={(e) => e.preventDefault()}
+        >
           {state === 'loading' && <p className="px-4 py-3 text-base text-muted-foreground">Searching…</p>}
           {state === 'empty' && <p className="px-4 py-3 text-base text-muted-foreground">No DJs found.</p>}
           {state === 'error' && (
             <p className="px-4 py-3 text-base text-muted-foreground">
-              Search is not working right now. You can still type the exact username.
+              {ERROR_MESSAGE}
             </p>
           )}
           {state === 'results' && (
@@ -181,8 +198,6 @@ export function DjPicker({ value, onChange, inputId, describedBy, invalid }: DjP
                   role="option"
                   aria-selected={index === activeIndex}
                   className="cursor-pointer"
-                  // Keep focus in the input so its blur does not close the list before the click lands.
-                  onMouseDown={(e) => e.preventDefault()}
                   onMouseMove={() => {
                     if (index !== activeIndex) setHighlight({ list: results, index })
                   }}
