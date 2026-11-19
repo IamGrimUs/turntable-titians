@@ -31,6 +31,8 @@ export function DjPicker({ value, onChange, inputId, describedBy, invalid }: DjP
   const [highlight, setHighlight] = useState<{ list: UserSearchResult[]; index: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const refocusRef = useRef(false)
+  // Set by pick(): the input is replaced by the clear button, so focus has to follow it.
+  const focusChosenRef = useRef(false)
 
   const chosenUser = chosen !== null && chosen.username === value ? chosen : null
   // Search only while the person is typing: not for a chosen DJ, and not for a `?to=` prefill
@@ -54,7 +56,16 @@ export function DjPicker({ value, onChange, inputId, describedBy, invalid }: DjP
     }
   }, [chosenUser])
 
+  // After a pick the focused input is gone; move focus to the clear button (it carries `inputId`).
+  useEffect(() => {
+    if (chosenUser && focusChosenRef.current) {
+      focusChosenRef.current = false
+      document.getElementById(inputId)?.focus()
+    }
+  }, [chosenUser, inputId])
+
   function pick(user: UserSearchResult) {
+    focusChosenRef.current = true
     setChosen(user)
     setOpen(false)
     setHighlight(null)
@@ -91,60 +102,65 @@ export function DjPicker({ value, onChange, inputId, describedBy, invalid }: DjP
     }
   }
 
-  if (chosenUser) {
-    return (
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <UserSearchRow user={chosenUser} active />
-        </div>
-        <button
-          type="button"
-          id={inputId}
-          onClick={clearChoice}
-          aria-label="Choose a different DJ"
-          aria-describedby={describedBy}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:border-amber-500/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 disabled:opacity-50"
-        >
-          <X className="h-5 w-5" aria-hidden="true" />
-        </button>
-      </div>
-    )
-  }
+  // The status region stays mounted across both views so the choice is announced.
+  const announcement = chosenUser
+    ? `Chosen: ${chosenUser.username}`
+    : listOpen && (state === 'results' || state === 'empty')
+      ? resultsAnnouncement(results.length)
+      : ''
 
   return (
     <div className="relative">
-      <input
-        ref={inputRef}
-        id={inputId}
-        type="text"
-        role="combobox"
-        value={value}
-        onChange={(e) => {
-          setOpen(true)
-          setHighlight(null)
-          onChange(e.target.value)
-        }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onKeyDown={handleKeyDown}
-        maxLength={CHALLENGE_LIMITS.usernameMax}
-        autoComplete="off"
-        autoCapitalize="none"
-        autoCorrect="off"
-        spellCheck={false}
-        placeholder="Their username"
-        aria-required="true"
-        aria-invalid={invalid ? true : undefined}
-        aria-describedby={describedBy}
-        aria-autocomplete="list"
-        aria-expanded={expanded}
-        aria-controls={expanded ? listboxId : undefined}
-        aria-activedescendant={expanded && activeIndex >= 0 ? optionId(activeIndex) : undefined}
-        className={fieldClass}
-      />
+      {chosenUser ? (
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <UserSearchRow user={chosenUser} active />
+          </div>
+          <button
+            type="button"
+            id={inputId}
+            onClick={clearChoice}
+            aria-label="Choose a different DJ"
+            aria-describedby={describedBy}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:border-amber-500/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 disabled:opacity-50"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+      ) : (
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="text"
+          role="combobox"
+          value={value}
+          onChange={(e) => {
+            setOpen(true)
+            setHighlight(null)
+            onChange(e.target.value)
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          onKeyDown={handleKeyDown}
+          maxLength={CHALLENGE_LIMITS.usernameMax}
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="Their username"
+          aria-required="true"
+          aria-invalid={invalid ? true : undefined}
+          aria-describedby={describedBy}
+          aria-autocomplete="list"
+          aria-expanded={expanded}
+          aria-controls={expanded ? listboxId : undefined}
+          aria-activedescendant={expanded && activeIndex >= 0 ? optionId(activeIndex) : undefined}
+          className={fieldClass}
+        />
+      )}
 
       <div role="status" className="sr-only">
-        {listOpen && (state === 'results' || state === 'empty') ? resultsAnnouncement(results.length) : ''}
+        {announcement}
       </div>
 
       {listOpen && (
