@@ -9,6 +9,7 @@ import { boardAdminMutation } from './boardAdminResolvers'
 import { HEAD_TO_HEAD_TYPE } from './battleKind'
 import { runoffMutation } from './runoffResolvers'
 import { challengeFields, challengeMutation, challengeQuery } from './challengeResolvers'
+import { userSearchQuery } from './userSearch'
 import { countBattlesWon } from './userBattlesWon'
 import {
   duelBattleField,
@@ -41,6 +42,7 @@ export const resolvers = {
     ...boardQuery,
     ...standingsQuery,
     ...challengeQuery,
+    ...userSearchQuery,
     battles: () => db.battle.findMany({ orderBy: { createdAt: 'desc' } }),
     battle: (_: unknown, { id }: { id: string }) =>
       db.battle.findUnique({ where: { id } }),
