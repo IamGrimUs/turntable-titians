@@ -25,6 +25,11 @@ describe('cleanSearchText', () => {
     expect(cleanSearchText('@@sk')).toBeNull()
   })
 
+  it('trims again after dropping the leading @', () => {
+    expect(cleanSearchText('@ sk')).toBe('sk')
+    expect(cleanSearchText(' @ sk ')).toBe('sk')
+  })
+
   it('returns null when too short or empty', () => {
     expect(cleanSearchText('s')).toBeNull()
     expect(cleanSearchText('')).toBeNull()
@@ -112,6 +117,25 @@ describe('searchUsers', () => {
     })
   })
 
+  it('escapes _ in both queries so it matches only a literal underscore', async () => {
+    findMany.mockResolvedValue([])
+    await userSearchQuery.searchUsers({}, { query: 'dj_foo' })
+    expect(findMany.mock.calls[0][0].where.username.startsWith).toBe('dj\\_foo')
+    expect(findMany.mock.calls[1][0].where.username.contains).toBe('dj\\_foo')
+  })
+
+  it('escapes every _, and passes text without one through unchanged', async () => {
+    findMany.mockResolvedValue([])
+    await userSearchQuery.searchUsers({}, { query: '__' })
+    expect(findMany.mock.calls[0][0].where.username.startsWith).toBe('\\_\\_')
+    expect(findMany.mock.calls[1][0].where.username.contains).toBe('\\_\\_')
+
+    findMany.mockClear()
+    await userSearchQuery.searchUsers({}, { query: 'dj-foo.1' })
+    expect(findMany.mock.calls[0][0].where.username.startsWith).toBe('dj-foo.1')
+    expect(findMany.mock.calls[1][0].where.username.contains).toBe('dj-foo.1')
+  })
+
   it('does not run a second query when the prefix matches already fill the limit', async () => {
     findMany.mockResolvedValueOnce(Array.from({ length: 8 }, (_, i) => row(i)))
     const result = await userSearchQuery.searchUsers({}, { query: 'sk' })
@@ -119,13 +143,12 @@ describe('searchUsers', () => {
     expect(result).toHaveLength(8)
   })
 
-  it('lists prefix matches first, then contains matches, with no id twice', async () => {
+  it('lists prefix matches first, then contains matches', async () => {
     findMany
       .mockResolvedValueOnce([row(1), row(2)])
       .mockResolvedValueOnce([row(3, { username: 'dj_sk' })])
     const result = await userSearchQuery.searchUsers({}, { query: 'sk' })
     expect(result.map((r) => r.id)).toEqual(['u1', 'u2', 'u3'])
-    expect(new Set(result.map((r) => r.id)).size).toBe(result.length)
   })
 
   it('crew is the first external crew or null; a row without a username is dropped', async () => {

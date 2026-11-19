@@ -7,14 +7,15 @@ export const SEARCH_LIMITS = { minChars: 2, maxResults: 8 } as const
  * The text to search usernames for, or null meaning "return nothing".
  *
  * Only characters a username can hold are allowed, so `%`, spaces, control
- * characters and emoji can never reach the database. `_` is a database LIKE
- * wildcard and is allowed in usernames, so `a_b` may also match `axb`; that is
- * harmless for suggestions.
+ * characters and emoji can never reach the database. `%` and `\` (the other LIKE
+ * characters) are rejected here. `_` is a valid username character and a LIKE
+ * wildcard; Prisma does not escape it, so searchUsers escapes it when it builds
+ * the pattern. The text returned here is the clean, unescaped text.
  */
 export function cleanSearchText(raw: unknown): string | null {
   if (typeof raw !== 'string') return null
   let text = raw.trim()
-  if (text.startsWith('@')) text = text.slice(1)
+  if (text.startsWith('@')) text = text.slice(1).trim()
   if (text.length < SEARCH_LIMITS.minChars) return null
   if (text.length > LIMITS.usernameMax) return null
   if (!USERNAME_PATTERN.test(text)) return null
@@ -34,11 +35,14 @@ const SEARCH_SELECT = { id: true, username: true, image: true, externalCrews: tr
 /**
  * DJs whose username starts with the text first, then those that merely contain it, at most
  * SEARCH_LIMITS.maxResults in all. Public and open to signed-out callers; it returns a small
- * dedicated shape, never `User`. Two queries in total, however many rows come back.
+ * dedicated shape, never `User`. At most two queries, however many rows come back.
  */
 async function searchUsers(_: unknown, args: { query: string }): Promise<UserSearchResult[]> {
   const text = cleanSearchText(args.query)
   if (text === null) return []
+  // Prisma does not escape LIKE wildcards, so a literal `_` must be escaped here. `%` and `\`
+  // cannot occur: cleanSearchText rejects them.
+  const pattern = text.replace(/_/g, '\\_')
 
   // Negation of "suspended now" (suspension.ts): never suspended, or the suspension has ended.
   // A null username never matches a text filter, so unnamed accounts are never listed.
@@ -47,7 +51,7 @@ async function searchUsers(_: unknown, args: { query: string }): Promise<UserSea
   const max = SEARCH_LIMITS.maxResults
 
   const prefix = await db.user.findMany({
-    where: { username: { startsWith: text, mode: 'insensitive' }, ...notSuspended },
+    where: { username: { startsWith: pattern, mode: 'insensitive' }, ...notSuspended },
     orderBy: { username: 'asc' },
     take: max,
     select: SEARCH_SELECT,
@@ -57,7 +61,7 @@ async function searchUsers(_: unknown, args: { query: string }): Promise<UserSea
   if (prefix.length < max) {
     const contains = await db.user.findMany({
       where: {
-        username: { contains: text, mode: 'insensitive' },
+        username: { contains: pattern, mode: 'insensitive' },
         id: { notIn: prefix.map((u) => u.id) },
         ...notSuspended,
       },
