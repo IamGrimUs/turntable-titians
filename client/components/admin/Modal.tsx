@@ -13,6 +13,8 @@ export interface ModalProps {
   /** A submit is in flight: Esc and the backdrop do nothing. */
   busy?: boolean
   children: ReactNode
+  /** Extra classes for the <dialog> itself (for example to anchor it to the top). */
+  className?: string
 }
 
 /**
@@ -26,7 +28,7 @@ export interface ModalProps {
  * Initial focus goes to the first element marked `data-autofocus`, else the first focusable
  * element. Focus goes back to whatever opened the dialog when it closes.
  */
-export function Modal({ onClose, title, description, busy = false, children }: ModalProps) {
+export function Modal({ onClose, title, description, busy = false, children, className }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const descriptionId = useId()
@@ -89,7 +91,10 @@ export function Modal({ onClose, title, description, busy = false, children }: M
         if (e.target === e.currentTarget && pressStartedOnBackdrop.current && !busy) onClose()
         pressStartedOnBackdrop.current = false
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg overflow-visible border-0 bg-transparent p-0 text-foreground [color-scheme:dark] backdrop:bg-black/70"
+      className={cn(
+        'm-auto w-[calc(100%-2rem)] max-w-lg overflow-visible border-0 bg-transparent p-0 text-foreground [color-scheme:dark] backdrop:bg-black/70',
+        className
+      )}
     >
       <Card className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden shadow-2xl">
         <div className="shrink-0 p-6 pb-4">
