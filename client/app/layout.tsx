@@ -4,6 +4,7 @@ import './globals.css';
 import { Providers } from './providers';
 import { Sidebar } from '@/components/Sidebar';
 import { BottomNav } from '@/components/BottomNav';
+import { UserSearchButton } from '@/components/UserSearchButton';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const permanentMarker = Permanent_Marker({ subsets: ['latin'], weight: '400', variable: '--font-graffiti' });
@@ -29,6 +30,7 @@ export default function RootLayout({
             </main>
           </div>
           <BottomNav />
+          <UserSearchButton variant="floating" />
         </Providers>
       </body>
     </html>

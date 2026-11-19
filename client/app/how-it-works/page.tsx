@@ -234,8 +234,9 @@ export default function HowItWorksPage() {
         <Steps
           items={[
             <>
-              <span className={strong}>Challenge a DJ.</span> You name one DJ and send your own entry video, and
-              you pick how long voting lasts: 3, 7 or 14 days. The DJ you challenge cannot see your video until
+              <span className={strong}>Challenge a DJ.</span> You name one DJ (start typing their username and
+              pick them from the list, or type it in full) and send your own entry video, and you pick how long voting lasts: 3, 7 or
+              14 days. The DJ you challenge cannot see your video until
               they accept, so use an unlisted video.
             </>,
             <>

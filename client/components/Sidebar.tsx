@@ -7,6 +7,7 @@ import { Home, Swords, Lightbulb, HelpCircle, Shield, User, LogIn, LogOut } from
 import { cn } from '@/lib/utils';
 import { isAdminRole } from '@/lib/admin-access';
 import { NavAvatar } from '@/components/NavAvatar';
+import { UserSearchButton } from '@/components/UserSearchButton';
 import { WaitingPill } from '@/components/challenges/WaitingPill';
 import { useChallengesWaiting } from '@/lib/use-challenges-waiting';
 import { waitingAriaLabel } from '@/lib/profile-challenges';
@@ -70,6 +71,7 @@ export function Sidebar() {
               </Tooltip>
             );
           })}
+          <UserSearchButton variant="sidebar" />
         </nav>
 
         <div className="px-2 pb-4 space-y-1">
